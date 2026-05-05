@@ -1,0 +1,25 @@
+# Build
+build/
+out/
+
+# VSCode
+.vscode/*
+!.vscode/extensions.json
+
+# Conan
+graph_info.json
+conan_toolchain.cmake
+conanfile.lock
+CMakeUserPresets.json
+
+# macOS
+.DS_Store
+
+# Compilados
+*.o
+*.a
+*.dylib
+*.out
+
+# AI Assistant
+MAPPING.md
