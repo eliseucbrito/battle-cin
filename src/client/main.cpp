@@ -101,6 +101,10 @@ int main(int argc, char *argv[])
                 }
             }
 
+            if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) && draggingHeroIdx != -1) {
+                heroVis[draggingHeroIdx].pos = mouse;
+            }
+
             if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON) && draggingHeroIdx != -1) {
                 int mx = (int)((mouse.x - GX) / CELLW);
                 int my = (int)((mouse.y - GY) / CELLH);
@@ -131,13 +135,39 @@ int main(int argc, char *argv[])
         drawBuffZones(snap);
         drawGrid();
 
+        // Highlight valid deployment zones if dragging
+        if (draggingHeroIdx != -1 && snap.phase == PHASE_POSITIONING) {
+            uint8_t arch = snap.heroes[draggingHeroIdx].archetype;
+            bool isLeft = (myId == 0);
+            Color hl = { 0, 255, 0, 40 };
+            for (int r = 0; r < GRID_ROWS; r++) {
+                for (int c = 0; c < GRID_COLS; c++) {
+                    bool valid = false;
+                    if (isLeft && c <= 3) valid = true;
+                    if (!isLeft && c >= 4) valid = true;
+                    
+                    if (valid) {
+                        if (arch == ARCHETYPE_TANK) {
+                            valid = (isLeft ? (c == 3) : (c == 4));
+                        } else if (arch == ARCHETYPE_FIGHTER) {
+                            valid = (isLeft ? (c >= 2) : (c <= 5));
+                        } else if (arch == ARCHETYPE_ASSASSIN) {
+                            valid = (isLeft ? (c >= 2) : (c <= 5)) && (r <= 1 || r >= 6);
+                        } else if (arch == ARCHETYPE_MAGE || arch == ARCHETYPE_SUPPORT) {
+                            valid = (isLeft ? (c <= 1) : (c >= 6));
+                        }
+                    }
+                    if (valid) {
+                        DrawRectangleRec(cellRect(c, r), hl);
+                        DrawRectangleLinesEx(cellRect(c, r), 2, {0, 255, 0, 100});
+                    }
+                }
+            }
+        }
+
         for (int i = 0; i < snap.heroCount; i++) {
             if (!snap.heroes[i].alive) continue;
-            HeroNetState hs = snap.heroes[i];
-            // Use smoothed position
-            hs.x = (uint8_t)((heroVis[i].pos.x - GX) / CELLW); // dummy but drawHero uses cellCenter inside, we need to pass visPos
-            // Let's modify drawHero or just use a custom one here
-            drawHero(snap.heroes[i], myId, (draggingHeroIdx == i));
+            drawHero(snap.heroes[i], heroVis[i].pos, myId, (draggingHeroIdx == i));
         }
 
         drawHUD(snap, myId);

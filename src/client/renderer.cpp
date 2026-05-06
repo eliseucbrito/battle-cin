@@ -54,8 +54,7 @@ void drawBuffZones(const GameSnapshot& snap) {
     }
 }
 
-void drawHero(const HeroNetState& hs, int myId, bool dragging) {
-    Vector2 ctr = cellCenter(hs.x, hs.y);
+void drawHero(const HeroNetState& hs, Vector2 ctr, int myId, bool dragging) {
     float r = CELLW * 0.42f;
     Color pCol = kPlayerColor[hs.ownerId];
     if (dragging) pCol.a = 120;
