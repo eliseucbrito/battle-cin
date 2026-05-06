@@ -14,10 +14,12 @@ void loadTextures() {
     if (texturesLoaded) return;
     trainerTextures[0] = LoadTexture("assets/trainer0.png");
     trainerTextures[1] = LoadTexture("assets/trainer1.png");
-    
-    // Fallback/Placeholder for heroes
-    heroTextures[ARCHETYPE_TANK] = LoadTexture("assets/heroes/golem.png");
-    // Others would be loaded here
+
+    heroTextures[ARCHETYPE_TANK]     = LoadTexture("assets/heroes/O_Construto_de_Busca.png");
+    heroTextures[ARCHETYPE_FIGHTER]  = LoadTexture("assets/heroes/O_Filósofo_do_Dilema.png");
+    heroTextures[ARCHETYPE_MAGE]     = LoadTexture("assets/heroes/O_Mestre_Parser.png");
+    heroTextures[ARCHETYPE_ASSASSIN] = LoadTexture("assets/heroes/O_Cientista_Polarizado.png");
+    heroTextures[ARCHETYPE_SUPPORT]  = LoadTexture("assets/heroes/O_Chip-Mestre.png");
     texturesLoaded = true;
 }
 
@@ -56,34 +58,60 @@ void drawHero(const HeroNetState& hs, int myId, bool dragging) {
     Vector2 ctr = cellCenter(hs.x, hs.y);
     float r = CELLW * 0.42f;
     Color pCol = kPlayerColor[hs.ownerId];
-    
     if (dragging) pCol.a = 120;
-    
-    // Draw background circle
-    DrawCircleV(ctr, r, pCol);
-    DrawCircleLinesV(ctr, r, (hs.ownerId == (uint8_t)myId) ? WHITE : LIGHTGRAY);
 
-    // Draw sprite if available, otherwise text
-    if (heroTextures[hs.archetype].id != 0) {
-        float scale = (CELLW * 0.8f) / heroTextures[hs.archetype].width;
-        DrawTextureEx(heroTextures[hs.archetype], {ctr.x - (heroTextures[hs.archetype].width*scale)/2, ctr.y - (heroTextures[hs.archetype].height*scale)/2}, 0.f, scale, WHITE);
+    // 1. Colored circle as background
+    DrawCircleV(ctr, r, pCol);
+
+    // 2. Draw hero sprite clipped inside the circle area
+    Texture2D& tex = heroTextures[hs.archetype];
+    if (tex.id != 0) {
+        // Scale sprite to fill the circle diameter (2*r x 2*r)
+        float diameter = r * 2.0f;
+        float scaleX = diameter / tex.width;
+        float scaleY = diameter / tex.height;
+        float scale  = (scaleX < scaleY) ? scaleX : scaleY;
+        float sw = tex.width  * scale;
+        float sh = tex.height * scale;
+
+        // Use scissor to clip sprite to the circle's bounding square
+        int sx = (int)(ctr.x - r);
+        int sy = (int)(ctr.y - r);
+        int sd = (int)(diameter);
+        BeginScissorMode(sx, sy, sd, sd);
+        DrawTexturePro(
+            tex,
+            { 0, 0, (float)tex.width, (float)tex.height },
+            { ctr.x - sw * 0.5f, ctr.y - sh * 0.5f, sw, sh },
+            { 0, 0 }, 0.f, WHITE
+        );
+        EndScissorMode();
     } else {
+        // Fallback: archetype label
         const char* archNames[] = {"TNK", "FGT", "MAG", "ASN", "SUP"};
         DrawText(archNames[hs.archetype], (int)ctr.x - 12, (int)ctr.y - 6, 10, WHITE);
     }
 
+    // 3. Circle outline drawn ON TOP to mask sprite corners
+    Color rimColor = (hs.ownerId == (uint8_t)myId) ? WHITE : LIGHTGRAY;
+    DrawCircleLinesV(ctr, r, rimColor);
+    // Thicker colored rim for visual quality
+    DrawCircleLinesV(ctr, r - 1, pCol);
+
+    // 4. Ultimate glow
     if (hs.ultActive) {
         DrawCircleLinesV(ctr, r + 3, GOLD);
-        DrawCircleLinesV(ctr, r + 5, {255, 215, 0, 150});
+        DrawCircleLinesV(ctr, r + 6, { 255, 215, 0, 120 });
     }
 
-    // HP Bar
+    // 5. HP bar above the circle
     float bw = CELLW * 0.85f, bh = 6.f;
-    float bx = ctr.x - bw/2, by = ctr.y - r - 12.f;
-    float pct = (float)hs.hp / hs.maxHp;
+    float bx = ctr.x - bw * 0.5f, by = ctr.y - r - 14.f;
+    float pct = (hs.maxHp > 0) ? (float)hs.hp / hs.maxHp : 0.f;
     DrawRectangle((int)bx, (int)by, (int)bw, (int)bh, DARKGRAY);
-    DrawRectangle((int)bx, (int)by, (int)(bw * pct), (int)bh, pct > 0.5f ? GREEN : (pct > 0.25f ? YELLOW : RED));
-    DrawRectangleLinesEx({bx, by, bw, bh}, 1, {255,255,255,100});
+    DrawRectangle((int)bx, (int)by, (int)(bw * pct), (int)bh,
+                  pct > 0.5f ? GREEN : (pct > 0.25f ? YELLOW : RED));
+    DrawRectangleLinesEx({ bx, by, bw, bh }, 1, { 255, 255, 255, 80 });
 }
 
 void drawHUD(const GameSnapshot& snap, int myId) {
@@ -144,6 +172,8 @@ void unloadTextures() {
     if (!texturesLoaded) return;
     UnloadTexture(trainerTextures[0]);
     UnloadTexture(trainerTextures[1]);
-    UnloadTexture(heroTextures[ARCHETYPE_TANK]);
+    for (int i = 0; i < 5; i++) {
+        if (heroTextures[i].id != 0) UnloadTexture(heroTextures[i]);
+    }
     texturesLoaded = false;
 }
