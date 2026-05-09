@@ -1,5 +1,7 @@
 #include "renderer.h"
 #include <stdio.h>
+#include <algorithm>
+#include <math.h>
 
 const float GX = 218.f, GY = 92.f, GW = 500.f, GH = 500.f;
 const float CELLW = GW / GRID_COLS;
@@ -175,4 +177,242 @@ void unloadTextures() {
         if (heroTextures[i].id != 0) UnloadTexture(heroTextures[i]);
     }
     texturesLoaded = false;
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  SELECTION SCREEN RENDERING
+// ═════════════════════════════════════════════════════════════════════════════
+
+// Archetype display helpers
+static const char*  ARCH_NAMES[]   = {"Tank","Fighter","Mage","Assassin","Support"};
+static const Color  ARCH_COLORS[]  = {
+    {80,130,220,255}, {220,80,80,255}, {150,80,220,255},
+    {70,70,70,255},   {80,200,130,255}
+};
+
+// Per-selection portrait textures (separate from battle heroTextures[])
+static Texture2D* selTrainerTex = nullptr;
+static Texture2D* selHeroTex    = nullptr;
+static int        selNTrainers  = 0;
+static int        selNHeroes    = 0;
+
+void initSelectionAssets(const TrainerDef* trainers, int nT,
+                         const HeroDef*   heroes,   int nH) {
+    selNTrainers   = nT;
+    selNHeroes     = nH;
+    selTrainerTex  = new Texture2D[nT];
+    selHeroTex     = new Texture2D[nH];
+    for (int i = 0; i < nT; i++) {
+        selTrainerTex[i] = (trainers[i].portraitPath[0] != '\0')
+                           ? LoadTexture(trainers[i].portraitPath)
+                           : Texture2D{};
+    }
+    for (int i = 0; i < nH; i++) {
+        selHeroTex[i] = LoadTexture(heroes[i].assetPath);
+    }
+}
+
+void freeSelectionAssets(int nT, int nH) {
+    for (int i = 0; i < nT; i++) if (selTrainerTex[i].id) UnloadTexture(selTrainerTex[i]);
+    for (int i = 0; i < nH; i++) if (selHeroTex[i].id)    UnloadTexture(selHeroTex[i]);
+    delete[] selTrainerTex; selTrainerTex = nullptr;
+    delete[] selHeroTex;    selHeroTex    = nullptr;
+}
+
+// ── drawTrainerSelect ─────────────────────────────────────────────────────────
+// Renders 1xN grid of trainer cards with cursor highlight.
+void drawTrainerSelect(const TrainerDef* trainers, int nT,
+                       int cursor, int /*selectedIdx*/, int myId) {
+    static const Color BG   = {12,12,26,255};
+    static const Color CARD = {30,30,58,255};
+    DrawRectangle(0, 0, 936, 684, BG);
+
+    // Title
+    const char* title = "BATTLE-CIn";
+    DrawText(title, (936 - MeasureText(title, 36))/2, 18, 36, WHITE);
+    const char* sub = "Selecione seu Treinador (Professor)";
+    DrawText(sub,   (936 - MeasureText(sub, 18))/2, 60, 18, {180,180,200,255});
+
+    // Player label
+    char plbl[24]; snprintf(plbl, sizeof(plbl), "Instancia %d (P%d)", myId, myId+1);
+    Color pidColor = (myId == 0) ? Color{255,100,100,255} : Color{100,150,255,255};
+    DrawText(plbl, (936 - MeasureText(plbl,16))/2, 90, 16, pidColor);
+
+    // Card layout
+    const float CW = 188.f, CH = 250.f, PAD = 16.f;
+    float totalW = nT * CW + (nT-1) * PAD;
+    float startX = (936.f - totalW) / 2.f;
+    float startY = 118.f;
+
+    for (int i = 0; i < nT; i++) {
+        float x = startX + i * (CW + PAD);
+        float y = startY;
+        bool  hov = (i == cursor);
+
+        // Card background
+        Color bg = hov ? Color{42,42,78,255} : CARD;
+        DrawRectangleRounded({x, y, CW, CH}, 0.08f, 6, bg);
+        DrawRectangleRoundedLines({x, y, CW, CH}, 0.08f, 6, {60,60,90,255});
+
+        // Portrait area
+        float ps = 100.f, px = x + (CW-ps)/2.f, py = y + 14.f;
+        if (selTrainerTex && selTrainerTex[i].id) {
+            DrawTexturePro(selTrainerTex[i],
+                {0,0,(float)selTrainerTex[i].width,(float)selTrainerTex[i].height},
+                {px, py, ps, ps}, {}, 0.f, WHITE);
+        } else {
+            DrawRectangleRounded({px,py,ps,ps}, 0.2f, 6, trainers[i].color);
+        }
+        DrawRectangleRoundedLines({px,py,ps,ps}, 0.2f, 6, trainers[i].color);
+
+        // Name
+        int nw = MeasureText(trainers[i].name, 14);
+        DrawText(trainers[i].name, (int)(x+(CW-nw)/2), (int)(py+ps+10), 14, WHITE);
+
+        // Discipline
+        int dw = MeasureText(trainers[i].discipline, 11);
+        DrawText(trainers[i].discipline, (int)(x+(CW-dw)/2), (int)(py+ps+28), 11, {160,160,190,255});
+
+        // Ability badge
+        char abuf[32]; snprintf(abuf, sizeof(abuf), "Poder: %s", trainers[i].abilityName);
+        int aw = MeasureText(abuf, 11);
+        DrawText(abuf, (int)(x+(CW-aw)/2), (int)(py+ps+48), 11, trainers[i].color);
+
+        // Cursor border (pulses)
+        if (hov) {
+            float t = (float)GetTime();
+            unsigned char alpha = (unsigned char)(180 + 75 * sinf(t * 4.f));
+            Color bc = pidColor; bc.a = alpha;
+            DrawRectangleLinesEx({x-4,y-4,CW+8,CH+8}, 3, bc);
+        }
+    }
+
+    // Controls
+    float cy = startY + CH + 24.f;
+    const char* ctrl = (myId == 0)
+        ? "A / D = Mover    |    SPACE = Confirmar"
+        : "< / > = Mover    |    ENTER = Confirmar";
+    DrawText(ctrl, (936 - MeasureText(ctrl,16))/2, (int)cy, 16, {160,160,190,255});
+}
+
+// ── drawHeroSelect ────────────────────────────────────────────────────────────
+// Renders a 2x5 hero grid. Left sidebar shows trainer info + picks progress.
+void drawHeroSelect(const TrainerDef& trainer,
+                    const HeroDef* heroes, int nH,
+                    int gridCols,
+                    int cursor,
+                    const std::vector<int>& picks,
+                    int myId) {
+    static const Color BG   = {12,12,26,255};
+    static const Color CARD = {30,30,58,255};
+    DrawRectangle(0, 0, 936, 684, BG);
+
+    // ── Left sidebar (trainer info + picks) ──────────────────────────────────
+    const float SIDEBAR_W = 200.f;
+    DrawRectangle(0, 0, (int)SIDEBAR_W, 684, {22,22,46,240});
+
+    int tw = MeasureText(trainer.name, 13);
+    DrawText(trainer.name, (int)((SIDEBAR_W-tw)/2), 16, 13, WHITE);
+    int dw = MeasureText(trainer.discipline, 11);
+    DrawText(trainer.discipline, (int)((SIDEBAR_W-dw)/2), 34, 11, {160,160,190,255});
+
+    // Picks list
+    char prog[24]; snprintf(prog, sizeof(prog), "Herois: %d / 3", (int)picks.size());
+    int pw = MeasureText(prog, 13);
+    DrawText(prog, (int)((SIDEBAR_W-pw)/2), 68, 13,
+             picks.size() == 3 ? GREEN : Color{220,180,50,255});
+
+    for (int p = 0; p < (int)picks.size(); p++) {
+        int    idx  = picks[p];
+        float  py   = 92.f + p * 72.f;
+        uint8_t arc = heroes[idx].archetype;
+        Color  ac   = ARCH_COLORS[arc];
+        DrawRectangleRounded({8, py, SIDEBAR_W-16, 64}, 0.1f, 4, CARD);
+        DrawRectangleRounded({8, py, 4, 64}, 0.1f, 4, ac);   // accent strip
+        // mini portrait
+        if (selHeroTex && selHeroTex[idx].id)
+            DrawTexturePro(selHeroTex[idx],
+                {0,0,(float)selHeroTex[idx].width,(float)selHeroTex[idx].height},
+                {14, py+4, 54, 56}, {}, 0.f, WHITE);
+        else
+            DrawRectangleRounded({14,py+4,54,56}, 0.1f, 4, ac);
+        int nw2 = MeasureText(heroes[idx].name, 10);
+        DrawText(heroes[idx].name, (int)(72), (int)(py+8), 10, WHITE);
+        DrawText(ARCH_NAMES[arc], 72, (int)(py+24), 10, ac);
+        char sb[24]; snprintf(sb,sizeof(sb),"HP:%d AD:%d",heroes[idx].hp,heroes[idx].ad);
+        DrawText(sb, 72, (int)(py+40), 10, {160,160,190,255});
+        (void)nw2;
+    }
+
+    // ── Hero grid ─────────────────────────────────────────────────────────────
+    const float CW = 140.f, CH = 178.f, PAD = 12.f;
+    int   gridRows = (nH + gridCols - 1) / gridCols;
+    float gridW    = gridCols * CW + (gridCols-1) * PAD;
+    float availW   = 936.f - SIDEBAR_W;
+    float startX   = SIDEBAR_W + (availW - gridW) / 2.f;
+    float startY   = 60.f;
+
+    // Title
+    const char* title = "Escolha 3 Herois";
+    DrawText(title, (int)(SIDEBAR_W + (availW - MeasureText(title,18))/2), 18, 18, WHITE);
+
+    Color pidColor = (myId==0) ? Color{255,100,100,255} : Color{100,150,255,255};
+
+    for (int i = 0; i < nH; i++) {
+        int   row  = i / gridCols,  col = i % gridCols;
+        float x    = startX + col * (CW + PAD);
+        float y    = startY + row * (CH + PAD);
+        bool  hov  = (i == cursor);
+        bool  picked = (std::find(picks.begin(), picks.end(), i) != picks.end());
+        uint8_t arc = heroes[i].archetype;
+        Color   ac  = ARCH_COLORS[arc];
+
+        // Background
+        Color bg = picked ? Color{40,50,70,255} : (hov ? Color{42,42,78,255} : CARD);
+        DrawRectangleRounded({x,y,CW,CH}, 0.08f, 6, bg);
+        DrawRectangleRounded({x,y,CW,4},  0.1f,  4, ac);  // accent bar
+
+        // Portrait
+        float imgH = CH * 0.48f;
+        if (selHeroTex && selHeroTex[i].id)
+            DrawTexturePro(selHeroTex[i],
+                {0,0,(float)selHeroTex[i].width,(float)selHeroTex[i].height},
+                {x+6, y+8, CW-12, imgH}, {}, 0.f, WHITE);
+        else
+            DrawRectangleRounded({x+6,y+8,CW-12,imgH}, 0.1f, 4, ac);
+
+        // Name
+        float ty = y + 8 + imgH + 5;
+        int   nw = MeasureText(heroes[i].name, 10);
+        DrawText(heroes[i].name, (int)(x+(CW-nw)/2), (int)ty, 10, WHITE); ty += 14;
+
+        // Class badge
+        int bw = MeasureText(ARCH_NAMES[arc],10);
+        DrawRectangleRounded({x+(CW-bw-10)/2, ty, (float)(bw+10), 16}, 0.4f, 4, ac);
+        DrawText(ARCH_NAMES[arc], (int)(x+(CW-bw)/2), (int)(ty+3), 10, WHITE); ty += 20;
+
+        // Stats
+        char sb[32]; snprintf(sb,sizeof(sb),"HP:%d AD:%d ARM:%d",heroes[i].hp,heroes[i].ad,heroes[i].arm);
+        int sw = MeasureText(sb,9);
+        DrawText(sb,(int)(x+(CW-sw)/2),(int)ty,9,{160,160,190,255});
+
+        // Cursor border
+        if (hov)
+            DrawRectangleLinesEx({x-3,y-3,CW+6,CH+6}, 3, pidColor);
+        // Picked indicator
+        if (picked) {
+            DrawRectangleLinesEx({x,y,CW,CH}, 2, ac);
+            DrawText("✓", (int)(x+CW-16), (int)(y+4), 14, GREEN);
+        }
+    }
+
+    // Controls
+    float cy = startY + gridRows * (CH + PAD) + 8;
+    const char* ctrl = "A/W/S/D = Mover  |  SPACE = Selecionar/Desmarcar  |  Q = Desfazer";
+    DrawText(ctrl, (int)(SIDEBAR_W+(availW-MeasureText(ctrl,13))/2), (int)cy, 13, {160,160,190,255});
+
+    if ((int)picks.size() == 3) {
+        const char* ok = "3 herois prontos! Iniciando...";
+        DrawText(ok, (int)(SIDEBAR_W+(availW-MeasureText(ok,16))/2), (int)(cy+20), 16, GREEN);
+    }
 }
