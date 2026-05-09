@@ -55,3 +55,4 @@ void drawBuffZones(const GameSnapshot& snap);
 void drawHero(const HeroNetState& hs, Vector2 pos, int myId, bool dragging);
 void drawHUD(const GameSnapshot& snap, int myId);
 void drawOverlays(const GameSnapshot& snap, int myId);
+void drawVSScreen(const GameSnapshot& snap, int myId);

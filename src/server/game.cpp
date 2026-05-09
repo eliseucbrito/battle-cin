@@ -60,8 +60,9 @@ void Game::initFromSelections()
     }
 
     initialized_ = true;
-    startPositioning();
-    printf("Game initialized from player selections! Starting positioning...\n");
+    phase_ = PHASE_VS_INTRO;
+    phaseTimer_ = VS_INTRO_TIME;
+    printf("Game initialized from player selections! VS intro...\n");
 }
 
 void Game::handlePlaceHero(int pid, int heroIdx, uint8_t tx, uint8_t ty)
@@ -108,6 +109,11 @@ void Game::update(float dt)
             break;
 
         case PHASE_ROUND_END:
+            phaseTimer_ -= dt;
+            if (phaseTimer_ <= 0.f) startPositioning();
+            break;
+
+        case PHASE_VS_INTRO:
             phaseTimer_ -= dt;
             if (phaseTimer_ <= 0.f) startPositioning();
             break;

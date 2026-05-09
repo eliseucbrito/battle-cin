@@ -269,47 +269,51 @@ int main(int argc, char *argv[])
                            selCursor, heroPicks, myId);
         }
         else /* PLAYING */ {
-            // Arena background
-            DrawTexturePro(arena,
-                {0, 0, (float)arena.width, (float)arena.height},
-                {0, 0, 936, 684}, {}, 0.f, WHITE);
+            if (snap.phase == PHASE_VS_INTRO) {
+                drawVSScreen(snap, myId);
+            } else {
+                // Arena background
+                DrawTexturePro(arena,
+                    {0, 0, (float)arena.width, (float)arena.height},
+                    {0, 0, 936, 684}, {}, 0.f, WHITE);
 
-            // Deployment zone highlights (only during positioning)
-            if (snap.phase == PHASE_POSITIONING && draggingHeroIdx != -1) {
-                uint8_t arch   = snap.heroes[draggingHeroIdx].archetype;
-                bool    isLeft = (myId == 0);
-                Color   hl     = {0, 255, 0, 40};
-                for (int r = 0; r < GRID_ROWS; r++) {
-                    for (int c = 0; c < GRID_COLS; c++) {
-                        bool valid = isLeft ? (c <= 3) : (c >= 4);
-                        if (valid) {
-                            if      (arch == ARCHETYPE_TANK)
-                                valid = isLeft ? (c == 3) : (c == 4);
-                            else if (arch == ARCHETYPE_FIGHTER)
-                                valid = isLeft ? (c >= 2) : (c <= 5);
-                            else if (arch == ARCHETYPE_ASSASSIN)
-                                valid = (isLeft ? (c >= 2) : (c <= 5)) && (r <= 1 || r >= 6);
-                            else if (arch == ARCHETYPE_MAGE || arch == ARCHETYPE_SUPPORT)
-                                valid = isLeft ? (c <= 1) : (c >= 6);
-                        }
-                        if (valid) {
-                            DrawRectangleRec(cellRect(c, r), hl);
-                            DrawRectangleLinesEx(cellRect(c, r), 2, {0, 255, 0, 100});
+                // Deployment zone highlights (only during positioning)
+                if (snap.phase == PHASE_POSITIONING && draggingHeroIdx != -1) {
+                    uint8_t arch   = snap.heroes[draggingHeroIdx].archetype;
+                    bool    isLeft = (myId == 0);
+                    Color   hl     = {0, 255, 0, 40};
+                    for (int r = 0; r < GRID_ROWS; r++) {
+                        for (int c = 0; c < GRID_COLS; c++) {
+                            bool valid = isLeft ? (c <= 3) : (c >= 4);
+                            if (valid) {
+                                if      (arch == ARCHETYPE_TANK)
+                                    valid = isLeft ? (c == 3) : (c == 4);
+                                else if (arch == ARCHETYPE_FIGHTER)
+                                    valid = isLeft ? (c >= 2) : (c <= 5);
+                                else if (arch == ARCHETYPE_ASSASSIN)
+                                    valid = (isLeft ? (c >= 2) : (c <= 5)) && (r <= 1 || r >= 6);
+                                else if (arch == ARCHETYPE_MAGE || arch == ARCHETYPE_SUPPORT)
+                                    valid = isLeft ? (c <= 1) : (c >= 6);
+                            }
+                            if (valid) {
+                                DrawRectangleRec(cellRect(c, r), hl);
+                                DrawRectangleLinesEx(cellRect(c, r), 2, {0, 255, 0, 100});
+                            }
                         }
                     }
                 }
+
+                drawBuffZones(snap);
+                drawGrid();
+
+                for (int i = 0; i < snap.heroCount; i++) {
+                    if (!snap.heroes[i].alive) continue;
+                    drawHero(snap.heroes[i], heroVis[i].pos, myId, (draggingHeroIdx == i));
+                }
+
+                drawHUD(snap, myId);
+                drawOverlays(snap, myId);
             }
-
-            drawBuffZones(snap);
-            drawGrid();
-
-            for (int i = 0; i < snap.heroCount; i++) {
-                if (!snap.heroes[i].alive) continue;
-                drawHero(snap.heroes[i], heroVis[i].pos, myId, (draggingHeroIdx == i));
-            }
-
-            drawHUD(snap, myId);
-            drawOverlays(snap, myId);
         }
 
         EndDrawing();

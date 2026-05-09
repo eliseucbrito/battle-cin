@@ -174,6 +174,126 @@ void drawOverlays(const GameSnapshot& snap, int myId) {
     }
 }
 
+void drawVSScreen(const GameSnapshot& snap, int myId) {
+    loadTextures();
+
+    // Background
+    ClearBackground({12, 12, 26, 255});
+    DrawRectangle(0, 0, 936, 684, {0, 0, 0, 80});
+
+    // Colors for each player
+    static const Color kTint[2] = { {80, 160, 230, 255}, {230, 80, 80, 255} };
+
+    // ── Helper to draw one side ──
+    auto drawSide = [&](int side, float cx, float tintColor) {
+        // Trainer portrait
+        uint8_t tId = snap.trainers[side].trainerId;
+        if (tId < N_TRAINERS) {
+            const TrainerDefEntry& td = TRAINER_DEFS[tId];
+
+            // Portrait
+            float pSize = 140.f;
+            float px = cx - pSize * 0.5f;
+            float py = 60.f;
+            if (trainerTextures[tId].id != 0) {
+                DrawTexturePro(trainerTextures[tId],
+                    {0, 0, (float)trainerTextures[tId].width, (float)trainerTextures[tId].height},
+                    {px, py, pSize, pSize}, {0, 0}, 0.f, WHITE);
+            } else {
+                DrawRectangle((int)px, (int)py, (int)pSize, (int)pSize, kTint[side]);
+            }
+
+            // Trainer name
+            int nw = MeasureText(td.name, 22);
+            DrawText(td.name, (int)(cx - nw * 0.5f), (int)(py + pSize + 10), 22, WHITE);
+
+            // Discipline
+            int dw = MeasureText(td.discipline, 14);
+            DrawText(td.discipline, (int)(cx - dw * 0.5f), (int)(py + pSize + 36), 14, LIGHTGRAY);
+        }
+
+        // Collect this side's heroes from snapshot
+        uint8_t heroDefIdxs[3];
+        int heroCount = 0;
+        for (int i = 0; i < snap.heroCount && heroCount < 3; i++) {
+            if (snap.heroes[i].ownerId == (uint8_t)side) {
+                heroDefIdxs[heroCount++] = snap.heroes[i].heroDefIndex;
+            }
+        }
+
+        // Hero cards
+        float cardW = 110.f, cardH = 140.f;
+        float gap = 16.f;
+        float totalW = heroCount * cardW + (heroCount - 1) * gap;
+        float startX = cx - totalW * 0.5f;
+        float hy = 280.f;
+
+        for (int h = 0; h < heroCount; h++) {
+            uint8_t hDefIdx = heroDefIdxs[h];
+            if (hDefIdx >= N_HEROES) continue;
+            const HeroDefEntry& hd = HERO_DEFS[hDefIdx];
+
+            float hx = startX + h * (cardW + gap);
+
+            // Card background
+            DrawRectangleRounded({hx, hy, cardW, cardH}, 0.06f, 6, {30, 30, 50, 255});
+            DrawRectangleRoundedLines({hx, hy, cardW, cardH}, 0.06f, 6, kTint[side]);
+
+            // Hero portrait
+            float ps = 64.f;
+            float pxx = hx + (cardW - ps) * 0.5f;
+            float pyy = hy + 10.f;
+            if (heroTextures[hDefIdx].id != 0) {
+                DrawTexturePro(heroTextures[hDefIdx],
+                    {0, 0, (float)heroTextures[hDefIdx].width, (float)heroTextures[hDefIdx].height},
+                    {pxx, pyy, ps, ps}, {0, 0}, 0.f, WHITE);
+            } else {
+                DrawRectangle((int)pxx, (int)pyy, (int)ps, (int)ps, kTint[side]);
+            }
+
+            // Hero name
+            int nn = MeasureText(hd.name, 11);
+            DrawText(hd.name, (int)(hx + (cardW - nn) * 0.5f), (int)(pyy + ps + 6), 11, WHITE);
+
+            // Class name
+            static const char* archNames[] = {"Tank", "Fighter", "Mage", "Assassin", "Support"};
+            static const Color archColors[] = {
+                {80,130,220,255}, {220,80,80,255}, {150,80,220,255},
+                {70,70,70,255},   {80,200,130,255}
+            };
+            const char* cls = archNames[hd.archetype];
+            int cw = MeasureText(cls, 10);
+            DrawText(cls, (int)(hx + (cardW - cw) * 0.5f), (int)(pyy + ps + 20), 10, archColors[hd.archetype]);
+
+            // Stats
+            char stats[48];
+            snprintf(stats, sizeof(stats), "HP:%d AD:%d ARM:%d", hd.hp, hd.ad, hd.arm);
+            int sw = MeasureText(stats, 10);
+            DrawText(stats, (int)(hx + (cardW - sw) * 0.5f), (int)(pyy + ps + 34), 10, GRAY);
+        }
+    };
+
+    // Draw left side (Player 0)
+    drawSide(0, 234.f, 0);
+
+    // Draw right side (Player 1)
+    drawSide(1, 702.f, 1);
+
+    // "VS" text in center
+    DrawText("VS", 468 - MeasureText("VS", 72)/2, 150, 72, GOLD);
+
+    // Countdown timer at bottom
+    if (snap.phase == PHASE_VS_INTRO) {
+        char timerStr[16];
+        snprintf(timerStr, sizeof(timerStr), "%d", snap.timer);
+        DrawText(timerStr, 468 - MeasureText(timerStr, 48)/2, 580, 48, {255, 255, 255, 180});
+    }
+
+    // "Preparando arena..." hint
+    const char* hint = "Preparando arena...";
+    DrawText(hint, 468 - MeasureText(hint, 18)/2, 640, 18, {255, 255, 255, 120});
+}
+
 void unloadTextures() {
     if (!texturesLoaded) return;
     for (int i = 0; i < N_TRAINERS; i++) {

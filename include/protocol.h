@@ -7,6 +7,7 @@
 #define PHASE_BATTLE       2   // autobattle — no player input
 #define PHASE_ROUND_END    3   // brief pause after a point is scored
 #define PHASE_MATCH_END    4   // match over
+#define PHASE_VS_INTRO     5   // VS transition screen before positioning
 
 // ── Buff types ────────────────────────────────────────────────────────────────
 #define BUFF_NONE  0
@@ -37,6 +38,7 @@
 #define POSITIONING_TIME  20
 #define BATTLE_MAX_TIME   120
 #define ROUND_END_TIME    3
+#define VS_INTRO_TIME     3
 #define MAX_HEROES_SIDE   3
 #define MAX_HEROES_TOTAL  (MAX_HEROES_SIDE * 2)
 
