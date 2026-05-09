@@ -7,18 +7,11 @@
 
 Game::Game()
     : connectedCount_(0), phase_(PHASE_WAITING), phaseTimer_(0.f),
-      buffZoneCount_(0), roundWinner_(0xFF), matchWinner_(0xFF)
+      buffZoneCount_(0), roundWinner_(0xFF), matchWinner_(0xFF),
+      initialized_(false)
 {
-    // Initialize trainers with some default data (could be dynamic later)
-    trainers_[0] = Trainer("Prof. Paulo", "Estrutura de Dados", 0, ABILITY_RALLY);
-    trainers_[1] = Trainer("Prof. Eliseu", "Orientacao a Objetos", 1, ABILITY_SHIELD_WALL);
-
-    // Give each trainer a set of heroes
-    for (int i = 0; i < 2; i++) {
-        trainers_[i].addHero(ARCHETYPE_TANK);
-        trainers_[i].addHero(ARCHETYPE_FIGHTER);
-        trainers_[i].addHero(ARCHETYPE_MAGE);
-    }
+    selected_[0] = false;
+    selected_[1] = false;
 }
 
 void Game::registerPlayer(int pid, const sockaddr_in& from)
@@ -26,13 +19,49 @@ void Game::registerPlayer(int pid, const sockaddr_in& from)
     if (pid < 0 || pid > 1) return;
     trainers_[pid].setAddr(from);
     trainers_[pid].resetScore();
-    trainers_[pid].resetForRound();
-    
+
     ++connectedCount_;
-    printf("Trainer %d (%s) conectado! (%d/2)\n", pid, trainers_[pid].name().c_str(), connectedCount_);
-    
-    if (connectedCount_ == 2 && phase_ == PHASE_WAITING)
-        startPositioning();
+    printf("Player %d conectado! (%d/2)\n", pid, connectedCount_);
+
+    // Only start if both connected AND both selected AND not yet initialized
+    if (connectedCount_ == 2 && selected_[0] && selected_[1] && !initialized_)
+        initFromSelections();
+}
+
+void Game::handleSelect(int pid, const SelectionPacket& sel)
+{
+    if (pid < 0 || pid > 1) return;
+    if (selected_[pid]) return;  // already selected
+
+    selections_[pid] = sel;
+    selected_[pid] = true;
+    printf("Player %d selected trainer %d with heroes [%d, %d, %d]\n",
+           pid, sel.trainerIndex, sel.heroIndices[0], sel.heroIndices[1], sel.heroIndices[2]);
+
+    if (connectedCount_ == 2 && selected_[0] && selected_[1] && !initialized_)
+        initFromSelections();
+}
+
+void Game::initFromSelections()
+{
+    // Save addresses before reassigning trainers
+    sockaddr_in savedAddrs[2] = { trainers_[0].addr(), trainers_[1].addr() };
+
+    for (int i = 0; i < 2; i++) {
+        const SelectionPacket& sel = selections_[i];
+        const TrainerDefEntry& tDef = TRAINER_DEFS[sel.trainerIndex];
+        trainers_[i] = Trainer(tDef.name, tDef.discipline, i, sel.trainerIndex, tDef.abilityType);
+        trainers_[i].setAddr(savedAddrs[i]);  // restore address
+
+        for (int h = 0; h < 3; h++) {
+            const HeroDefEntry& hDef = HERO_DEFS[sel.heroIndices[h]];
+            trainers_[i].addHero(hDef.archetype, hDef.hp, hDef.ad, hDef.arm, sel.heroIndices[h]);
+        }
+    }
+
+    initialized_ = true;
+    startPositioning();
+    printf("Game initialized from player selections! Starting positioning...\n");
 }
 
 void Game::handlePlaceHero(int pid, int heroIdx, uint8_t tx, uint8_t ty)
@@ -109,8 +138,8 @@ void Game::buildSnapshot(GameSnapshot& snap) const
                     hero.x(), hero.y(),
                     (uint16_t)hero.hp(), (uint16_t)hero.maxHp(),
                     (uint8_t)hero.ad(), (uint8_t)hero.arm(),
-                    hero.archetype(), hero.buff(), (uint8_t)hero.alive(),
-                    (uint8_t)hero.ultActive(), (uint8_t)i
+                    hero.archetype(), hero.heroDefIndex(), hero.buff(),
+                    (uint8_t)hero.alive(), (uint8_t)hero.ultActive(), (uint8_t)i
                 };
             }
         }

@@ -1,6 +1,7 @@
 #pragma once
 #include "trainer.h"
 #include "protocol.h"
+#include "game_defs.h"
 #include <netinet/in.h>
 
 class Game {
@@ -10,7 +11,11 @@ public:
     void registerPlayer(int pid, const sockaddr_in& from);
     void handlePlaceHero(int pid, int heroIdx, uint8_t tx, uint8_t ty);
     void handleUseAbility(int pid);
-    
+    void handleSelect(int pid, const SelectionPacket& sel);
+    void initFromSelections();
+
+    bool isInitialized() const { return initialized_; }
+
     void update(float dt);
     void buildSnapshot(GameSnapshot& snap) const;
 
@@ -22,7 +27,7 @@ private:
     void startPositioning();
     void startBattle();
     void endRound(uint8_t winner);
-    
+
     void autoBattleMove();
     void runCombat();
     void resolveTimeLimit();
@@ -34,9 +39,14 @@ private:
     int     connectedCount_;
     uint8_t phase_;
     float   phaseTimer_;
-    
+
     BuffZoneInfo buffZones_[4];
     int          buffZoneCount_;
     uint8_t      roundWinner_;
     uint8_t      matchWinner_;
+
+    // Selection state
+    bool             selected_[2];
+    SelectionPacket  selections_[2];
+    bool             initialized_;
 };

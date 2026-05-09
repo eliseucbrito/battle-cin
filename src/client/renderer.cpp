@@ -1,4 +1,5 @@
 #include "renderer.h"
+#include "../../include/game_defs.h"
 #include <stdio.h>
 #include <algorithm>
 #include <math.h>
@@ -8,20 +9,21 @@ const float CELLW = GW / GRID_COLS;
 const float CELLH = GH / GRID_ROWS;
 
 static const Color kPlayerColor[2] = { BLUE, RED };
-static Texture2D trainerTextures[2];
-static Texture2D heroTextures[5]; // mapping archetypes to textures
+static Texture2D trainerTextures[N_TRAINERS];
+static Texture2D heroTextures[N_HEROES]; // mapping heroDefIndex to textures
 static bool texturesLoaded = false;
 
 void loadTextures() {
     if (texturesLoaded) return;
-    trainerTextures[0] = LoadTexture("assets/trainer0.png");
-    trainerTextures[1] = LoadTexture("assets/trainer1.png");
 
-    heroTextures[ARCHETYPE_TANK]     = LoadTexture("assets/heroes/O_Construto_de_Busca.png");
-    heroTextures[ARCHETYPE_FIGHTER]  = LoadTexture("assets/heroes/O_Filósofo_do_Dilema.png");
-    heroTextures[ARCHETYPE_MAGE]     = LoadTexture("assets/heroes/O_Mestre_Parser.png");
-    heroTextures[ARCHETYPE_ASSASSIN] = LoadTexture("assets/heroes/O_Cientista_Polarizado.png");
-    heroTextures[ARCHETYPE_SUPPORT]  = LoadTexture("assets/heroes/O_Chip-Mestre.png");
+    for (int i = 0; i < N_TRAINERS; i++) {
+        if (TRAINER_DEFS[i].portraitPath[0] != '\0')
+            trainerTextures[i] = LoadTexture(TRAINER_DEFS[i].portraitPath);
+    }
+
+    for (int i = 0; i < N_HEROES; i++) {
+        heroTextures[i] = LoadTexture(HERO_DEFS[i].assetPath);
+    }
     texturesLoaded = true;
 }
 
@@ -65,7 +67,8 @@ void drawHero(const HeroNetState& hs, Vector2 ctr, int myId, bool dragging) {
     DrawCircleV(ctr, r, pCol);
 
     // 2. Draw hero sprite clipped inside the circle area
-    Texture2D& tex = heroTextures[hs.archetype];
+    uint8_t texIdx = (hs.heroDefIndex < N_HEROES) ? hs.heroDefIndex : hs.archetype;
+    Texture2D& tex = heroTextures[texIdx];
     if (tex.id != 0) {
         // Scale sprite to fill the circle diameter (2*r x 2*r)
         float diameter = r * 2.0f;
@@ -120,11 +123,13 @@ void drawHUD(const GameSnapshot& snap, int myId) {
 
     // Trainer Portraits in top corners
     float pSize = 80.f;
-    if (trainerTextures[0].id != 0) {
-        DrawTexturePro(trainerTextures[0], {0,0,(float)trainerTextures[0].width, (float)trainerTextures[0].height}, {10,10,pSize,pSize}, {0,0}, 0.f, WHITE);
+    uint8_t tId0 = snap.trainers[0].trainerId;
+    uint8_t tId1 = snap.trainers[1].trainerId;
+    if (tId0 < N_TRAINERS && trainerTextures[tId0].id != 0) {
+        DrawTexturePro(trainerTextures[tId0], {0,0,(float)trainerTextures[tId0].width, (float)trainerTextures[tId0].height}, {10,10,pSize,pSize}, {0,0}, 0.f, WHITE);
     }
-    if (trainerTextures[1].id != 0) {
-        DrawTexturePro(trainerTextures[1], {0,0,(float)trainerTextures[1].width, (float)trainerTextures[1].height}, {936 - pSize - 10,10,pSize,pSize}, {0,0}, 0.f, WHITE);
+    if (tId1 < N_TRAINERS && trainerTextures[tId1].id != 0) {
+        DrawTexturePro(trainerTextures[tId1], {0,0,(float)trainerTextures[tId1].width, (float)trainerTextures[tId1].height}, {936 - pSize - 10,10,pSize,pSize}, {0,0}, 0.f, WHITE);
     }
 
     // Scores
@@ -171,9 +176,10 @@ void drawOverlays(const GameSnapshot& snap, int myId) {
 
 void unloadTextures() {
     if (!texturesLoaded) return;
-    UnloadTexture(trainerTextures[0]);
-    UnloadTexture(trainerTextures[1]);
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < N_TRAINERS; i++) {
+        if (trainerTextures[i].id != 0) UnloadTexture(trainerTextures[i]);
+    }
+    for (int i = 0; i < N_HEROES; i++) {
         if (heroTextures[i].id != 0) UnloadTexture(heroTextures[i]);
     }
     texturesLoaded = false;

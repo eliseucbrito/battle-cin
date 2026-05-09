@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 #include <unistd.h>
 #include <sys/socket.h>
@@ -33,40 +34,57 @@ int main()
         clock_gettime(CLOCK_MONOTONIC, &tick_start);
 
         // ── Receive inputs ────────────────────────────────────────────────
-        InputPacket inp;
         sockaddr_in clientAddr{};
         socklen_t   clientLen = sizeof(clientAddr);
         ssize_t     received;
+        char        buf[64];
 
-        while ((received = recvfrom(sock, &inp, sizeof(inp), 0,
+        while ((received = recvfrom(sock, buf, sizeof(buf), 0,
                                     (sockaddr *)&clientAddr, &clientLen)) > 0)
         {
-            if (received < (ssize_t)sizeof(InputPacket)) continue;
-            int pid = inp.playerId;
-            if (pid < 0 || pid > 1) continue;
+            if (received == (ssize_t)sizeof(SelectionPacket)) {
+                // Selection packet
+                SelectionPacket sel;
+                memcpy(&sel, buf, sizeof(sel));
+                int pid = sel.playerId;
+                if (pid < 0 || pid > 1) continue;
+                if (!game.isConnected(pid))
+                    game.registerPlayer(pid, clientAddr);
+                if (!game.playerMatchesAddr(pid, clientAddr)) continue;
+                game.handleSelect(pid, sel);
+            }
+            else if (received == (ssize_t)sizeof(InputPacket)) {
+                // Game input packet
+                InputPacket inp;
+                memcpy(&inp, buf, sizeof(inp));
+                int pid = inp.playerId;
+                if (pid < 0 || pid > 1) continue;
 
-            if (!game.isConnected(pid))
-                game.registerPlayer(pid, clientAddr);
+                if (!game.isConnected(pid))
+                    game.registerPlayer(pid, clientAddr);
 
-            if (!game.playerMatchesAddr(pid, clientAddr)) continue;
+                if (!game.playerMatchesAddr(pid, clientAddr)) continue;
 
-            if (inp.type == INPUT_PLACE)
-                game.handlePlaceHero(pid, inp.heroIndex, inp.placeX, inp.placeY);
-            else if (inp.type == INPUT_USE_ABILITY)
-                game.handleUseAbility(pid);
+                if (inp.type == INPUT_PLACE)
+                    game.handlePlaceHero(pid, inp.heroIndex, inp.placeX, inp.placeY);
+                else if (inp.type == INPUT_USE_ABILITY)
+                    game.handleUseAbility(pid);
+            }
         }
 
         // ── Update ────────────────────────────────────────────────────────
         game.update(DT);
 
         // ── Broadcast Snapshot ────────────────────────────────────────────
-        GameSnapshot snap;
-        game.buildSnapshot(snap);
-        for (int i = 0; i < 2; i++) {
-            if (game.isConnected(i))
-                sendto(sock, &snap, sizeof(snap), 0,
-                       reinterpret_cast<const sockaddr *>(&game.playerAddr(i)),
-                       sizeof(sockaddr_in));
+        if (game.isInitialized()) {
+            GameSnapshot snap;
+            game.buildSnapshot(snap);
+            for (int i = 0; i < 2; i++) {
+                if (game.isConnected(i))
+                    sendto(sock, &snap, sizeof(snap), 0,
+                           reinterpret_cast<const sockaddr *>(&game.playerAddr(i)),
+                           sizeof(sockaddr_in));
+            }
         }
 
         // ── Tick rate (20 Hz) ─────────────────────────────────────────────

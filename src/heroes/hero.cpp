@@ -18,7 +18,8 @@ Hero::Hero(uint8_t ownerId)
       buff_(BUFF_NONE),
       ultCooldownTimer_(0.f), ultActiveTimer_(0.f),
       ultActive_(false), attackCount_(0),
-      ownerId_(ownerId)
+      hasCustomStats_(false), customHp_(0), customAd_(0), customArm_(0),
+      ownerId_(ownerId), heroDefIndex_(0xFF)
 {}
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -28,10 +29,10 @@ Hero::Hero(uint8_t ownerId)
 void Hero::resetStats()
 {
     StatProfile p = baseStats();
-    hp_       = p.hp;
-    maxHp_    = p.hp;
-    ad_       = p.ad;
-    arm_      = p.arm;
+    hp_       = hasCustomStats_ ? customHp_  : p.hp;
+    maxHp_    = hasCustomStats_ ? customHp_  : p.hp;
+    ad_       = hasCustomStats_ ? customAd_  : p.ad;
+    arm_      = hasCustomStats_ ? customArm_ : p.arm;
     as_rate_  = p.as_rate;
     ms_delay_ = p.ms_delay;
     buff_     = BUFF_NONE;
@@ -42,6 +43,14 @@ void Hero::resetStats()
     ultActiveTimer_   = 0.f;
     ultActive_  = false;
     attackCount_ = 0;
+}
+
+void Hero::setCustomStats(int hp, int ad, int arm)
+{
+    hasCustomStats_ = true;
+    customHp_  = hp;
+    customAd_  = ad;
+    customArm_ = arm;
 }
 
 void Hero::applyBuff(uint8_t type)

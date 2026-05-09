@@ -159,8 +159,17 @@ int main(int argc, char *argv[])
             if (IsKeyPressed(KEY_Q) || IsKeyPressed(KEY_BACKSPACE))
                 if (!heroPicks.empty()) heroPicks.pop_back();
 
-            // Transition: free selection assets and move to PLAYING
+            // Transition: free selection assets, send selection to server, move to PLAYING
             if ((int)heroPicks.size() == MAX_HEROES_SIDE) {
+                SelectionPacket sel{};
+                sel.playerId     = (uint8_t)myId;
+                sel.type         = INPUT_SELECT;
+                sel.trainerIndex = (uint8_t)selTrainerIdx;
+                for (int i = 0; i < MAX_HEROES_SIDE; i++)
+                    sel.heroIndices[i] = (uint8_t)heroPicks[i];
+                sendto(sock, &sel, sizeof(sel), 0,
+                       (sockaddr*)&serverAddr, sizeof(serverAddr));
+
                 freeSelectionAssets(N_TRAINERS, N_HEROES);
                 clientPhase = ClientPhase::PLAYING;
             }

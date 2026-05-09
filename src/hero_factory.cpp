@@ -20,3 +20,15 @@ std::unique_ptr<Hero> HeroFactory::create(uint8_t archetype, uint8_t ownerId)
             return nullptr;
     }
 }
+
+std::unique_ptr<Hero> HeroFactory::create(uint8_t archetype, uint8_t ownerId,
+                                           int hp, int ad, int arm, uint8_t heroDefIndex)
+{
+    auto hero = create(archetype, ownerId);
+    if (hero) {
+        hero->setCustomStats(hp, ad, arm);
+        hero->setHeroDefIndex(heroDefIndex);
+        hero->resetStats();   // apply custom stats immediately
+    }
+    return hero;
+}

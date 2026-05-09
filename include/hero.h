@@ -43,8 +43,17 @@ protected:
     bool  ultActive_;
     int   attackCount_;        // total attacks performed (used by Mage)
 
+    // ── Custom stats override (per-named-hero from HERO_DEFS) ─────────────
+    bool  hasCustomStats_;
+    int   customHp_;
+    int   customAd_;
+    int   customArm_;
+
     // ── Owner ─────────────────────────────────────────────────────────────
     uint8_t ownerId_;          // 0 or 1 (which trainer this hero belongs to)
+
+    // ── Identity ──────────────────────────────────────────────────────────
+    uint8_t heroDefIndex_;     // index into HERO_DEFS[] (for client lookup)
 
 public:
     explicit Hero(uint8_t ownerId);
@@ -141,4 +150,11 @@ public:
     void healHp(int amount);
     void startMoveTimer() { moveTimer_ = ms_delay_; }
     void startAttackTimer() { attackTimer_ = 1.f / as_rate_; }
+
+    // ── Custom stats (per-named-hero) ─────────────────────────────────────
+    void setCustomStats(int hp, int ad, int arm);
+
+    // ── Identity ──────────────────────────────────────────────────────────
+    uint8_t heroDefIndex() const { return heroDefIndex_; }
+    void setHeroDefIndex(uint8_t idx) { heroDefIndex_ = idx; }
 };

@@ -49,6 +49,7 @@
 #define INPUT_HEARTBEAT   0   // keep-alive / no action
 #define INPUT_PLACE       1   // drag-and-drop: move hero to (placeX, placeY)
 #define INPUT_USE_ABILITY 2   // trainer presses Q to use ability
+#define INPUT_SELECT      3   // client sends trainer + hero selection
 
 // ── Packets ───────────────────────────────────────────────────────────────────
 #pragma pack(push, 1)
@@ -59,6 +60,15 @@ struct InputPacket {
     uint8_t placeX;      // target cell X (INPUT_PLACE only)
     uint8_t placeY;      // target cell Y (INPUT_PLACE only)
     uint8_t heroIndex;   // which hero to move (INPUT_PLACE only)
+};
+
+// SelectionPacket — sent once by each client after hero selection
+// Size is 6 bytes (vs InputPacket 5 bytes) so server can distinguish by size.
+struct SelectionPacket {
+    uint8_t playerId;         // 0 or 1
+    uint8_t type;             // INPUT_SELECT (matches InputPacket layout)
+    uint8_t trainerIndex;     // index into TRAINER_DEFS[]
+    uint8_t heroIndices[3];   // indices into HERO_DEFS[]
 };
 
 struct BuffZoneInfo {
@@ -73,6 +83,7 @@ struct HeroNetState {
     uint8_t  ad;
     uint8_t  arm;
     uint8_t  archetype;   // ARCHETYPE_* constant
+    uint8_t  heroDefIndex; // index into HERO_DEFS[] (for portrait / name lookup)
     uint8_t  buff;
     uint8_t  alive;
     uint8_t  ultActive;   // 1 if ultimate is currently active

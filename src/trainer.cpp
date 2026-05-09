@@ -4,8 +4,8 @@
 #include <cstring>
 
 Trainer::Trainer(const std::string& name, const std::string& discipline,
-                 uint8_t trainerId, uint8_t abilityType)
-    : name_(name), discipline_(discipline), trainerId_(trainerId),
+                 uint8_t playerId, uint8_t trainerId, uint8_t abilityType)
+    : name_(name), discipline_(discipline), playerId_(playerId), trainerId_(trainerId),
       abilityType_(abilityType), abilityUsed_(false),
       abilityActiveTimer_(0.f), connected_(false), score_(0)
 {}
@@ -13,7 +13,16 @@ Trainer::Trainer(const std::string& name, const std::string& discipline,
 void Trainer::addHero(uint8_t archetype)
 {
     if (heroes_.size() >= MAX_HEROES_SIDE) return;
-    auto hero = HeroFactory::create(archetype, trainerId_);
+    auto hero = HeroFactory::create(archetype, playerId_);
+    if (hero) {
+        heroes_.push_back(std::move(hero));
+    }
+}
+
+void Trainer::addHero(uint8_t archetype, int hp, int ad, int arm, uint8_t heroDefIndex)
+{
+    if (heroes_.size() >= MAX_HEROES_SIDE) return;
+    auto hero = HeroFactory::create(archetype, playerId_, hp, ad, arm, heroDefIndex);
     if (hero) {
         heroes_.push_back(std::move(hero));
     }

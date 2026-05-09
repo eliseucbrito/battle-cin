@@ -15,7 +15,8 @@ class Trainer {
 private:
     std::string name_;
     std::string discipline_;
-    uint8_t     trainerId_;      // index used by client for name/asset lookup
+    uint8_t     playerId_;       // 0 or 1 (which player controls this trainer)
+    uint8_t     trainerId_;      // index into TRAINER_DEFS[] (name/ability lookup)
     uint8_t     abilityType_;    // ABILITY_* constant
 
     // Composition: Trainer owns its heroes via unique_ptr (polymorphic)
@@ -33,12 +34,15 @@ private:
 public:
     Trainer() = default;
     Trainer(const std::string& name, const std::string& discipline,
-            uint8_t trainerId, uint8_t abilityType);
+            uint8_t playerId, uint8_t trainerId, uint8_t abilityType);
 
     // ── Hero roster management ────────────────────────────────────────────
 
-    /// Add a hero using the factory (by archetype)
+    /// Add a hero using the factory (by archetype, default stats)
     void addHero(uint8_t archetype);
+
+    /// Add a hero with custom stats from HERO_DEFS[]
+    void addHero(uint8_t archetype, int hp, int ad, int arm, uint8_t heroDefIndex);
 
     /// Direct add (for manual setup)
     void addHero(std::unique_ptr<Hero> hero);
@@ -78,6 +82,7 @@ public:
     void         resetScore()                   { score_ = 0; }
 
     // ── Snapshot helpers ──────────────────────────────────────────────────
+    uint8_t playerId()     const { return playerId_; }
     uint8_t trainerId()    const { return trainerId_; }
     uint8_t abilityType()  const { return abilityType_; }
     const std::string& name() const { return name_; }
