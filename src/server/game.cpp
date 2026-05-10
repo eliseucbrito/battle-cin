@@ -110,6 +110,7 @@ void Game::update(float dt)
             Hero& hero = trainers_[i].heroAt(h);
             hero.tickTimers(dt);
             hero.tickUltimate(dt);
+            hero.tickEffects(dt);
         }
         trainers_[i].tickAbility(dt);
     }
@@ -210,7 +211,7 @@ void Game::startBattle()
             Hero& hero = trainers_[i].heroAt(h);
             for (int b = 0; b < buffZoneCount_; b++) {
                 if (hero.x() == buffZones_[b].x && hero.y() == buffZones_[b].y) {
-                    hero.applyBuff(buffZones_[b].type);
+                    hero.applyBuff(buffZones_[b].type, 30.f);  // 30s duration
                     break;
                 }
             }

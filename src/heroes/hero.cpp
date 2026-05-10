@@ -15,7 +15,6 @@ Hero::Hero(uint8_t ownerId)
       as_rate_(0.f), ms_delay_(0.f),
       x_(0), y_(0), alive_(false),
       moveTimer_(0.f), attackTimer_(0.f),
-      buff_(BUFF_NONE),
       ultCooldownTimer_(0.f), ultActiveTimer_(0.f),
       ultActive_(false), attackCount_(0),
       hasCustomStats_(false), customHp_(0), customAd_(0), customArm_(0),
@@ -36,7 +35,6 @@ void Hero::resetStats()
     arm_      = hasCustomStats_ ? customArm_ : p.arm;
     as_rate_  = p.as_rate;
     ms_delay_ = p.ms_delay;
-    buff_     = BUFF_NONE;
     alive_    = true;
     moveTimer_  = 0.f;
     attackTimer_ = 0.f;
@@ -45,6 +43,7 @@ void Hero::resetStats()
     ultActive_  = false;
     attackCount_ = 0;
     targetFocus_ = -1;
+    effects_.clear();
 }
 
 void Hero::setCustomStats(int hp, int ad, int arm)
@@ -55,17 +54,53 @@ void Hero::setCustomStats(int hp, int ad, int arm)
     customArm_ = arm;
 }
 
-void Hero::applyBuff(uint8_t type)
+void Hero::applyBuff(uint8_t type, float duration)
 {
-    buff_ = type;
+    int magnitude = 0;
     switch (type) {
-        case BUFF_AD:  ad_    += BUFF_AD_BONUS;                    break;
-        case BUFF_HP:  maxHp_ += BUFF_HP_BONUS; hp_ = maxHp_;     break;
-        case BUFF_ARM: arm_   += BUFF_ARM_BONUS;                   break;
+        case BUFF_AD:  magnitude = BUFF_AD_BONUS;  break;
+        case BUFF_HP:  magnitude = BUFF_HP_BONUS;  break;
+        case BUFF_ARM: magnitude = BUFF_ARM_BONUS; break;
     }
+    effects_.pushBack({ type, magnitude, duration, duration });
+    recalcStats();
     const char* names[] = { "none", "AD", "HP", "ARM" };
-    printf("  Hero(owner=%d) received buff %s\n", ownerId_,
-           names[type < 4 ? type : 0]);
+    printf("  Hero(owner=%d) received buff %s (+%d, %.0fs)\n", ownerId_,
+           names[type < 4 ? type : 0], magnitude, duration);
+}
+
+void Hero::tickEffects(float dt)
+{
+    bool anyExpired = false;
+    effects_.forEach([&](ActiveEffect& e) {
+        e.duration -= dt;
+        if (e.duration <= 0.f) anyExpired = true;
+    });
+    if (anyExpired) {
+        effects_.removeAll([](const ActiveEffect& e) { return e.duration <= 0.f; });
+        recalcStats();
+    }
+}
+
+void Hero::recalcStats()
+{
+    // Start from base stats
+    StatProfile p = baseStats();
+    hp_       = hasCustomStats_ ? customHp_  : p.hp;
+    maxHp_    = hasCustomStats_ ? customHp_  : p.hp;
+    ad_       = hasCustomStats_ ? customAd_  : p.ad;
+    arm_      = hasCustomStats_ ? customArm_ : p.arm;
+    as_rate_  = p.as_rate;
+    ms_delay_ = p.ms_delay;
+
+    // Apply all active effects
+    for (const auto& e : effects_) {
+        switch (e.effectType) {
+            case BUFF_AD:  ad_    += e.magnitude; break;
+            case BUFF_HP:  maxHp_ += e.magnitude; hp_ += e.magnitude; break;
+            case BUFF_ARM: arm_   += e.magnitude; break;
+        }
+    }
 }
 
 int Hero::calculateDamage(const Hero& target) const
