@@ -28,6 +28,8 @@ int main()
 
     Game game;
     static constexpr float DT = 1.f / 20;
+    float botTimer = 0.f;
+    bool botCreated = false;
 
     while (true) {
         timespec tick_start{};
@@ -83,6 +85,16 @@ int main()
                     game.handlePlaceHero(pid, inp.heroIndex, inp.placeX, inp.placeY);
                 else if (inp.type == INPUT_USE_ABILITY)
                     game.handleUseAbility(pid);
+            }
+        }
+
+        // ── Auto-create bot if player 1 doesn't connect ──────────────────
+        if (!botCreated && game.isConnected(0) && !game.isConnected(1)) {
+            botTimer += DT;
+            if (botTimer >= 5.f) {
+                printf("Creating bot for Player 1 (solo mode)...\n");
+                game.createBot(1);
+                botCreated = true;
             }
         }
 

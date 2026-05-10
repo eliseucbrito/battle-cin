@@ -18,6 +18,10 @@ public:
     void initFromSelections();
 
     bool isInitialized() const { return initialized_; }
+    bool isBot(int pid) const { return isBot_[pid]; }
+
+    void createBot(int pid);
+    void updateBot(float dt);
 
     void update(float dt);
     void buildSnapshot(GameSnapshot& snap) const;
@@ -53,6 +57,8 @@ private:
     bool             selected_[2];
     SelectionPacket  selections_[2];
     bool             initialized_;
+    bool             isBot_[2];
+    bool             botPlaced_;
 
     // Pathfinding graph (BFS on 8x8 grid)
     Graph graph_;

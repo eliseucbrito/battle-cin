@@ -21,6 +21,9 @@ Game::Game()
 {
     selected_[0] = false;
     selected_[1] = false;
+    isBot_[0] = false;
+    isBot_[1] = false;
+    botPlaced_ = false;
 }
 
 void Game::registerPlayer(int pid, const sockaddr_in& from)
@@ -74,6 +77,70 @@ void Game::initFromSelections()
     printf("Game initialized from player selections! VS intro...\n");
 }
 
+void Game::createBot(int pid)
+{
+    if (pid < 0 || pid > 1) return;
+    if (selected_[pid]) return;
+
+    // Random trainer
+    int tIdx = rand() % N_TRAINERS;
+    // Random 3 heroes
+    int hIdx[3];
+    for (int i = 0; i < 3; i++) {
+        hIdx[i] = rand() % N_HEROES;
+    }
+
+    selections_[pid].playerId = (uint8_t)pid;
+    selections_[pid].type = INPUT_SELECT;
+    selections_[pid].trainerIndex = (uint8_t)tIdx;
+    for (int i = 0; i < 3; i++) {
+        selections_[pid].heroIndices[i] = (uint8_t)hIdx[i];
+    }
+    selected_[pid] = true;
+    isBot_[pid] = true;
+
+    printf("Bot created for Player %d (trainer=%d, heroes=%d,%d,%d)\n",
+           pid, tIdx, hIdx[0], hIdx[1], hIdx[2]);
+
+    if (connectedCount_ >= 1 && selected_[0] && selected_[1] && !initialized_)
+        initFromSelections();
+}
+
+void Game::updateBot(float dt)
+{
+    (void)dt;
+    for (int pid = 0; pid < 2; pid++) {
+        if (!isBot_[pid]) continue;
+
+        // Auto-positioning
+        if (phase_ == PHASE_POSITIONING) {
+            if (!botPlaced_) {
+                bool isLeft = (pid == 0);
+                for (int h = 0; h < trainers_[pid].heroCount(); h++) {
+                    uint8_t arch = trainers_[pid].heroAt(h).archetype();
+                    uint8_t tx, ty;
+                    // Simple positioning logic
+                    if (arch == ARCHETYPE_TANK)       { tx = isLeft ? 3 : 4; ty = 2 + h; }
+                    else if (arch == ARCHETYPE_MAGE)  { tx = isLeft ? 0 : 7; ty = 2 + h; }
+                    else if (arch == ARCHETYPE_SUPPORT){ tx = isLeft ? 1 : 6; ty = 2 + h; }
+                    else                              { tx = isLeft ? 2 : 5; ty = 2 + h; }
+                    trainers_[pid].placeHero(h, tx, ty, isLeft);
+                }
+                botPlaced_ = true;
+            }
+        } else {
+            botPlaced_ = false;
+        }
+
+        // Auto-ability during battle
+        if (phase_ == PHASE_BATTLE) {
+            if (trainers_[pid].canUseAbility()) {
+                trainers_[pid].useAbility();
+            }
+        }
+    }
+}
+
 void Game::handlePlaceHero(int pid, int heroIdx, uint8_t tx, uint8_t ty)
 {
     if (phase_ != PHASE_POSITIONING) return;
@@ -114,6 +181,8 @@ void Game::handleTarget(int pid, int heroIdx, int targetIdx)
 
 void Game::update(float dt)
 {
+    updateBot(dt);
+
     for (int i = 0; i < 2; i++) {
         for (int h = 0; h < trainers_[i].heroCount(); h++) {
             Hero& hero = trainers_[i].heroAt(h);
