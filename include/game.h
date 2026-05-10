@@ -3,6 +3,7 @@
 #include "protocol.h"
 #include "game_defs.h"
 #include "graph.h"
+#include "tournament_tree.h"
 #include <netinet/in.h>
 
 class Game {
@@ -46,6 +47,7 @@ private:
     int          buffZoneCount_;
     uint8_t      roundWinner_;
     uint8_t      matchWinner_;
+    int          roundNumber_;   // current round (1-based)
 
     // Selection state
     bool             selected_[2];
@@ -54,4 +56,7 @@ private:
 
     // Pathfinding graph (BFS on 8x8 grid)
     Graph graph_;
+
+    // Tournament tree for match history
+    TournamentTree tournament_;
 };

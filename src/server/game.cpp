@@ -17,7 +17,7 @@ struct Combatant {
 Game::Game()
     : connectedCount_(0), phase_(PHASE_WAITING), phaseTimer_(0.f),
       buffZoneCount_(0), roundWinner_(0xFF), matchWinner_(0xFF),
-      initialized_(false)
+      roundNumber_(0), initialized_(false), tournament_(WIN_SCORE)
 {
     selected_[0] = false;
     selected_[1] = false;
@@ -198,6 +198,7 @@ void Game::startPositioning()
     phase_ = PHASE_POSITIONING;
     phaseTimer_ = POSITIONING_TIME;
     roundWinner_ = 0xFF;
+    ++roundNumber_;
 
     for (int i = 0; i < 2; i++) {
         trainers_[i].resetForRound();
@@ -231,11 +232,15 @@ void Game::startBattle()
 void Game::endRound(uint8_t winner)
 {
     roundWinner_ = winner;
+    tournament_.recordRoundResult(roundNumber_, winner);
     if (winner != 0xFF) {
         trainers_[winner].addScore();
-        if (trainers_[winner].score() >= WIN_SCORE) {
-            matchWinner_ = winner;
+        uint8_t tw = tournament_.getMatchWinner();
+        if (tw != 0xFF) {
+            matchWinner_ = tw;
             phase_ = PHASE_MATCH_END;
+            printf("Match winner: Player %d!\n", tw);
+            tournament_.print();
             return;
         }
     }
