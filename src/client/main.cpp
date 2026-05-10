@@ -211,6 +211,12 @@ int main(int argc, char *argv[])
                     heroVis[i].pos.x += (target.x - heroVis[i].pos.x) * k;
                     heroVis[i].pos.y += (target.y - heroVis[i].pos.y) * k;
                 }
+                // Detect HP changes for floating text
+                if (heroVis[i].active && heroVis[i].prevHp != snap.heroes[i].hp) {
+                    int delta = (int)snap.heroes[i].hp - (int)heroVis[i].prevHp;
+                    Color c = (delta > 0) ? GREEN : RED;
+                    spawnFloatingText(heroVis[i].pos, delta, c);
+                }
                 heroVis[i].prevHp = snap.heroes[i].hp;
             }
 
@@ -310,6 +316,8 @@ int main(int argc, char *argv[])
                     if (!snap.heroes[i].alive) continue;
                     drawHero(snap.heroes[i], heroVis[i].pos, myId, (draggingHeroIdx == i));
                 }
+
+                updateAndDrawFloatingTexts(dt);
 
                 drawHUD(snap, myId);
                 drawOverlays(snap, myId);

@@ -56,3 +56,7 @@ void drawHero(const HeroNetState& hs, Vector2 pos, int myId, bool dragging);
 void drawHUD(const GameSnapshot& snap, int myId);
 void drawOverlays(const GameSnapshot& snap, int myId);
 void drawVSScreen(const GameSnapshot& snap, int myId);
+
+// ─── Floating damage/heal text ───────────────────────────────────────────────
+void spawnFloatingText(Vector2 pos, int value, Color color);
+void updateAndDrawFloatingTexts(float dt);

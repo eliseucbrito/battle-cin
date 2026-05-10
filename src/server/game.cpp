@@ -313,9 +313,37 @@ void Game::tickUltimates(float dt)
     }
 }
 
-void Game::resolveTimeLimit() { /* Similar to MVP, check total team HP % */ }
+void Game::resolveTimeLimit() {
+    float hpPct[2] = { 0.f, 0.f };
+    for (int i = 0; i < 2; i++) {
+        int totalHp = 0, totalMaxHp = 0;
+        for (int h = 0; h < trainers_[i].heroCount(); h++) {
+            const Hero& hero = trainers_[i].heroAt(h);
+            totalHp    += hero.hp();
+            totalMaxHp += hero.maxHp();
+        }
+        hpPct[i] = (totalMaxHp > 0) ? (float)totalHp / totalMaxHp : 0.f;
+    }
+    if      (hpPct[0] > hpPct[1]) endRound(0);
+    else if (hpPct[1] > hpPct[0]) endRound(1);
+    else                           endRound(0xFF);  // empate
+}
 
-void Game::generateBuffZones() { /* Same as original logic */ }
+void Game::generateBuffZones() {
+    buffZoneCount_ = 0;
+    int desired = 2 + (rand() % 2);  // 2 ou 3 zonas
+    for (int attempt = 0; attempt < 20 && buffZoneCount_ < desired; attempt++) {
+        uint8_t bx = (uint8_t)(2 + rand() % 4);   // cols 2-5
+        uint8_t by = (uint8_t)(rand() % GRID_ROWS);
+        bool dup = false;
+        for (int i = 0; i < buffZoneCount_; i++) {
+            if (buffZones_[i].x == bx && buffZones_[i].y == by) { dup = true; break; }
+        }
+        if (dup) continue;
+        uint8_t type = (uint8_t)(1 + rand() % 3);  // BUFF_AD, BUFF_HP ou BUFF_ARM
+        buffZones_[buffZoneCount_++] = { bx, by, type };
+    }
+}
 
 bool Game::isConnected(int pid) const { return trainers_[pid].isConnected(); }
 bool Game::playerMatchesAddr(int pid, const sockaddr_in& a) const { return trainers_[pid].matchesAddr(a); }

@@ -306,6 +306,44 @@ void unloadTextures() {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
+//  FLOATING DAMAGE/HEAL TEXT
+// ═════════════════════════════════════════════════════════════════════════════
+
+struct FloatingText {
+    Vector2 pos;
+    int     value;
+    float   timer;
+    float   maxTimer;
+    Color   color;
+};
+
+static std::vector<FloatingText> floatingTexts;
+
+void spawnFloatingText(Vector2 pos, int value, Color color) {
+    floatingTexts.push_back({ pos, value, 1.0f, 1.0f, color });
+}
+
+void updateAndDrawFloatingTexts(float dt) {
+    for (int i = (int)floatingTexts.size() - 1; i >= 0; i--) {
+        FloatingText& ft = floatingTexts[i];
+        ft.timer -= dt;
+        if (ft.timer <= 0.f) {
+            floatingTexts.erase(floatingTexts.begin() + i);
+            continue;
+        }
+        ft.pos.y -= 30.f * dt;  // sobe
+        float alpha = ft.timer / ft.maxTimer;
+        Color c = ft.color;
+        c.a = (unsigned char)(255.f * alpha);
+        char buf[16];
+        snprintf(buf, sizeof(buf), "%+d", ft.value);
+        int fontSize = 16;
+        int w = MeasureText(buf, fontSize);
+        DrawText(buf, (int)(ft.pos.x - w * 0.5f), (int)ft.pos.y, fontSize, c);
+    }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
 //  SELECTION SCREEN RENDERING
 // ═════════════════════════════════════════════════════════════════════════════
 
