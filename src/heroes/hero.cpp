@@ -64,6 +64,11 @@ void Hero::applyBuff(uint8_t type, float duration)
     }
     effects_.pushBack({ type, magnitude, duration, duration });
     recalcStats();
+    // HP buff grants immediate heal
+    if (type == BUFF_HP) {
+        hp_ += magnitude;
+        if (hp_ > maxHp_) hp_ = maxHp_;
+    }
     const char* names[] = { "none", "AD", "HP", "ARM" };
     printf("  Hero(owner=%d) received buff %s (+%d, %.0fs)\n", ownerId_,
            names[type < 4 ? type : 0], magnitude, duration);
@@ -84,23 +89,25 @@ void Hero::tickEffects(float dt)
 
 void Hero::recalcStats()
 {
-    // Start from base stats
+    // Start from base stats (preserve current hp_)
     StatProfile p = baseStats();
-    hp_       = hasCustomStats_ ? customHp_  : p.hp;
     maxHp_    = hasCustomStats_ ? customHp_  : p.hp;
     ad_       = hasCustomStats_ ? customAd_  : p.ad;
     arm_      = hasCustomStats_ ? customArm_ : p.arm;
     as_rate_  = p.as_rate;
     ms_delay_ = p.ms_delay;
 
-    // Apply all active effects
+    // Apply all active effects (only maxHp_ gets buff bonuses; hp_ stays intact)
     for (const auto& e : effects_) {
         switch (e.effectType) {
             case BUFF_AD:  ad_    += e.magnitude; break;
-            case BUFF_HP:  maxHp_ += e.magnitude; hp_ += e.magnitude; break;
+            case BUFF_HP:  maxHp_ += e.magnitude; break;
             case BUFF_ARM: arm_   += e.magnitude; break;
         }
     }
+
+    // Clamp current HP to new max (e.g. if a HP buff expired)
+    if (hp_ > maxHp_) hp_ = maxHp_;
 }
 
 int Hero::calculateDamage(const Hero& target) const

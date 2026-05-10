@@ -337,21 +337,33 @@ void Game::autoBattleMove()
             Hero& hero = trainers_[i].heroAt(h);
             if (!hero.alive() || hero.moveTimer() > 0.f) continue;
 
-            // Find nearest enemy
+            // Determine movement target: focused enemy first, then nearest
             Hero* target = nullptr;
-            float minDist = 1000.f;
-            
-            for (int eh = 0; eh < trainers_[1 - i].heroCount(); eh++) {
-                Hero& enemy = trainers_[1 - i].heroAt(eh);
-                if (!enemy.alive()) continue;
-                
-                float d = sqrtf(powf((float)hero.x() - enemy.x(), 2) + powf((float)hero.y() - enemy.y(), 2));
-                if (d < minDist) { minDist = d; target = &enemy; }
+            if (hero.targetFocus() >= 0) {
+                int tf = hero.targetFocus();
+                if (tf < trainers_[1 - i].heroCount()) {
+                    Hero& focused = trainers_[1 - i].heroAt(tf);
+                    if (focused.alive()) target = &focused;
+                }
+            }
+            if (!target) {
+                // Fallback: nearest enemy
+                float minDist = 1000.f;
+                for (int eh = 0; eh < trainers_[1 - i].heroCount(); eh++) {
+                    Hero& enemy = trainers_[1 - i].heroAt(eh);
+                    if (!enemy.alive()) continue;
+                    float d = sqrtf(powf((float)hero.x() - enemy.x(), 2) + powf((float)hero.y() - enemy.y(), 2));
+                    if (d < minDist) { minDist = d; target = &enemy; }
+                }
             }
 
             if (target && !hero.isAdjacentTo(*target)) {
-                // Unblock current hero's cell for pathfinding
-                blocked[hero.y()][hero.x()] = false;
+                uint8_t oldX = hero.x();
+                uint8_t oldY = hero.y();
+
+                // Unblock current hero's cell and target cell for pathfinding
+                blocked[oldY][oldX] = false;
+                blocked[target->y()][target->x()] = false;
 
                 int nx, ny;
                 if (graph_.findPath(hero.x(), hero.y(), target->x(), target->y(), blocked, nx, ny)) {
@@ -359,7 +371,9 @@ void Game::autoBattleMove()
                     hero.startMoveTimer();
                 }
 
-                blocked[hero.y()][hero.x()] = true;  // re-block
+                // Re-block original position and target
+                blocked[oldY][oldX] = true;
+                blocked[target->y()][target->x()] = true;
             }
         }
     }
@@ -393,6 +407,7 @@ void Game::runCombat()
     while (!pq.empty()) {
         Combatant c = pq.pop();
         Hero& hero = *c.hero;
+        if (!hero.alive()) continue;
         int i = c.team;
 
         Hero* target = nullptr;
