@@ -1,9 +1,18 @@
 #include "../../include/game.h"
 #include "../../include/hero_assassin.h"
 #include "../../include/hero_support.h"
+#include "../../include/priority_queue.h"
 #include <cstdio>
 #include <algorithm>
 #include <cmath>
+
+// Combatant for priority queue (file scope for operator> visibility)
+struct Combatant {
+    Hero* hero;
+    int   team;
+    float asRate;
+    bool operator>(const Combatant& other) const { return asRate > other.asRate; }
+};
 
 Game::Game()
     : connectedCount_(0), phase_(PHASE_WAITING), phaseTimer_(0.f),
@@ -284,38 +293,60 @@ void Game::autoBattleMove()
 
 void Game::runCombat()
 {
+    // Collect all heroes ready to attack
+    Combatant combatants[MAX_HEROES_TOTAL];
+    int combatantCount = 0;
+
     for (int i = 0; i < 2; i++) {
         for (int h = 0; h < trainers_[i].heroCount(); h++) {
             Hero& hero = trainers_[i].heroAt(h);
-            if (!hero.alive() || hero.attackTimer() > 0.f) continue;
-
-            Hero* target = nullptr;
-
-            // Try focused target first
-            if (hero.targetFocus() >= 0) {
-                int tf = hero.targetFocus();
-                if (tf < trainers_[1 - i].heroCount()) {
-                    Hero& focused = trainers_[1 - i].heroAt(tf);
-                    if (focused.alive() && hero.isAdjacentTo(focused))
-                        target = &focused;
-                    else
-                        hero.clearTargetFocus();
-                }
+            if (hero.alive() && hero.attackTimer() <= 0.f) {
+                combatants[combatantCount++] = { &hero, i, hero.asRate() };
             }
-
-            // Fallback: first adjacent enemy
-            if (!target) {
-                for (int eh = 0; eh < trainers_[1 - i].heroCount(); eh++) {
-                    Hero& enemy = trainers_[1 - i].heroAt(eh);
-                    if (enemy.alive() && hero.isAdjacentTo(enemy)) {
-                        target = &enemy;
-                        break;
-                    }
-                }
-            }
-
-            if (target) hero.attackTarget(*target);
         }
+    }
+
+    if (combatantCount == 0) return;
+
+    // Priority queue: higher attack speed attacks first (uses Combatant::operator>)
+    PriorityQueue<Combatant> pq;
+
+    for (int i = 0; i < combatantCount; i++) {
+        pq.push(combatants[i]);
+    }
+
+    // Process attacks in priority order
+    while (!pq.empty()) {
+        Combatant c = pq.pop();
+        Hero& hero = *c.hero;
+        int i = c.team;
+
+        Hero* target = nullptr;
+
+        // Try focused target first
+        if (hero.targetFocus() >= 0) {
+            int tf = hero.targetFocus();
+            if (tf < trainers_[1 - i].heroCount()) {
+                Hero& focused = trainers_[1 - i].heroAt(tf);
+                if (focused.alive() && hero.isAdjacentTo(focused))
+                    target = &focused;
+                else
+                    hero.clearTargetFocus();
+            }
+        }
+
+        // Fallback: first adjacent enemy
+        if (!target) {
+            for (int eh = 0; eh < trainers_[1 - i].heroCount(); eh++) {
+                Hero& enemy = trainers_[1 - i].heroAt(eh);
+                if (enemy.alive() && hero.isAdjacentTo(enemy)) {
+                    target = &enemy;
+                    break;
+                }
+            }
+        }
+
+        if (target) hero.attackTarget(*target);
     }
 }
 
