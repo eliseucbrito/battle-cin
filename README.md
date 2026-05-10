@@ -9,13 +9,20 @@ Este é um jogo auto-battle desenvolvido para a disciplina de **Estrutura de Dad
 - **Treinadores (Professores)**: Cada treinador gerencia uma equipe de heróis e possui uma habilidade especial manual (tecla Q).
 - **Ultimates Automáticos**: Heróis ativam seus poderes baseados em algoritmos probabilísticos e condições de batalha.
 - **Multiplayer UDP**: Sincronização em tempo real entre cliente e servidor.
+- **Histórico de Partidas**: Resultados salvos em banco de dados SQLite com ranking de treinadores.
 
 ## Requisitos
 
 - **C++17**
 - **CMake** (3.15+)
 - **Raylib**
+- **SQLite3**
 - **Conan** (opcional, para gerenciamento de dependências)
+
+> O SQLite3 é baixado automaticamente pelo Conan.
+> Se não estiver usando Conan, instale manualmente:
+> - macOS: `brew install sqlite`
+> - Ubuntu: `sudo apt install libsqlite3-dev`
 
 ## Como Rodar o Projeto
 
@@ -29,10 +36,9 @@ conan install . --output-folder=build --build=missing
 cd build
 cmake .. -G "Unix Makefiles" -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake -DCMAKE_POLICY_DEFAULT_CMP0091=NEW -DCMAKE_BUILD_TYPE=Release
 cmake --build .
-
 ```
 
-Ou instale a `raylib` no seu sistema e use o CMake padrão:
+Ou instale a `raylib` e o `sqlite3` no seu sistema e use o CMake padrão:
 
 ```bash
 mkdir build && cd build
@@ -47,6 +53,9 @@ O servidor deve ser iniciado primeiro:
 ```bash
 ./servidor
 ```
+
+> Na primeira execução, o banco de dados `battle_cin.db` será criado
+> automaticamente na pasta `build/` com os dados dos heróis.
 
 ### 3. Executar os Clientes
 
