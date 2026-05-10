@@ -237,6 +237,19 @@ void Game::endRound(uint8_t winner)
 void Game::autoBattleMove()
 {
     for (int i = 0; i < 2; i++) {
+        // Build obstacle map (blocked cells occupied by alive heroes)
+        bool blocked[GRID_ROWS][GRID_COLS];
+        for (int y = 0; y < GRID_ROWS; y++)
+            for (int x = 0; x < GRID_COLS; x++)
+                blocked[y][x] = false;
+
+        for (int t = 0; t < 2; t++) {
+            for (int h = 0; h < trainers_[t].heroCount(); h++) {
+                Hero& hero = trainers_[t].heroAt(h);
+                if (hero.alive()) blocked[hero.y()][hero.x()] = true;
+            }
+        }
+
         for (int h = 0; h < trainers_[i].heroCount(); h++) {
             Hero& hero = trainers_[i].heroAt(h);
             if (!hero.alive() || hero.moveTimer() > 0.f) continue;
@@ -254,21 +267,16 @@ void Game::autoBattleMove()
             }
 
             if (target && !hero.isAdjacentTo(*target)) {
+                // Unblock current hero's cell for pathfinding
+                blocked[hero.y()][hero.x()] = false;
+
                 int nx, ny;
-                if (hero.chooseMove(target->x(), target->y(), nx, ny)) {
-                    // Check if cell is occupied by ally
-                    bool occupied = false;
-                    for (int ah = 0; ah < trainers_[i].heroCount(); ah++) {
-                        if (ah == h) continue;
-                        if (trainers_[i].heroAt(ah).alive() && trainers_[i].heroAt(ah).x() == nx && trainers_[i].heroAt(ah).y() == ny) {
-                            occupied = true; break;
-                        }
-                    }
-                    if (!occupied) {
-                        hero.setPosition(nx, ny);
-                        hero.startMoveTimer();
-                    }
+                if (graph_.findPath(hero.x(), hero.y(), target->x(), target->y(), blocked, nx, ny)) {
+                    hero.setPosition(nx, ny);
+                    hero.startMoveTimer();
                 }
+
+                blocked[hero.y()][hero.x()] = true;  // re-block
             }
         }
     }
