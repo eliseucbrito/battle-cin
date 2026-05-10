@@ -104,11 +104,25 @@ int main(int argc, char *argv[])
     snap.matchWinner = 0xFF;
 
     // Visual interpolation state per hero (smooth movement)
-    struct HeroVis { Vector2 pos; uint16_t prevHp; bool active; };
+    struct HeroVis {
+        Vector2 pos;
+        uint16_t prevHp;
+        bool active;
+        bool prevAlive;
+        bool prevUltActive;
+    };
     HeroVis heroVis[MAX_HEROES_TOTAL];
-    for (int i = 0; i < MAX_HEROES_TOTAL; i++) heroVis[i].active = false;
+    for (int i = 0; i < MAX_HEROES_TOTAL; i++) {
+        heroVis[i].active = false;
+        heroVis[i].prevAlive = true;
+        heroVis[i].prevUltActive = false;
+    }
 
     int draggingHeroIdx = -1;
+
+    // Targeting state (during battle)
+    int  targetingHeroIdx = -1;    // hero being dragged for targeting
+    bool isTargeting      = false; // true while dragging targeting arrow
 
     // ── Game Loop ─────────────────────────────────────────────────────────────
     while (!WindowShouldClose()) {
@@ -217,7 +231,17 @@ int main(int argc, char *argv[])
                     Color c = (delta > 0) ? GREEN : RED;
                     spawnFloatingText(heroVis[i].pos, delta, c);
                 }
+                // Detect death transition
+                if (heroVis[i].active && heroVis[i].prevAlive && !snap.heroes[i].alive) {
+                    spawnDeathEffect(heroVis[i].pos);
+                }
+                // Detect ultimate activation
+                if (heroVis[i].active && !heroVis[i].prevUltActive && snap.heroes[i].ultActive) {
+                    spawnUltimateEffect(heroVis[i].pos);
+                }
                 heroVis[i].prevHp = snap.heroes[i].hp;
+                heroVis[i].prevAlive = snap.heroes[i].alive;
+                heroVis[i].prevUltActive = snap.heroes[i].ultActive;
             }
 
             // Drag & drop for deployment positioning
@@ -255,6 +279,79 @@ int main(int argc, char *argv[])
                                (sockaddr*)&serverAddr, sizeof(serverAddr));
                     }
                     draggingHeroIdx = -1;
+                }
+            }
+
+            // ── Targeting (during battle) ────────────────────────────────────
+            if (snap.phase == PHASE_BATTLE) {
+                Vector2 mouse = GetMousePosition();
+
+                if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+                    for (int i = 0; i < snap.heroCount; i++) {
+                        if (snap.heroes[i].ownerId == (uint8_t)myId && snap.heroes[i].alive) {
+                            float d = sqrtf(
+                                powf(mouse.x - heroVis[i].pos.x, 2) +
+                                powf(mouse.y - heroVis[i].pos.y, 2));
+                            if (d < CELLW * 0.4f) {
+                                targetingHeroIdx = i;
+                                isTargeting = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if (isTargeting && IsMouseButtonDown(MOUSE_LEFT_BUTTON)) {
+                    // Continue dragging - arrow is drawn in render
+                }
+
+                if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON) && isTargeting) {
+                    // Find which enemy we dropped on
+                    int localHeroIdx = -1;
+                    int myHeroCount = 0;
+                    for (int i = 0; i < snap.heroCount; i++) {
+                        if (snap.heroes[i].ownerId == (uint8_t)myId) {
+                            if (i == targetingHeroIdx) {
+                                localHeroIdx = myHeroCount;
+                                break;
+                            }
+                            myHeroCount++;
+                        }
+                    }
+
+                    if (localHeroIdx >= 0) {
+                        for (int i = 0; i < snap.heroCount; i++) {
+                            if (snap.heroes[i].ownerId == (uint8_t)myId) continue;
+                            if (!snap.heroes[i].alive) continue;
+
+                            float d = sqrtf(
+                                powf(mouse.x - heroVis[i].pos.x, 2) +
+                                powf(mouse.y - heroVis[i].pos.y, 2));
+                            if (d < CELLW * 0.5f) {
+                                // Check adjacency
+                                int dx = abs((int)snap.heroes[targetingHeroIdx].x - (int)snap.heroes[i].x);
+                                int dy = abs((int)snap.heroes[targetingHeroIdx].y - (int)snap.heroes[i].y);
+                                if (dx <= 1 && dy <= 1) {
+                                    // Convert global enemy index to local enemy index (0-2)
+                                    int localTargetIdx = 0;
+                                    for (int j = 0; j < i; j++) {
+                                        if (snap.heroes[j].ownerId != (uint8_t)myId)
+                                            localTargetIdx++;
+                                    }
+                                    TargetPacket tgt{};
+                                    tgt.playerId    = (uint8_t)myId;
+                                    tgt.type        = INPUT_TARGET;
+                                    tgt.heroIndex   = (uint8_t)localHeroIdx;
+                                    tgt.targetIndex = (uint8_t)localTargetIdx;
+                                    sendto(sock, &tgt, sizeof(tgt), 0,
+                                           (sockaddr*)&serverAddr, sizeof(serverAddr));
+                                }
+                                break;
+                            }
+                        }
+                    }
+                    targetingHeroIdx = -1;
+                    isTargeting = false;
                 }
             }
         }
@@ -317,7 +414,36 @@ int main(int argc, char *argv[])
                     drawHero(snap.heroes[i], heroVis[i].pos, myId, (draggingHeroIdx == i));
                 }
 
+                // Draw existing target focus arrows
+                for (int i = 0; i < snap.heroCount; i++) {
+                    if (!snap.heroes[i].alive) continue;
+                    if (snap.heroes[i].ownerId != (uint8_t)myId) continue;
+                    if (snap.heroes[i].targetFocus >= 0) {
+                        int tf = snap.heroes[i].targetFocus;
+                        // Find global index of focused enemy
+                        int enemyCount = 0;
+                        for (int j = 0; j < snap.heroCount; j++) {
+                            if (snap.heroes[j].ownerId != (uint8_t)myId) {
+                                if (enemyCount == tf && snap.heroes[j].alive) {
+                                    drawTargetArrow(heroVis[i].pos, heroVis[j].pos);
+                                    drawTargetHighlight(heroVis[j].pos, CELLW * 0.42f, RED);
+                                    break;
+                                }
+                                enemyCount++;
+                            }
+                        }
+                    }
+                }
+
+                // Draw targeting arrow being dragged
+                if (isTargeting && targetingHeroIdx >= 0) {
+                    Vector2 mouse = GetMousePosition();
+                    drawTargetArrow(heroVis[targetingHeroIdx].pos, mouse);
+                    drawAdjacentEnemyHighlights(snap, myId, targetingHeroIdx);
+                }
+
                 updateAndDrawFloatingTexts(dt);
+                updateAndDrawVisualEffects(dt);
 
                 drawHUD(snap, myId);
                 drawOverlays(snap, myId);

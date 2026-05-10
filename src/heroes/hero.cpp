@@ -19,7 +19,8 @@ Hero::Hero(uint8_t ownerId)
       ultCooldownTimer_(0.f), ultActiveTimer_(0.f),
       ultActive_(false), attackCount_(0),
       hasCustomStats_(false), customHp_(0), customAd_(0), customArm_(0),
-      ownerId_(ownerId), heroDefIndex_(0xFF)
+      ownerId_(ownerId), heroDefIndex_(0xFF),
+      targetFocus_(-1)
 {}
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -43,6 +44,7 @@ void Hero::resetStats()
     ultActiveTimer_   = 0.f;
     ultActive_  = false;
     attackCount_ = 0;
+    targetFocus_ = -1;
 }
 
 void Hero::setCustomStats(int hp, int ad, int arm)

@@ -53,6 +53,20 @@ int main()
                 if (!game.playerMatchesAddr(pid, clientAddr)) continue;
                 game.handleSelect(pid, sel);
             }
+            else if (received == (ssize_t)sizeof(TargetPacket)) {
+                // Target focus packet
+                TargetPacket tgt;
+                memcpy(&tgt, buf, sizeof(tgt));
+                int pid = tgt.playerId;
+                if (pid < 0 || pid > 1) continue;
+
+                if (!game.isConnected(pid))
+                    game.registerPlayer(pid, clientAddr);
+
+                if (!game.playerMatchesAddr(pid, clientAddr)) continue;
+
+                game.handleTarget(pid, tgt.heroIndex, (int)tgt.targetIndex);
+            }
             else if (received == (ssize_t)sizeof(InputPacket)) {
                 // Game input packet
                 InputPacket inp;

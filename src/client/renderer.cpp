@@ -344,6 +344,134 @@ void updateAndDrawFloatingTexts(float dt) {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
+//  VISUAL EFFECTS (death, ultimate)
+// ═════════════════════════════════════════════════════════════════════════════
+
+struct VisualEffect {
+    Vector2 pos;
+    float   timer;
+    float   maxTimer;
+    float   startRadius;
+    float   endRadius;
+    Color   color;
+    int     type;  // 0 = death, 1 = ultimate
+};
+
+static std::vector<VisualEffect> visualEffects;
+
+void spawnDeathEffect(Vector2 pos) {
+    visualEffects.push_back({
+        pos, 0.6f, 0.6f, 5.f, 45.f,
+        {200, 200, 220, 255}, 0
+    });
+}
+
+void spawnUltimateEffect(Vector2 pos) {
+    visualEffects.push_back({
+        pos, 0.4f, 0.4f, 10.f, 50.f,
+        {255, 215, 0, 255}, 1
+    });
+}
+
+void updateAndDrawVisualEffects(float dt) {
+    for (int i = (int)visualEffects.size() - 1; i >= 0; i--) {
+        VisualEffect& ve = visualEffects[i];
+        ve.timer -= dt;
+        if (ve.timer <= 0.f) {
+            visualEffects.erase(visualEffects.begin() + i);
+            continue;
+        }
+        float t = 1.f - (ve.timer / ve.maxTimer);  // 0 -> 1
+        float radius = ve.startRadius + (ve.endRadius - ve.startRadius) * t;
+        float alpha = 1.f - t;
+        Color c = ve.color;
+        c.a = (unsigned char)(255.f * alpha);
+
+        if (ve.type == 0) {
+            // Death: expanding ring
+            DrawCircleLinesV(ve.pos, radius, c);
+            DrawCircleLinesV(ve.pos, radius * 0.7f, c);
+        } else {
+            // Ultimate: expanding filled circle
+            Color fill = c; fill.a = (unsigned char)(80.f * alpha);
+            DrawCircleV(ve.pos, radius, fill);
+            DrawCircleLinesV(ve.pos, radius, c);
+            // Star burst lines
+            int rays = 8;
+            for (int r = 0; r < rays; r++) {
+                float angle = (float)r * (2.f * PI / rays) + t * PI;
+                Vector2 end = {
+                    ve.pos.x + cosf(angle) * radius * 1.3f,
+                    ve.pos.y + sinf(angle) * radius * 1.3f
+                };
+                DrawLineV(ve.pos, end, c);
+            }
+        }
+    }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  TARGETING ARROWS & HIGHLIGHTS
+// ═════════════════════════════════════════════════════════════════════════════
+
+void drawTargetArrow(Vector2 from, Vector2 to) {
+    Color c = {255, 50, 50, 200};
+    float thickness = 3.f;
+    DrawLineEx(from, to, thickness, c);
+
+    // Arrowhead
+    float dx = to.x - from.x;
+    float dy = to.y - from.y;
+    float len = sqrtf(dx * dx + dy * dy);
+    if (len < 1.f) return;
+
+    float nx = dx / len, ny = dy / len;
+    float headLen = 10.f;
+    float headAngle = 0.5f;
+
+    Vector2 tip1 = {
+        to.x - headLen * (nx * cosf(headAngle) - ny * sinf(headAngle)),
+        to.y - headLen * (nx * sinf(headAngle) + ny * cosf(headAngle))
+    };
+    Vector2 tip2 = {
+        to.x - headLen * (nx * cosf(-headAngle) - ny * sinf(-headAngle)),
+        to.y - headLen * (nx * sinf(-headAngle) + ny * cosf(-headAngle))
+    };
+    DrawTriangle(to, tip1, tip2, c);
+}
+
+void drawTargetHighlight(Vector2 pos, float radius, Color color) {
+    float t = (float)GetTime();
+    unsigned char alpha = (unsigned char)(150 + 105 * sinf(t * 6.f));
+    Color c = color; c.a = alpha;
+    DrawCircleLinesV(pos, radius + 5, c);
+    DrawCircleLinesV(pos, radius + 8, {c.r, c.g, c.b, (unsigned char)(alpha * 0.5f)});
+}
+
+void drawAdjacentEnemyHighlights(const GameSnapshot& snap, int myId, int heroIdx) {
+    if (heroIdx < 0 || heroIdx >= snap.heroCount) return;
+    const HeroNetState& hero = snap.heroes[heroIdx];
+    if (hero.ownerId != (uint8_t)myId || !hero.alive) return;
+
+    Vector2 heroPos = cellCenter(hero.x, hero.y);
+    float heroR = CELLW * 0.42f;
+
+    for (int i = 0; i < snap.heroCount; i++) {
+        if (snap.heroes[i].ownerId == (uint8_t)myId) continue;
+        if (!snap.heroes[i].alive) continue;
+
+        int dx = abs((int)hero.x - (int)snap.heroes[i].x);
+        int dy = abs((int)hero.y - (int)snap.heroes[i].y);
+        if (dx <= 1 && dy <= 1) {
+            Vector2 enemyPos = cellCenter(snap.heroes[i].x, snap.heroes[i].y);
+            float t = (float)GetTime();
+            unsigned char alpha = (unsigned char)(100 + 80 * sinf(t * 4.f));
+            DrawCircleLinesV(enemyPos, heroR + 4, {255, 80, 80, alpha});
+        }
+    }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
 //  SELECTION SCREEN RENDERING
 // ═════════════════════════════════════════════════════════════════════════════
 

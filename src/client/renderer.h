@@ -60,3 +60,13 @@ void drawVSScreen(const GameSnapshot& snap, int myId);
 // ─── Floating damage/heal text ───────────────────────────────────────────────
 void spawnFloatingText(Vector2 pos, int value, Color color);
 void updateAndDrawFloatingTexts(float dt);
+
+// ─── Visual effects (death, ultimate) ────────────────────────────────────────
+void spawnDeathEffect(Vector2 pos);
+void spawnUltimateEffect(Vector2 pos);
+void updateAndDrawVisualEffects(float dt);
+
+// ─── Targeting arrows ──────────────────────────────────────────────────────────
+void drawTargetArrow(Vector2 from, Vector2 to);
+void drawTargetHighlight(Vector2 pos, float radius, Color color);
+void drawAdjacentEnemyHighlights(const GameSnapshot& snap, int myId, int heroIdx);

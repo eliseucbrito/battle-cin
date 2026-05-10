@@ -12,6 +12,7 @@ public:
     void handlePlaceHero(int pid, int heroIdx, uint8_t tx, uint8_t ty);
     void handleUseAbility(int pid);
     void handleSelect(int pid, const SelectionPacket& sel);
+    void handleTarget(int pid, int heroIdx, int targetIdx);
     void initFromSelections();
 
     bool isInitialized() const { return initialized_; }

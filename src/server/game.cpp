@@ -80,6 +80,29 @@ void Game::handleUseAbility(int pid)
     trainers_[pid].useAbility();
 }
 
+void Game::handleTarget(int pid, int heroIdx, int targetIdx)
+{
+    if (phase_ != PHASE_BATTLE) return;
+    if (heroIdx < 0 || heroIdx >= trainers_[pid].heroCount()) return;
+
+    Hero& hero = trainers_[pid].heroAt(heroIdx);
+    if (!hero.alive()) return;
+
+    if (targetIdx < 0) {
+        hero.clearTargetFocus();
+        return;
+    }
+
+    if (targetIdx >= trainers_[1 - pid].heroCount()) return;
+    Hero& target = trainers_[1 - pid].heroAt(targetIdx);
+    if (!target.alive()) return;
+
+    // Only allow targeting adjacent enemies
+    if (!hero.isAdjacentTo(target)) return;
+
+    hero.setTargetFocus(targetIdx);
+}
+
 void Game::update(float dt)
 {
     for (int i = 0; i < 2; i++) {
@@ -145,7 +168,8 @@ void Game::buildSnapshot(GameSnapshot& snap) const
                     (uint16_t)hero.hp(), (uint16_t)hero.maxHp(),
                     (uint8_t)hero.ad(), (uint8_t)hero.arm(),
                     hero.archetype(), hero.heroDefIndex(), hero.buff(),
-                    (uint8_t)hero.alive(), (uint8_t)hero.ultActive(), (uint8_t)i
+                    (uint8_t)hero.alive(), (uint8_t)hero.ultActive(), (uint8_t)i,
+                    hero.targetFocus()
                 };
             }
         }
@@ -256,14 +280,32 @@ void Game::runCombat()
             Hero& hero = trainers_[i].heroAt(h);
             if (!hero.alive() || hero.attackTimer() > 0.f) continue;
 
-            // Find adjacent enemy
-            for (int eh = 0; eh < trainers_[1 - i].heroCount(); eh++) {
-                Hero& enemy = trainers_[1 - i].heroAt(eh);
-                if (enemy.alive() && hero.isAdjacentTo(enemy)) {
-                    hero.attackTarget(enemy);
-                    break; // one attack per tick
+            Hero* target = nullptr;
+
+            // Try focused target first
+            if (hero.targetFocus() >= 0) {
+                int tf = hero.targetFocus();
+                if (tf < trainers_[1 - i].heroCount()) {
+                    Hero& focused = trainers_[1 - i].heroAt(tf);
+                    if (focused.alive() && hero.isAdjacentTo(focused))
+                        target = &focused;
+                    else
+                        hero.clearTargetFocus();
                 }
             }
+
+            // Fallback: first adjacent enemy
+            if (!target) {
+                for (int eh = 0; eh < trainers_[1 - i].heroCount(); eh++) {
+                    Hero& enemy = trainers_[1 - i].heroAt(eh);
+                    if (enemy.alive() && hero.isAdjacentTo(enemy)) {
+                        target = &enemy;
+                        break;
+                    }
+                }
+            }
+
+            if (target) hero.attackTarget(*target);
         }
     }
 }

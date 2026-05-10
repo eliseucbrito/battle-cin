@@ -55,6 +55,9 @@ protected:
     // ── Identity ──────────────────────────────────────────────────────────
     uint8_t heroDefIndex_;     // index into HERO_DEFS[] (for client lookup)
 
+    // ── Target focus ──────────────────────────────────────────────────────
+    int8_t targetFocus_;       // enemy index to focus attack, -1 = no focus
+
 public:
     explicit Hero(uint8_t ownerId);
     virtual ~Hero() = default;
@@ -157,4 +160,9 @@ public:
     // ── Identity ──────────────────────────────────────────────────────────
     uint8_t heroDefIndex() const { return heroDefIndex_; }
     void setHeroDefIndex(uint8_t idx) { heroDefIndex_ = idx; }
+
+    // ── Target focus ──────────────────────────────────────────────────────
+    int8_t targetFocus() const { return targetFocus_; }
+    void setTargetFocus(int8_t idx) { targetFocus_ = idx; }
+    void clearTargetFocus() { targetFocus_ = -1; }
 };
