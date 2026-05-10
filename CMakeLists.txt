@@ -5,6 +5,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 find_package(raylib REQUIRED CONFIG)
 find_package(nlohmann_json REQUIRED CONFIG)
+find_package(SQLite3 REQUIRED CONFIG)
 
 include_directories(include)
 
@@ -32,9 +33,13 @@ target_link_libraries(meu_projeto raylib nlohmann_json::nlohmann_json)
 add_executable(servidor 
     src/server/main.cpp 
     src/server/game.cpp
+    src/database.cpp
     ${SHARED_SOURCES}
 )
-target_link_libraries(servidor nlohmann_json::nlohmann_json)
+target_link_libraries(servidor 
+nlohmann_json::nlohmann_json
+SQLite::SQLite3
+)
 
 # ── Assets ────────────────────────────────────────────────────────────────────
 add_custom_target(copy_assets ALL

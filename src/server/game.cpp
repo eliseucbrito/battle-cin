@@ -199,9 +199,26 @@ void Game::endRound(uint8_t winner)
     roundWinner_ = winner;
     if (winner != 0xFF) {
         trainers_[winner].addScore();
+
+        uint8_t loser = 1 - winner;
+        db_.saveMatch(
+            trainers_[winner].name(),
+            trainers_[loser].name(),
+            trainers_[winner].score(),
+            trainers_[loser].score()
+        );
+
         if (trainers_[winner].score() >= WIN_SCORE) {
             matchWinner_ = winner;
             phase_ = PHASE_MATCH_END;
+
+            printf("\n=== RANKING ===\n");
+            auto ranking = db_.getRanking();
+            for (const auto& r : ranking) {
+                printf("  %s — %d vitorias / %d derrotas\n",
+                       r.name.c_str(), r.wins, r.losses);
+            }
+            printf("===============\n\n");
             return;
         }
     }

@@ -2,6 +2,7 @@
 #include "trainer.h"
 #include "protocol.h"
 #include "game_defs.h"
+#include "database.h"
 #include <netinet/in.h>
 
 class Game {
@@ -49,4 +50,7 @@ private:
     bool             selected_[2];
     SelectionPacket  selections_[2];
     bool             initialized_;
+
+    Database db_;
+    
 };

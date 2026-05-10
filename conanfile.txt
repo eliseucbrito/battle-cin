@@ -1,6 +1,7 @@
 [requires]
 raylib/5.5
 nlohmann_json/3.11.3
+sqlite3/3.45.3
 
 [options]
 raylib/*:use_x11=False
