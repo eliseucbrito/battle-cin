@@ -38,10 +38,10 @@ enum class ClientPhase {
 // Here we keep lightweight display-only records for the selection UI.
 static const TrainerDef TRAINERS[] = {
     //  name              discipline             color               abilityType        abilityName     portraitPath
-    { "Prof. Paulo",   "Estrutura de Dados",  {80, 160, 230, 255}, ABILITY_RALLY,       "Rally (+AD)",   "assets/trainer0.png" },
-    { "Prof. Eliseu",  "Orient. a Objetos",   {230, 80, 130, 255}, ABILITY_SHIELD_WALL, "Shield (+ARM)", "assets/trainer1.png" },
-    { "Prof. Fabio",   "Computacao Grafica",  {80, 200, 130, 255}, ABILITY_FRENZY,      "Frenzy (+AS)",  "" },
-    { "Prof. Leila",   "Algoritmos",          {220, 180, 50, 255}, ABILITY_BATTLE_HEAL, "Heal (HP)",     "" },
+    { "Prof. Juliano",   "Introducao a Programacao", {0, 255, 255, 255}, ABILITY_RALLY,       "Rally (+AD)",   "assets/trainer0.png" },
+    { "Prof. Valeria",   "Banco de Dados",          {128, 0, 128, 255}, ABILITY_SHIELD_WALL, "Shield (+ARM)", "assets/trainer1.png" },
+    { "Prof. Francisco", "Estrutura de Dados",      {0, 255, 0, 255},   ABILITY_FRENZY,      "Frenzy (+AS)",  "" },
+    { "Prof. David",     "Redes de Computadores",   {255, 165, 0, 255}, ABILITY_BATTLE_HEAL, "Heal (HP)",    "" },
 };
 static constexpr int N_TRAINERS = 4;
 

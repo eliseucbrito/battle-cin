@@ -21,10 +21,10 @@ struct TrainerDefEntry {
 };
 
 static constexpr TrainerDefEntry TRAINER_DEFS[N_TRAINERS] = {
-    { "Prof. Paulo",   "Estrutura de Dados",   0, "assets/trainer0.png" },
-    { "Prof. Eliseu",  "Orient. a Objetos",    1, "assets/trainer1.png" },
-    { "Prof. Fabio",   "Computacao Grafica",   3, "" },
-    { "Prof. Leila",   "Algoritmos",           2, "" },
+    { "Prof. Juliano",   "Introducao a Programacao",   0, "" },  // Cyan
+    { "Prof. Valeria",   "Banco de Dados",             1, "" },  // Purple
+    { "Prof. Francisco", "Estrutura de Dados",         3, "" },  // Green
+    { "Prof. David",     "Redes de Computadores",      2, "" },  // Orange
 };
 
 // ── Hero Definitions ─────────────────────────────────────────────────────────
@@ -54,4 +54,16 @@ static constexpr HeroDefEntry HERO_DEFS[N_HEROES] = {
     { "O Inspetor Flaky",          3,          215, 30,  2, "assets/heroes/O_Inspetor_Flaky.png"        },
     { "O Treinador Python",        4,          250, 14,  8, "assets/heroes/O_Treinador_Python.png"      },
     { "O Filosofo do Dilema",      1,          270, 24, 12, "assets/heroes/O_Filosofo_do_Dilema.png"    },
+};
+
+// ── Trainer Colors (visual identity for each professor) ─────────────────────
+struct TrainerColor {
+    uint8_t r, g, b;
+};
+
+static constexpr TrainerColor TRAINER_COLORS[N_TRAINERS] = {
+    { 0,   255, 255 },  // Prof. Juliano   - Cyan
+    { 128, 0,   128 },  // Prof. Valeria   - Purple (Roxo)
+    { 0,   255, 0   },  // Prof. Francisco - Green
+    { 255, 165, 0   },  // Prof. David     - Orange
 };
