@@ -60,10 +60,10 @@ void drawBuffZones(const GameSnapshot& snap) {
 
 void drawPedestal(Vector2 ctr, int ownerId) {
     float rx = CELLW * 0.55f;
-    float ry = CELLH * 0.28f;
+    float ry = CELLH * 0.22f;
     Color fill = (ownerId == 0) ? Color{60, 120, 230, 120} : Color{230, 60, 60, 120};
     Color border = (ownerId == 0) ? Color{40, 90, 200, 180} : Color{200, 40, 40, 180};
-    float baseY = ctr.y + CELLH * 0.42f;
+    float baseY = ctr.y + CELLH * 0.32f;
     DrawEllipse((int)ctr.x, (int)baseY, rx, ry, fill);
     DrawEllipseLines((int)ctr.x, (int)baseY, rx, ry, border);
 }
@@ -75,42 +75,44 @@ void drawHero(const HeroNetState& hs, Vector2 ctr, int myId, bool dragging,
     Color pCol = kPlayerColor[hs.ownerId];
     if (dragging) pCol.a = 120;
 
+    // Shift hero draw position up so feet sit on the pedestal
+    float heroShift = -CELLH * 0.12f;
+    Vector2 heroCtr = { ctr.x, ctr.y + heroShift };
+
     // Draw hero sprite (no circle background, no scissoring)
     uint8_t texIdx = (hs.heroDefIndex < N_HEROES) ? hs.heroDefIndex : hs.archetype;
     Texture2D& tex = heroTextures[texIdx];
     if (tex.id != 0) {
-        float diameter = r * 2.0f;
-        float scaleX = diameter / tex.width;
-        float scaleY = diameter / tex.height;
-        float scale  = (scaleX < scaleY) ? scaleX : scaleY;
+        float wantedH = CELLH * 0.72f;
+        float scale = wantedH / tex.height;
         float sw = tex.width  * scale;
         float sh = tex.height * scale * breathScale;
 
         DrawTexturePro(
             tex,
             { 0, 0, (float)tex.width, (float)tex.height },
-            { ctr.x - sw * 0.5f, ctr.y - sh * 0.5f, sw, sh },
+            { heroCtr.x, heroCtr.y, sw, sh },
             { sw * 0.5f, sh * 0.5f }, tiltAngle * RAD2DEG, WHITE
         );
     } else {
         const char* archNames[] = {"TNK", "FGT", "MAG", "ASN", "SUP"};
-        DrawText(archNames[hs.archetype], (int)ctr.x - 12, (int)ctr.y - 6, 10, WHITE);
+        DrawText(archNames[hs.archetype], (int)heroCtr.x - 12, (int)heroCtr.y - 6, 10, WHITE);
     }
 
     // Thin colored border around hero area (team identification)
     Color rimColor = (hs.ownerId == (uint8_t)myId) ? WHITE : LIGHTGRAY;
-    DrawCircleLinesV(ctr, r, { rimColor.r, rimColor.g, rimColor.b, 90 });
-    DrawCircleLinesV(ctr, r - 1, { pCol.r, pCol.g, pCol.b, 90 });
+    DrawCircleLinesV(heroCtr, r, { rimColor.r, rimColor.g, rimColor.b, 90 });
+    DrawCircleLinesV(heroCtr, r - 1, { pCol.r, pCol.g, pCol.b, 90 });
 
     // Ultimate glow
     if (hs.ultActive) {
-        DrawCircleLinesV(ctr, r + 3, GOLD);
-        DrawCircleLinesV(ctr, r + 6, { 255, 215, 0, 120 });
+        DrawCircleLinesV(heroCtr, r + 3, GOLD);
+        DrawCircleLinesV(heroCtr, r + 6, { 255, 215, 0, 120 });
     }
 
     // HP bar above the hero
     float bw = CELLW * 0.85f, bh = 6.f;
-    float bx = ctr.x - bw * 0.5f, by = ctr.y - r - 14.f;
+    float bx = heroCtr.x - bw * 0.5f, by = heroCtr.y - r - 14.f;
     float pct = (hs.maxHp > 0) ? (float)hs.hp / hs.maxHp : 0.f;
     DrawRectangle((int)bx, (int)by, (int)bw, (int)bh, DARKGRAY);
     DrawRectangle((int)bx, (int)by, (int)(bw * pct), (int)bh,

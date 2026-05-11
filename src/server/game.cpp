@@ -369,10 +369,15 @@ void Game::autoBattleMove()
                 if (graph_.findPath(hero.x(), hero.y(), target->x(), target->y(), blocked, nx, ny)) {
                     hero.setPosition(nx, ny);
                     hero.startMoveTimer();
+                    // Update blocked: hero left oldX,oldY and now occupies nx,ny
+                    blocked[oldY][oldX] = false;
+                    blocked[ny][nx] = true;
+                } else {
+                    // Path not found: re-block old position
+                    blocked[oldY][oldX] = true;
                 }
 
-                // Re-block original position and target
-                blocked[oldY][oldX] = true;
+                // Re-block target cell
                 blocked[target->y()][target->x()] = true;
             }
         }
