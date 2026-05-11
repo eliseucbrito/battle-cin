@@ -3,10 +3,10 @@
 #include "../../include/hero_support.h"
 #include "../../include/priority_queue.h"
 #include <cstdio>
+#include <cstdlib>
 #include <algorithm>
 #include <cmath>
 
-// Combatant for priority queue (file scope for operator> visibility)
 struct Combatant {
     Hero* hero;
     int   team;
@@ -15,59 +15,67 @@ struct Combatant {
 };
 
 Game::Game()
-    : connectedCount_(0), phase_(PHASE_WAITING), phaseTimer_(0.f),
+    : connectedCount_(0), phase_(PHASE_SELECT), phaseTimer_(0.f),
       buffZoneCount_(0), roundWinner_(0xFF), matchWinner_(0xFF),
-      roundNumber_(0), initialized_(false), tournament_(WIN_SCORE)
+      roundNumber_(0), initialized_(false), tournament_(WIN_SCORE),
+      selectSubphase_(0), selectTimer_(SELECT_TRAINER_TIME)
 {
     selected_[0] = false;
     selected_[1] = false;
     isBot_[0] = false;
     isBot_[1] = false;
     botPlaced_ = false;
+    trainerLocked_[0] = false;
+    trainerLocked_[1] = false;
+    trainerChoice_[0] = 0;
+    trainerChoice_[1] = 0;
+    herosLocked_[0] = false;
+    herosLocked_[1] = false;
+    for (int p = 0; p < 2; p++)
+        for (int h = 0; h < 3; h++)
+            heroChoices_[p][h] = 0;
 }
 
-void Game::registerPlayer(int pid, const sockaddr_in& from)
+void Game::registerPlayerLocal(int pid)
 {
     if (pid < 0 || pid > 1) return;
-    trainers_[pid].setAddr(from);
+    trainers_[pid].setConnected(true);
     trainers_[pid].resetScore();
-
     ++connectedCount_;
-    printf("Player %d conectado! (%d/2)\n", pid, connectedCount_);
-
-    // Only start if both connected AND both selected AND not yet initialized
-    if (connectedCount_ == 2 && selected_[0] && selected_[1] && !initialized_)
-        initFromSelections();
+    printf("Player %d registrado localmente!\n", pid);
 }
 
-void Game::handleSelect(int pid, const SelectionPacket& sel)
+void Game::handleLocalTrainerLock(int pid, uint8_t trainerIdx)
 {
     if (pid < 0 || pid > 1) return;
-    if (selected_[pid]) return;  // already selected
+    if (trainerLocked_[pid]) return;
+    trainerLocked_[pid] = true;
+    trainerChoice_[pid] = trainerIdx;
+    printf("Player %d locked trainer %d\n", pid, trainerIdx);
+}
 
-    selections_[pid] = sel;
-    selected_[pid] = true;
-    printf("Player %d selected trainer %d with heroes [%d, %d, %d]\n",
-           pid, sel.trainerIndex, sel.heroIndices[0], sel.heroIndices[1], sel.heroIndices[2]);
-
-    if (connectedCount_ == 2 && selected_[0] && selected_[1] && !initialized_)
-        initFromSelections();
+void Game::handleLocalHeroPick(int pid, const uint8_t heroIndices[3])
+{
+    if (pid < 0 || pid > 1) return;
+    if (herosLocked_[pid]) return;
+    for (int h = 0; h < 3; h++)
+        heroChoices_[pid][h] = heroIndices[h];
+    herosLocked_[pid] = true;
+    printf("Player %d locked heroes [%d,%d,%d]\n",
+           pid, heroIndices[0], heroIndices[1], heroIndices[2]);
 }
 
 void Game::initFromSelections()
 {
-    // Save addresses before reassigning trainers
-    sockaddr_in savedAddrs[2] = { trainers_[0].addr(), trainers_[1].addr() };
-
     for (int i = 0; i < 2; i++) {
-        const SelectionPacket& sel = selections_[i];
-        const TrainerDefEntry& tDef = TRAINER_DEFS[sel.trainerIndex];
-        trainers_[i] = Trainer(tDef.name, tDef.discipline, i, sel.trainerIndex, tDef.abilityType);
-        trainers_[i].setAddr(savedAddrs[i]);  // restore address
+        uint8_t tIdx = trainerChoice_[i];
+        const TrainerDefEntry& tDef = TRAINER_DEFS[tIdx];
+        trainers_[i] = Trainer(tDef.name, tDef.discipline, i, tIdx, tDef.abilityType);
 
         for (int h = 0; h < 3; h++) {
-            const HeroDefEntry& hDef = HERO_DEFS[sel.heroIndices[h]];
-            trainers_[i].addHero(hDef.archetype, hDef.hp, hDef.ad, hDef.arm, sel.heroIndices[h]);
+            uint8_t hIdx = heroChoices_[i][h];
+            const HeroDefEntry& hDef = HERO_DEFS[hIdx];
+            trainers_[i].addHero(hDef.archetype, hDef.hp, hDef.ad, hDef.arm, hIdx);
         }
     }
 
@@ -80,30 +88,30 @@ void Game::initFromSelections()
 void Game::createBot(int pid)
 {
     if (pid < 0 || pid > 1) return;
-    if (selected_[pid]) return;
+    if (trainerLocked_[pid]) return;
 
-    // Random trainer
     int tIdx = rand() % N_TRAINERS;
-    // Random 3 heroes
     int hIdx[3];
-    for (int i = 0; i < 3; i++) {
-        hIdx[i] = rand() % N_HEROES;
+    std::vector<int> available;
+    for (int i = 0; i < N_HEROES; i++)
+        if (HERO_DEFS[i].trainerIndex == (uint8_t)tIdx)
+            available.push_back(i);
+    for (int s = (int)available.size() - 1; s > 0; s--) {
+        int r = rand() % (s + 1);
+        std::swap(available[s], available[r]);
     }
+    for (int i = 0; i < 3 && i < (int)available.size(); i++)
+        hIdx[i] = available[i];
 
-    selections_[pid].playerId = (uint8_t)pid;
-    selections_[pid].type = INPUT_SELECT;
-    selections_[pid].trainerIndex = (uint8_t)tIdx;
-    for (int i = 0; i < 3; i++) {
-        selections_[pid].heroIndices[i] = (uint8_t)hIdx[i];
-    }
-    selected_[pid] = true;
+    trainerLocked_[pid] = true;
+    trainerChoice_[pid] = (uint8_t)tIdx;
+    for (int i = 0; i < 3; i++)
+        heroChoices_[pid][i] = (uint8_t)hIdx[i];
+    herosLocked_[pid] = true;
     isBot_[pid] = true;
 
     printf("Bot created for Player %d (trainer=%d, heroes=%d,%d,%d)\n",
            pid, tIdx, hIdx[0], hIdx[1], hIdx[2]);
-
-    if (connectedCount_ >= 1 && selected_[0] && selected_[1] && !initialized_)
-        initFromSelections();
 }
 
 void Game::updateBot(float dt)
@@ -112,14 +120,12 @@ void Game::updateBot(float dt)
     for (int pid = 0; pid < 2; pid++) {
         if (!isBot_[pid]) continue;
 
-        // Auto-positioning
         if (phase_ == PHASE_POSITIONING) {
             if (!botPlaced_) {
                 bool isLeft = (pid == 0);
                 for (int h = 0; h < trainers_[pid].heroCount(); h++) {
                     uint8_t arch = trainers_[pid].heroAt(h).archetype();
                     uint8_t tx, ty;
-                    // Simple positioning logic
                     if (arch == ARCHETYPE_TANK)       { tx = isLeft ? 3 : 4; ty = 2 + h; }
                     else if (arch == ARCHETYPE_MAGE)  { tx = isLeft ? 0 : 7; ty = 2 + h; }
                     else if (arch == ARCHETYPE_SUPPORT){ tx = isLeft ? 1 : 6; ty = 2 + h; }
@@ -132,7 +138,6 @@ void Game::updateBot(float dt)
             botPlaced_ = false;
         }
 
-        // Auto-ability during battle
         if (phase_ == PHASE_BATTLE) {
             if (trainers_[pid].canUseAbility()) {
                 trainers_[pid].useAbility();
@@ -141,13 +146,13 @@ void Game::updateBot(float dt)
     }
 }
 
-void Game::handlePlaceHero(int pid, int heroIdx, uint8_t tx, uint8_t ty)
+bool Game::handlePlaceHero(int pid, int heroIdx, uint8_t tx, uint8_t ty)
 {
-    if (phase_ != PHASE_POSITIONING) return;
-    if (tx >= GRID_COLS || ty >= GRID_ROWS) return;
-    
+    if (phase_ != PHASE_POSITIONING) return false;
+    if (tx >= GRID_COLS || ty >= GRID_ROWS) return false;
+
     bool isLeft = (pid == 0);
-    trainers_[pid].placeHero(heroIdx, tx, ty, isLeft);
+    return trainers_[pid].placeHero(heroIdx, tx, ty, isLeft);
 }
 
 void Game::handleUseAbility(int pid)
@@ -173,10 +178,26 @@ void Game::handleTarget(int pid, int heroIdx, int targetIdx)
     Hero& target = trainers_[1 - pid].heroAt(targetIdx);
     if (!target.alive()) return;
 
-    // Only allow targeting adjacent enemies
     if (!hero.isAdjacentTo(target)) return;
 
     hero.setTargetFocus(targetIdx);
+}
+
+void Game::autoPickHeroes(int pid)
+{
+    if (herosLocked_[pid]) return;
+    uint8_t tIdx = trainerChoice_[pid];
+    std::vector<int> available;
+    for (int i = 0; i < N_HEROES; i++)
+        if (HERO_DEFS[i].trainerIndex == tIdx)
+            available.push_back(i);
+    for (int s = (int)available.size() - 1; s > 0; s--) {
+        int r = rand() % (s + 1);
+        std::swap(available[s], available[r]);
+    }
+    for (int h = 0; h < 3 && h < (int)available.size(); h++)
+        heroChoices_[pid][h] = (uint8_t)available[h];
+    herosLocked_[pid] = true;
 }
 
 void Game::update(float dt)
@@ -194,6 +215,24 @@ void Game::update(float dt)
     }
 
     switch (phase_) {
+        case PHASE_SELECT:
+            selectTimer_ -= dt;
+            if (selectSubphase_ == 0) {
+                if (selectTimer_ <= 0.f || (trainerLocked_[0] && trainerLocked_[1])) {
+                    for (int i = 0; i < 2; i++)
+                        if (!trainerLocked_[i]) trainerChoice_[i] = rand() % N_TRAINERS;
+                    selectSubphase_ = 1;
+                    selectTimer_ = SELECT_HERO_TIME;
+                }
+            } else {
+                if (selectTimer_ <= 0.f || (herosLocked_[0] && herosLocked_[1])) {
+                    for (int i = 0; i < 2; i++)
+                        if (!herosLocked_[i]) autoPickHeroes(i);
+                    initFromSelections();
+                }
+            }
+            break;
+
         case PHASE_POSITIONING:
             phaseTimer_ -= dt;
             if (phaseTimer_ <= 0.f) startBattle();
@@ -232,6 +271,26 @@ void Game::buildSnapshot(GameSnapshot& snap) const
     snap.roundWinner = roundWinner_;
     snap.matchWinner = matchWinner_;
 
+    snap.selectSubphase = selectSubphase_;
+    snap.selectTimer = selectTimer_;
+    for (int i = 0; i < 2; i++) {
+        snap.trainerLocked[i] = trainerLocked_[i] ? 1 : 0;
+        snap.trainerChoice[i] = trainerChoice_[i];
+        snap.herosLocked[i] = herosLocked_[i] ? 1 : 0;
+        for (int h = 0; h < 3; h++)
+            snap.heroPicks[i][h] = heroChoices_[i][h];
+    }
+
+    if (!initialized_) {
+        snap.heroCount = 0;
+        for (int i = 0; i < 2; i++)
+            snap.trainers[i] = {0, 0, 0, 0};
+        snap.buffZoneCount = 0;
+        for (int i = 0; i < 4; i++)
+            snap.buffZones[i] = {0xFF, 0xFF, BUFF_NONE};
+        return;
+    }
+
     int totalHeroes = 0;
     for (int i = 0; i < 2; i++) {
         const Trainer& t = trainers_[i];
@@ -260,8 +319,6 @@ void Game::buildSnapshot(GameSnapshot& snap) const
     }
 }
 
-// ── Private logic ─────────────────────────────────────────────────────────────
-
 void Game::startPositioning()
 {
     phase_ = PHASE_POSITIONING;
@@ -271,7 +328,6 @@ void Game::startPositioning()
 
     for (int i = 0; i < 2; i++) {
         trainers_[i].resetForRound();
-        // Default positions (horizontal)
         for (int h = 0; h < trainers_[i].heroCount(); h++) {
             trainers_[i].heroAt(h).setPosition(i == 0 ? 1 : 6, 2 + h);
         }
@@ -284,13 +340,12 @@ void Game::startBattle()
     phase_ = PHASE_BATTLE;
     phaseTimer_ = BATTLE_MAX_TIME;
 
-    // Apply buffs from zones
     for (int i = 0; i < 2; i++) {
         for (int h = 0; h < trainers_[i].heroCount(); h++) {
             Hero& hero = trainers_[i].heroAt(h);
             for (int b = 0; b < buffZoneCount_; b++) {
                 if (hero.x() == buffZones_[b].x && hero.y() == buffZones_[b].y) {
-                    hero.applyBuff(buffZones_[b].type, 30.f);  // 30s duration
+                    hero.applyBuff(buffZones_[b].type, 30.f);
                     break;
                 }
             }
@@ -304,7 +359,7 @@ void Game::endRound(uint8_t winner)
     tournament_.recordRoundResult(roundNumber_, winner);
     if (winner != 0xFF) {
         trainers_[winner].addScore();
-uint8_t loser = 1 - winner;
+        uint8_t loser = 1 - winner;
         db_.saveMatch(
             trainers_[winner].name(),
             trainers_[loser].name(),
@@ -337,7 +392,6 @@ uint8_t loser = 1 - winner;
 void Game::autoBattleMove()
 {
     for (int i = 0; i < 2; i++) {
-        // Build obstacle map (blocked cells occupied by alive heroes)
         bool blocked[GRID_ROWS][GRID_COLS];
         for (int y = 0; y < GRID_ROWS; y++)
             for (int x = 0; x < GRID_COLS; x++)
@@ -354,7 +408,6 @@ void Game::autoBattleMove()
             Hero& hero = trainers_[i].heroAt(h);
             if (!hero.alive() || hero.moveTimer() > 0.f) continue;
 
-            // Determine movement target: focused enemy first, then nearest
             Hero* target = nullptr;
             if (hero.targetFocus() >= 0) {
                 int tf = hero.targetFocus();
@@ -364,7 +417,6 @@ void Game::autoBattleMove()
                 }
             }
             if (!target) {
-                // Fallback: nearest enemy
                 float minDist = 1000.f;
                 for (int eh = 0; eh < trainers_[1 - i].heroCount(); eh++) {
                     Hero& enemy = trainers_[1 - i].heroAt(eh);
@@ -378,7 +430,6 @@ void Game::autoBattleMove()
                 uint8_t oldX = hero.x();
                 uint8_t oldY = hero.y();
 
-                // Unblock current hero's cell and target cell for pathfinding
                 blocked[oldY][oldX] = false;
                 blocked[target->y()][target->x()] = false;
 
@@ -386,15 +437,12 @@ void Game::autoBattleMove()
                 if (graph_.findPath(hero.x(), hero.y(), target->x(), target->y(), blocked, nx, ny)) {
                     hero.setPosition(nx, ny);
                     hero.startMoveTimer();
-                    // Update blocked: hero left oldX,oldY and now occupies nx,ny
                     blocked[oldY][oldX] = false;
                     blocked[ny][nx] = true;
                 } else {
-                    // Path not found: re-block old position
                     blocked[oldY][oldX] = true;
                 }
 
-                // Re-block target cell
                 blocked[target->y()][target->x()] = true;
             }
         }
@@ -403,7 +451,6 @@ void Game::autoBattleMove()
 
 void Game::runCombat()
 {
-    // Collect all heroes ready to attack
     Combatant combatants[MAX_HEROES_TOTAL];
     int combatantCount = 0;
 
@@ -418,14 +465,12 @@ void Game::runCombat()
 
     if (combatantCount == 0) return;
 
-    // Priority queue: higher attack speed attacks first (uses Combatant::operator>)
     PriorityQueue<Combatant> pq;
 
     for (int i = 0; i < combatantCount; i++) {
         pq.push(combatants[i]);
     }
 
-    // Process attacks in priority order
     while (!pq.empty()) {
         Combatant c = pq.pop();
         Hero& hero = *c.hero;
@@ -434,7 +479,6 @@ void Game::runCombat()
 
         Hero* target = nullptr;
 
-        // Try focused target first
         if (hero.targetFocus() >= 0) {
             int tf = hero.targetFocus();
             if (tf < trainers_[1 - i].heroCount()) {
@@ -446,7 +490,6 @@ void Game::runCombat()
             }
         }
 
-        // Fallback: first adjacent enemy
         if (!target) {
             for (int eh = 0; eh < trainers_[1 - i].heroCount(); eh++) {
                 Hero& enemy = trainers_[1 - i].heroAt(eh);
@@ -468,7 +511,6 @@ void Game::tickUltimates(float dt)
             Hero& hero = trainers_[i].heroAt(h);
             if (!hero.alive() || !hero.ultReady()) continue;
 
-            // Provide context for special ultimates
             if (hero.archetype() == ARCHETYPE_SUPPORT) {
                 bool lowHp = false;
                 for (int ah = 0; ah < trainers_[i].heroCount(); ah++) {
@@ -488,9 +530,7 @@ void Game::tickUltimates(float dt)
             }
 
             if (hero.shouldTriggerUltimate()) {
-                // Probabilistic gate
                 if ((float)rand() / RAND_MAX < hero.ultimateProbabilityPerTick()) {
-                    // Gather lists for activateUltimate
                     Hero* allies[MAX_HEROES_SIDE];
                     int allyCount = 0;
                     for (int ah = 0; ah < trainers_[i].heroCount(); ah++) allies[allyCount++] = &trainers_[i].heroAt(ah);
@@ -519,25 +559,21 @@ void Game::resolveTimeLimit() {
     }
     if      (hpPct[0] > hpPct[1]) endRound(0);
     else if (hpPct[1] > hpPct[0]) endRound(1);
-    else                           endRound(0xFF);  // empate
+    else                           endRound(0xFF);
 }
 
 void Game::generateBuffZones() {
     buffZoneCount_ = 0;
-    int desired = 2 + (rand() % 2);  // 2 ou 3 zonas
+    int desired = 2 + (rand() % 2);
     for (int attempt = 0; attempt < 20 && buffZoneCount_ < desired; attempt++) {
-        uint8_t bx = (uint8_t)(2 + rand() % 4);   // cols 2-5
+        uint8_t bx = (uint8_t)(2 + rand() % 4);
         uint8_t by = (uint8_t)(rand() % GRID_ROWS);
         bool dup = false;
         for (int i = 0; i < buffZoneCount_; i++) {
             if (buffZones_[i].x == bx && buffZones_[i].y == by) { dup = true; break; }
         }
         if (dup) continue;
-        uint8_t type = (uint8_t)(1 + rand() % 3);  // BUFF_AD, BUFF_HP ou BUFF_ARM
+        uint8_t type = (uint8_t)(1 + rand() % 3);
         buffZones_[buffZoneCount_++] = { bx, by, type };
     }
 }
-
-bool Game::isConnected(int pid) const { return trainers_[pid].isConnected(); }
-bool Game::playerMatchesAddr(int pid, const sockaddr_in& a) const { return trainers_[pid].matchesAddr(a); }
-const sockaddr_in& Game::playerAddr(int pid) const { return trainers_[pid].addr(); }

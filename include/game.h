@@ -5,17 +5,17 @@
 #include "database.h"
 #include "graph.h"
 #include "tournament_tree.h"
-#include <netinet/in.h>
 
 class Game {
 public:
     Game();
 
-    void registerPlayer(int pid, const sockaddr_in& from);
-    void handlePlaceHero(int pid, int heroIdx, uint8_t tx, uint8_t ty);
+    void registerPlayerLocal(int pid);
+    bool handlePlaceHero(int pid, int heroIdx, uint8_t tx, uint8_t ty);
     void handleUseAbility(int pid);
-    void handleSelect(int pid, const SelectionPacket& sel);
     void handleTarget(int pid, int heroIdx, int targetIdx);
+    void handleLocalTrainerLock(int pid, uint8_t trainerIdx);
+    void handleLocalHeroPick(int pid, const uint8_t heroIndices[3]);
     void initFromSelections();
 
     bool isInitialized() const { return initialized_; }
@@ -27,10 +27,6 @@ public:
     void update(float dt);
     void buildSnapshot(GameSnapshot& snap) const;
 
-    bool isConnected(int pid) const;
-    bool playerMatchesAddr(int pid, const sockaddr_in& a) const;
-    const sockaddr_in& playerAddr(int pid) const;
-
 private:
     void startPositioning();
     void startBattle();
@@ -40,8 +36,8 @@ private:
     void runCombat();
     void resolveTimeLimit();
     void generateBuffZones();
-
     void tickUltimates(float dt);
+    void autoPickHeroes(int pid);
 
     Trainer trainers_[2];
     int     connectedCount_;
@@ -52,20 +48,26 @@ private:
     int          buffZoneCount_;
     uint8_t      roundWinner_;
     uint8_t      matchWinner_;
-    int          roundNumber_;   // current round (1-based)
+    int          roundNumber_;
 
     // Selection state
     bool             selected_[2];
     SelectionPacket  selections_[2];
     bool             initialized_;
-Database db_;
+    Database db_;
 
     bool             isBot_[2];
     bool             botPlaced_;
 
-    // Pathfinding graph (BFS on 8x8 grid)
     Graph graph_;
 
-    // Tournament tree for match history
     TournamentTree tournament_;
+
+    // PHASE_SELECT state
+    uint8_t  selectSubphase_;
+    float    selectTimer_;
+    bool     trainerLocked_[2];
+    uint8_t  trainerChoice_[2];
+    bool     herosLocked_[2];
+    uint8_t  heroChoices_[2][3];
 };

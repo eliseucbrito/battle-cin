@@ -65,10 +65,8 @@ bool Trainer::placeHero(int heroIndex, uint8_t x, uint8_t y, bool isLeft)
 {
     if (heroIndex < 0 || heroIndex >= (int)heroes_.size()) return false;
     
-    // Validate deployment zone using polymorphism
     if (!heroes_[heroIndex]->canDeployAt(x, isLeft)) return false;
     
-    // Additional check for Assassin (flank rows in horizontal layout)
     if (heroes_[heroIndex]->archetype() == ARCHETYPE_ASSASSIN) {
         if (y > 1 && y < 6) return false;
     }
@@ -85,9 +83,8 @@ void Trainer::useAbility()
     applyAbilityEffect();
     abilityUsed_ = true;
     
-    // Some abilities have duration (Rally, Shield Wall, Frenzy)
     if (abilityType_ != ABILITY_BATTLE_HEAL) {
-        abilityActiveTimer_ = 5.0f; // default 5s duration
+        abilityActiveTimer_ = 5.0f;
     }
 }
 
@@ -118,9 +115,6 @@ void Trainer::tickAbility(float dt)
     if (abilityActiveTimer_ > 0.f) {
         abilityActiveTimer_ -= dt;
         if (abilityActiveTimer_ <= 0.f) {
-            // Restore stats (simple way: just reset to base + buffs)
-            // A more complex system would track modifiers, but for EDOO 
-            // we'll keep it simple: the effect ends and stats are recalculated.
             for (auto& h : heroes_) {
                 if (h->alive()) {
                     int currentBuff = h->buff();
@@ -130,10 +124,4 @@ void Trainer::tickAbility(float dt)
             }
         }
     }
-}
-
-bool Trainer::matchesAddr(const sockaddr_in& a) const
-{
-    return addr_.sin_addr.s_addr == a.sin_addr.s_addr &&
-           addr_.sin_port == a.sin_port;
 }

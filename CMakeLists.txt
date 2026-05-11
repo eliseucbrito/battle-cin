@@ -9,7 +9,6 @@ find_package(SQLite3 REQUIRED CONFIG)
 
 include_directories(include)
 
-# ── Shared Source ─────────────────────────────────────────────────────────────
 set(SHARED_SOURCES
     src/heroes/hero.cpp
     src/heroes/hero_tank.cpp
@@ -22,31 +21,22 @@ set(SHARED_SOURCES
     src/tournament_tree.cpp
 )
 
-# ── Client ────────────────────────────────────────────────────────────────────
-add_executable(meu_projeto 
-    src/client/main.cpp 
+add_executable(meu_projeto
+    src/client/main.cpp
     src/client/renderer.cpp
-    ${SHARED_SOURCES}
-)
-target_link_libraries(meu_projeto raylib nlohmann_json::nlohmann_json)
-
-# ── Server ────────────────────────────────────────────────────────────────────
-add_executable(servidor 
-    src/server/main.cpp 
     src/server/game.cpp
     src/database.cpp
     ${SHARED_SOURCES}
 )
-target_link_libraries(servidor 
-nlohmann_json::nlohmann_json
-SQLite::SQLite3
+target_link_libraries(meu_projeto
+    raylib
+    nlohmann_json::nlohmann_json
+    SQLite::SQLite3
 )
 
-# ── Assets ────────────────────────────────────────────────────────────────────
 add_custom_target(copy_assets ALL
     COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/assets
     COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/assets ${CMAKE_BINARY_DIR}/assets
     COMMENT "Copiando assets para build/assets/"
 )
 add_dependencies(meu_projeto copy_assets)
-add_dependencies(servidor copy_assets)

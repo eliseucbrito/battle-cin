@@ -1,109 +1,82 @@
-// Battle-CIn — Client Entry Point
-// OOP Disciplines: Herança, Polimorfismo, Encapsulamento, Smart Pointers
-//
-// ClientPhase state machine:
-//   TRAINER_SELECT → HERO_SELECT → PLAYING (UDP networking loop)
-//
-// The selection phases are purely local (no server connection needed).
-// After selection, the client connects to the authoritative server and enters
-// the existing networking loop using the existing protocol and renderer.
-
 #include "raylib.h"
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <fcntl.h>
-#include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
+#include <string.h>
+#include <time.h>
 #include <math.h>
 #include <vector>
 #include <algorithm>
 
 #include "../../include/protocol.h"
+#include "../../include/game.h"
 #include "renderer.h"
 
-// ─── Client-side State Machine ───────────────────────────────────────────────
-// Separate from PHASE_* in protocol.h (those are server-side battle phases).
-// This enum class controls the CLIENT UI flow, which happens before networking.
-enum class ClientPhase {
-    TRAINER_SELECT,   // Local: player picks one of N trainers
-    HERO_SELECT,      // Local: player picks 3 heroes from the pool
-    PLAYING           // Networked: existing authoritative server loop
-};
-
-// ─── Trainer display data (client-side only) ─────────────────────────────────
-// Full Trainer OOP objects live on the server (src/server/game.cpp).
-// Here we keep lightweight display-only records for the selection UI.
+// ─── Client-side Trainer display data ────────────────────────────────────────
+static const int N_TRAINERS_LOCAL = 2;
 static const TrainerDef TRAINERS[] = {
-    //  name              discipline             color               abilityType        abilityName     portraitPath
     { "Prof. Paulo",   "Estrutura de Dados",  {80, 160, 230, 255}, ABILITY_RALLY,       "Rally (+AD)",   "assets/trainer0.png" },
     { "Prof. Eliseu",  "Orient. a Objetos",   {230, 80, 130, 255}, ABILITY_SHIELD_WALL, "Shield (+ARM)", "assets/trainer1.png" },
-    { "Prof. Fabio",   "Computacao Grafica",  {80, 200, 130, 255}, ABILITY_FRENZY,      "Frenzy (+AS)",  "" },
-    { "Prof. Leila",   "Algoritmos",          {220, 180, 50, 255}, ABILITY_BATTLE_HEAL, "Heal (HP)",     "" },
 };
-static constexpr int N_TRAINERS = 4;
 
-// ─── Hero pool display data (client-side only) ────────────────────────────────
-// Actual polymorphic Hero objects (TankHero, MageHero, etc.) are created by
-// HeroFactory on the server. These records are just for rendering the grid.
+static const int N_HEROES_LOCAL = 10;
 static const HeroDef HEROES[] = {
-    // name                        archetype          className    hp   ad  arm  assetPath
-    { "O Construto de Busca",    ARCHETYPE_TANK,     "Tank",     350, 15, 18,  "assets/heroes/O_Construto_de_Busca.png"    },
-    { "O Guardiao dos Discos",   ARCHETYPE_FIGHTER,  "Fighter",  280, 22, 10,  "assets/heroes/O_Guardiao_dos_Discos.png"   },
-    { "O Mestre Parser",         ARCHETYPE_MAGE,     "Mage",     200, 35,  5,  "assets/heroes/O_Mestre_Parser.png"         },
-    { "O Cientista Polarizado",  ARCHETYPE_ASSASSIN, "Assassin", 220, 32,  3,  "assets/heroes/O_Cientista_Polarizado.png"  },
-    { "O Chip-Mestre",           ARCHETYPE_SUPPORT,  "Support",  240, 12, 10,  "assets/heroes/O_Chip-Mestre.png"           },
-    { "A Burocrata do UML",      ARCHETYPE_TANK,     "Tank",     360, 13, 20,  "assets/heroes/A_Burocrata_do_UML.png"      },
-    { "O Artista Vectorial",     ARCHETYPE_MAGE,     "Mage",     190, 38,  4,  "assets/heroes/O_Artista_Vectorial.png"     },
-    { "O Inspetor Flaky",        ARCHETYPE_ASSASSIN, "Assassin", 215, 30,  2,  "assets/heroes/O_Inspetor_Flaky.png"        },
-    { "O Treinador Python",      ARCHETYPE_SUPPORT,  "Support",  250, 14,  8,  "assets/heroes/O_Treinador_Python.png"      },
-    { "O Filosofo do Dilema",    ARCHETYPE_FIGHTER,  "Fighter",  270, 24, 12,  "assets/heroes/O_Filosofo_do_Dilema.png"    },
+    { "O Construto de Busca",     ARCHETYPE_TANK,     0, "Tank",     350, 15, 18, "assets/heroes/O_Construto_de_Busca.png"    },
+    { "O Guardiao dos Discos",    ARCHETYPE_FIGHTER,  0, "Fighter",  280, 22, 10, "assets/heroes/O_Guardiao_dos_Discos.png"   },
+    { "O Mestre Parser",          ARCHETYPE_MAGE,     0, "Mage",     200, 35,  5, "assets/heroes/O_Mestre_Parser.png"         },
+    { "O Cientista Polarizado",   ARCHETYPE_ASSASSIN, 0, "Assassin", 220, 32,  3, "assets/heroes/O_Cientista_Polarizado.png"  },
+    { "O Chip-Mestre",            ARCHETYPE_SUPPORT,  0, "Support",  240, 12, 10, "assets/heroes/O_Chip-Mestre.png"           },
+    { "A Burocrata do UML",       ARCHETYPE_TANK,     1, "Tank",     360, 13, 20, "assets/heroes/A_Burocrata_do_UML.png"      },
+    { "O Filosofo do Dilema",     ARCHETYPE_FIGHTER,  1, "Fighter",  270, 24, 12, "assets/heroes/O_Filosofo_do_Dilema.png"    },
+    { "O Artista Vectorial",      ARCHETYPE_MAGE,     1, "Mage",     190, 38,  4, "assets/heroes/O_Artista_Vectorial.png"     },
+    { "O Inspetor Flaky",         ARCHETYPE_ASSASSIN, 1, "Assassin", 215, 30,  2, "assets/heroes/O_Inspetor_Flaky.png"        },
+    { "O Treinador Python",       ARCHETYPE_SUPPORT,  1, "Support",  250, 14,  8, "assets/heroes/O_Treinador_Python.png"      },
 };
-static constexpr int N_HEROES        = 10;
-static constexpr int HERO_GRID_COLS  = 5;
-static constexpr int HERO_GRID_ROWS  = 2;
+
+static int heroFilteredToGlobal(int trainerIdx, int cursor) {
+    return trainerIdx * 5 + cursor;
+}
+
+static int heroesForTrainer(int trainerIdx) {
+    int count = 0;
+    for (int i = 0; i < N_HEROES_LOCAL; i++)
+        if (HEROES[i].trainerIndex == (uint8_t)trainerIdx) count++;
+    return count;
+}
 
 // ─── main ────────────────────────────────────────────────────────────────────
 int main(int argc, char *argv[])
 {
-    // Determine player ID from command-line argument (0 or 1)
-    int myId = 0;
-    if (argc >= 2) myId = atoi(argv[1]) & 1;
+    srand((unsigned)time(nullptr));
 
-    // ── Window ────────────────────────────────────────────────────────────────
-    char title[64];
-    snprintf(title, sizeof(title), "Battle-CIn — Instancia %d", myId);
-    InitWindow(936, 684, title);
+    bool soloMode = (argc >= 2 && strcmp(argv[1], "--solo") == 0);
+
+    InitWindow(936, 684, "Battle-CIn");
     SetTargetFPS(60);
 
-    // ── Selection phase state ─────────────────────────────────────────────────
-    ClientPhase      clientPhase   = ClientPhase::TRAINER_SELECT;
-    int              selCursor     = 0;   // flat index into current grid
-    int              selTrainerIdx = -1;  // which trainer was picked
-    std::vector<int> heroPicks;           // indices into HEROES[]
+    Game game;
+    game.registerPlayerLocal(0);
+    game.registerPlayerLocal(1);
 
-    // Load portrait textures for selection screens (freed before PLAYING)
-    initSelectionAssets(TRAINERS, N_TRAINERS, HEROES, N_HEROES);
+    PlayerInput inputs[2];
 
-    // ── Networking (set up now; heartbeat only starts in PLAYING) ─────────────
-    int sock = socket(AF_INET, SOCK_DGRAM, 0);
-    fcntl(sock, F_SETFL, O_NONBLOCK);
-    sockaddr_in serverAddr{};
-    serverAddr.sin_family      = AF_INET;
-    serverAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
-    serverAddr.sin_port        = htons(SERVER_PORT);
-
-    // ── Battle-phase state (used only in PLAYING) ─────────────────────────────
-    Texture2D arena = LoadTexture("assets/arena.png");
-
+    if (soloMode) {
+        game.createBot(1);
+        GameSnapshot botSnap{};
+        game.buildSnapshot(botSnap);
+        inputs[1].trainerLocked = botSnap.trainerChoice[1];
+        inputs[1].trainerCursor = botSnap.trainerChoice[1];
+        inputs[1].herosLocked = true;
+        for (int h = 0; h < 3; h++)
+            inputs[1].heroPicks.push_back(botSnap.heroPicks[1][h]);
+    }
     GameSnapshot snap{};
-    snap.phase       = PHASE_WAITING;
+    memset(&snap, 0, sizeof(snap));
+    snap.phase = PHASE_SELECT;
     snap.roundWinner = 0xFF;
     snap.matchWinner = 0xFF;
 
-    // Visual interpolation state per hero (smooth movement)
+    Texture2D arena = LoadTexture("assets/arena.png");
+
     struct HeroVis {
         Vector2 pos;
         Vector2 prevPos;
@@ -115,18 +88,17 @@ int main(int argc, char *argv[])
     HeroVis heroVis[MAX_HEROES_TOTAL];
     for (int i = 0; i < MAX_HEROES_TOTAL; i++) {
         heroVis[i].active = false;
+        heroVis[i].prevHp = 0;
         heroVis[i].prevPos = {0, 0};
-        heroVis[i].prevAlive = true;
+        heroVis[i].prevAlive = false;
         heroVis[i].prevUltActive = false;
     }
 
-    int draggingHeroIdx = -1;
+    initSelectionAssets(TRAINERS, N_TRAINERS_LOCAL, HEROES, N_HEROES_LOCAL);
 
-    // Targeting state (during battle)
-    int  targetingHeroIdx = -1;    // hero being dragged for targeting
-    bool isTargeting      = false; // true while dragging targeting arrow
+    float accumulator = 0.f;
+    uint8_t prevPhase = PHASE_SELECT;
 
-    // ── Game Loop ─────────────────────────────────────────────────────────────
     while (!WindowShouldClose()) {
         float dt = GetFrameTime();
 
@@ -134,251 +106,202 @@ int main(int argc, char *argv[])
         //  INPUT
         // ════════════════════════════════════════════════════════════════════
 
-        if (clientPhase == ClientPhase::TRAINER_SELECT) {
-            // Both WASD and Arrow Keys work (one instance = one player)
-            if (IsKeyPressed(KEY_D) || IsKeyPressed(KEY_RIGHT))
-                selCursor = (selCursor + 1) % N_TRAINERS;
-            if (IsKeyPressed(KEY_A) || IsKeyPressed(KEY_LEFT))
-                selCursor = (selCursor + N_TRAINERS - 1) % N_TRAINERS;
-
-            if (IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_ENTER)) {
-                selTrainerIdx = selCursor;
-                selCursor     = 0;         // reset cursor for hero grid
-                heroPicks.clear();
-                clientPhase   = ClientPhase::HERO_SELECT;
-            }
-        }
-
-        else if (clientPhase == ClientPhase::HERO_SELECT) {
-            int row = selCursor / HERO_GRID_COLS;
-            int col = selCursor % HERO_GRID_COLS;
-
-            if (IsKeyPressed(KEY_D) || IsKeyPressed(KEY_RIGHT))
-                if (col < HERO_GRID_COLS - 1) selCursor++;
-            if (IsKeyPressed(KEY_A) || IsKeyPressed(KEY_LEFT))
-                if (col > 0) selCursor--;
-            if (IsKeyPressed(KEY_S) || IsKeyPressed(KEY_DOWN))
-                if (row < HERO_GRID_ROWS - 1) selCursor += HERO_GRID_COLS;
-            if (IsKeyPressed(KEY_W) || IsKeyPressed(KEY_UP))
-                if (row > 0) selCursor -= HERO_GRID_COLS;
-
-            // Toggle pick (prevent duplicates via std::find — O(n), fine for n=3)
-            if (IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_ENTER)) {
-                auto it = std::find(heroPicks.begin(), heroPicks.end(), selCursor);
-                if (it != heroPicks.end()) {
-                    heroPicks.erase(it);           // deselect
-                } else if ((int)heroPicks.size() < 3) {
-                    heroPicks.push_back(selCursor); // select
+        if (snap.phase == PHASE_SELECT) {
+            if (snap.selectSubphase == 0) {
+                // ── Trainer Select ─────────────────────────────────────────
+                // P1 (esquerda): A/D + Space
+                if (IsKeyPressed(KEY_D))      inputs[0].trainerCursor = (inputs[0].trainerCursor + 1) % N_TRAINERS_LOCAL;
+                if (IsKeyPressed(KEY_A))      inputs[0].trainerCursor = (inputs[0].trainerCursor + N_TRAINERS_LOCAL - 1) % N_TRAINERS_LOCAL;
+                if (IsKeyPressed(KEY_SPACE) && inputs[0].trainerLocked < 0) {
+                    inputs[0].trainerLocked = inputs[0].trainerCursor;
+                    game.handleLocalTrainerLock(0, (uint8_t)inputs[0].trainerLocked);
                 }
-            }
-            // Undo last pick
-            if (IsKeyPressed(KEY_Q) || IsKeyPressed(KEY_BACKSPACE))
-                if (!heroPicks.empty()) heroPicks.pop_back();
 
-            // Transition: free selection assets, send selection to server, move to PLAYING
-            if ((int)heroPicks.size() == MAX_HEROES_SIDE) {
-                SelectionPacket sel{};
-                sel.playerId     = (uint8_t)myId;
-                sel.type         = INPUT_SELECT;
-                sel.trainerIndex = (uint8_t)selTrainerIdx;
-                for (int i = 0; i < MAX_HEROES_SIDE; i++)
-                    sel.heroIndices[i] = (uint8_t)heroPicks[i];
-                sendto(sock, &sel, sizeof(sel), 0,
-                       (sockaddr*)&serverAddr, sizeof(serverAddr));
-
-                freeSelectionAssets(N_TRAINERS, N_HEROES);
-                clientPhase = ClientPhase::PLAYING;
-            }
-        }
-
-        else /* ClientPhase::PLAYING */ {
-            // Trainer ability (Q key)
-            if (IsKeyPressed(KEY_Q)) {
-                InputPacket inp{};
-                inp.playerId = (uint8_t)myId;
-                inp.type     = INPUT_USE_ABILITY;
-                sendto(sock, &inp, sizeof(inp), 0,
-                       (sockaddr*)&serverAddr, sizeof(serverAddr));
-            }
-
-            // Heartbeat + receive snapshot
-            {
-                InputPacket heart{};
-                heart.playerId = (uint8_t)myId;
-                heart.type     = INPUT_HEARTBEAT;
-                sendto(sock, &heart, sizeof(heart), 0,
-                       (sockaddr*)&serverAddr, sizeof(serverAddr));
-
-                GameSnapshot buf{};
-                ssize_t bytes;
-                while ((bytes = recvfrom(sock, &buf, sizeof(buf), 0,
-                                         nullptr, nullptr)) > 0)
-                    if (bytes == (ssize_t)sizeof(GameSnapshot)) snap = buf;
-            }
-
-            // Visual position interpolation (smooth movement)
-            float k = fminf(1.f, 15.f * dt);
-            for (int i = 0; i < snap.heroCount; i++) {
-                Vector2 target = cellCenter(snap.heroes[i].x, snap.heroes[i].y);
-                if (!heroVis[i].active) {
-                    heroVis[i].pos    = target;
-                    heroVis[i].prevPos = target;
-                    heroVis[i].active = true;
-                } else {
-                    heroVis[i].prevPos = heroVis[i].pos;
-                    heroVis[i].pos.x += (target.x - heroVis[i].pos.x) * k;
-                    heroVis[i].pos.y += (target.y - heroVis[i].pos.y) * k;
+                // P2 (direita): Arrow keys + Enter
+                if (IsKeyPressed(KEY_RIGHT)) inputs[1].trainerCursor = (inputs[1].trainerCursor + 1) % N_TRAINERS_LOCAL;
+                if (IsKeyPressed(KEY_LEFT))  inputs[1].trainerCursor = (inputs[1].trainerCursor + N_TRAINERS_LOCAL - 1) % N_TRAINERS_LOCAL;
+                if (IsKeyPressed(KEY_ENTER) && inputs[1].trainerLocked < 0) {
+                    inputs[1].trainerLocked = inputs[1].trainerCursor;
+                    game.handleLocalTrainerLock(1, (uint8_t)inputs[1].trainerLocked);
                 }
-                // Detect HP changes for floating text + attack visuals
-                if (heroVis[i].active && heroVis[i].prevHp != snap.heroes[i].hp) {
-                    int delta = (int)snap.heroes[i].hp - (int)heroVis[i].prevHp;
-                    if (delta < 0) {
-                        // Damage taken: spawn hit flash + find attacker for animation
-                        spawnHitFlash(heroVis[i].pos);
-                        spawnFloatingText(heroVis[i].pos, delta, RED);
-                        // Find an adjacent enemy to attribute the attack
-                        for (int j = 0; j < snap.heroCount; j++) {
-                            if (snap.heroes[j].ownerId == snap.heroes[i].ownerId) continue;
-                            if (!snap.heroes[j].alive) continue;
-                            int dx = abs((int)snap.heroes[j].x - (int)snap.heroes[i].x);
-                            int dy = abs((int)snap.heroes[j].y - (int)snap.heroes[i].y);
-                            if (dx <= 1 && dy <= 1) {
-                                uint8_t arch = snap.heroes[j].archetype;
-                                if (arch == ARCHETYPE_MAGE || arch == ARCHETYPE_SUPPORT) {
-                                    spawnProjectile(heroVis[j].pos, heroVis[i].pos, arch);
-                                } else {
-                                    spawnAttackAnim(heroVis[j].pos, heroVis[i].pos);
-                                }
-                                break;
-                            }
+            } else {
+                // ── Hero Select ───────────────────────────────────────────
+                int nHerosPerTrainer = heroesForTrainer(snap.trainerChoice[0]);
+
+                // P1 (esquerda): A/D + Space
+                {
+                    if (IsKeyPressed(KEY_D))      inputs[0].heroCursor = (inputs[0].heroCursor + 1) % nHerosPerTrainer;
+                    if (IsKeyPressed(KEY_A))      inputs[0].heroCursor = (inputs[0].heroCursor + nHerosPerTrainer - 1) % nHerosPerTrainer;
+                    if (IsKeyPressed(KEY_SPACE) && !inputs[0].herosLocked) {
+                        int globalIdx = heroFilteredToGlobal(snap.trainerChoice[0], inputs[0].heroCursor);
+                        auto it = std::find(inputs[0].heroPicks.begin(), inputs[0].heroPicks.end(), globalIdx);
+                        if (it != inputs[0].heroPicks.end()) {
+                            inputs[0].heroPicks.erase(it);
+                        } else if ((int)inputs[0].heroPicks.size() < 3) {
+                            inputs[0].heroPicks.push_back(globalIdx);
                         }
-                    } else {
-                        spawnFloatingText(heroVis[i].pos, delta, GREEN);
                     }
                 }
-                // Detect death transition
-                if (heroVis[i].active && heroVis[i].prevAlive && !snap.heroes[i].alive) {
-                    spawnDeathEffect(heroVis[i].pos);
+
+                // P2 (direita): Arrow keys + Enter
+                {
+                    if (IsKeyPressed(KEY_RIGHT)) inputs[1].heroCursor = (inputs[1].heroCursor + 1) % nHerosPerTrainer;
+                    if (IsKeyPressed(KEY_LEFT))  inputs[1].heroCursor = (inputs[1].heroCursor + nHerosPerTrainer - 1) % nHerosPerTrainer;
+                    if (IsKeyPressed(KEY_ENTER) && !inputs[1].herosLocked) {
+                        int globalIdx = heroFilteredToGlobal(snap.trainerChoice[1], inputs[1].heroCursor);
+                        auto it = std::find(inputs[1].heroPicks.begin(), inputs[1].heroPicks.end(), globalIdx);
+                        if (it != inputs[1].heroPicks.end()) {
+                            inputs[1].heroPicks.erase(it);
+                        } else if ((int)inputs[1].heroPicks.size() < 3) {
+                            inputs[1].heroPicks.push_back(globalIdx);
+                        }
+                    }
                 }
-                // Detect ultimate activation
-                if (heroVis[i].active && !heroVis[i].prevUltActive && snap.heroes[i].ultActive) {
-                    spawnUltimateEffect(heroVis[i].pos);
+
+                // When both have 3 picks, lock in
+                if (!inputs[0].herosLocked && (int)inputs[0].heroPicks.size() == 3) {
+                    inputs[0].herosLocked = true;
+                    uint8_t picks[3] = {
+                        (uint8_t)inputs[0].heroPicks[0],
+                        (uint8_t)inputs[0].heroPicks[1],
+                        (uint8_t)inputs[0].heroPicks[2]
+                    };
+                    game.handleLocalHeroPick(0, picks);
                 }
+                if (!inputs[1].herosLocked && (int)inputs[1].heroPicks.size() == 3) {
+                    inputs[1].herosLocked = true;
+                    uint8_t picks[3] = {
+                        (uint8_t)inputs[1].heroPicks[0],
+                        (uint8_t)inputs[1].heroPicks[1],
+                        (uint8_t)inputs[1].heroPicks[2]
+                    };
+                    game.handleLocalHeroPick(1, picks);
+                }
+            }
+        }
+
+        else if (snap.phase == PHASE_POSITIONING) {
+            // P1 (esquerda): 1/2/3 select hero, WASD move, Space place
+            if (IsKeyPressed(KEY_ONE))   inputs[0].moveHeroIdx = 0;
+            if (IsKeyPressed(KEY_TWO))   inputs[0].moveHeroIdx = 1;
+            if (IsKeyPressed(KEY_THREE)) inputs[0].moveHeroIdx = 2;
+
+            if (IsKeyPressed(KEY_W))      inputs[0].cursorY = (uint8_t)((int)inputs[0].cursorY > 0 ? inputs[0].cursorY - 1 : 0);
+            if (IsKeyPressed(KEY_S))      inputs[0].cursorY = (uint8_t)((int)inputs[0].cursorY < GRID_ROWS - 1 ? inputs[0].cursorY + 1 : GRID_ROWS - 1);
+            if (IsKeyPressed(KEY_A))      inputs[0].cursorX = (uint8_t)((int)inputs[0].cursorX > 0 ? inputs[0].cursorX - 1 : 0);
+            if (IsKeyPressed(KEY_D))      inputs[0].cursorX = (uint8_t)((int)inputs[0].cursorX < GRID_COLS - 1 ? inputs[0].cursorX + 1 : GRID_COLS - 1);
+
+            if (IsKeyPressed(KEY_SPACE)) {
+                bool ok = game.handlePlaceHero(0, inputs[0].moveHeroIdx,
+                                               inputs[0].cursorX, inputs[0].cursorY);
+                if (ok && inputs[0].moveHeroIdx < 2) inputs[0].moveHeroIdx++;
+            }
+
+            // P2 (direita): KP_1/KP_2/KP_3 select hero, arrow keys move, Enter place
+            if (IsKeyPressed(KEY_KP_1))   inputs[1].moveHeroIdx = 0;
+            if (IsKeyPressed(KEY_KP_2))   inputs[1].moveHeroIdx = 1;
+            if (IsKeyPressed(KEY_KP_3))   inputs[1].moveHeroIdx = 2;
+
+            if (IsKeyPressed(KEY_UP))     inputs[1].cursorY = (uint8_t)((int)inputs[1].cursorY > 0 ? inputs[1].cursorY - 1 : 0);
+            if (IsKeyPressed(KEY_DOWN))   inputs[1].cursorY = (uint8_t)((int)inputs[1].cursorY < GRID_ROWS - 1 ? inputs[1].cursorY + 1 : GRID_ROWS - 1);
+            if (IsKeyPressed(KEY_LEFT))   inputs[1].cursorX = (uint8_t)((int)inputs[1].cursorX > 0 ? inputs[1].cursorX - 1 : 0);
+            if (IsKeyPressed(KEY_RIGHT))  inputs[1].cursorX = (uint8_t)((int)inputs[1].cursorX < GRID_COLS - 1 ? inputs[1].cursorX + 1 : GRID_COLS - 1);
+            if (IsKeyPressed(KEY_ENTER)) {
+                bool ok = game.handlePlaceHero(1, inputs[1].moveHeroIdx,
+                                               inputs[1].cursorX, inputs[1].cursorY);
+                if (ok && inputs[1].moveHeroIdx < 2) inputs[1].moveHeroIdx++;
+            }
+        }
+
+        else if (snap.phase == PHASE_BATTLE) {
+            if (IsKeyPressed(KEY_Q)) game.handleUseAbility(0);
+            if (IsKeyPressed(KEY_E)) game.handleUseAbility(1);
+        }
+
+        // ════════════════════════════════════════════════════════════════════
+        //  UPDATE (fixed timestep 20 Hz)
+        // ════════════════════════════════════════════════════════════════════
+        accumulator += dt;
+        while (accumulator >= 1.f/20.f) {
+            accumulator -= 1.f/20.f;
+            game.update(1.f/20.f);
+        }
+
+        // ── Build snapshot for rendering ───────────────────────────────────
+        game.buildSnapshot(snap);
+
+        // Detect phase transition to POSITIONING — reset cursors & hero selection
+        if (snap.phase == PHASE_POSITIONING && prevPhase != PHASE_POSITIONING) {
+            inputs[0].moveHeroIdx = 0;
+            inputs[1].moveHeroIdx = 0;
+            inputs[0].cursorX = 1; inputs[0].cursorY = 3;
+            inputs[1].cursorX = 6; inputs[1].cursorY = 3;
+        }
+        prevPhase = snap.phase;
+
+        // Sync authoritative game state back to PlayerInput (for auto-pick
+        // scenarios where the game locked choices without input)
+        for (int p = 0; p < 2; p++) {
+            if (snap.trainerLocked[p] && inputs[p].trainerLocked < 0) {
+                inputs[p].trainerLocked = snap.trainerChoice[p];
+            }
+            if (snap.herosLocked[p] && !inputs[p].herosLocked) {
+                inputs[p].herosLocked = true;
+                inputs[p].heroPicks.clear();
+                for (int h = 0; h < 3; h++)
+                    inputs[p].heroPicks.push_back(snap.heroPicks[p][h]);
+            }
+        }
+
+        // ── Update hero visual state ───────────────────────────────────────
+        float k = fminf(1.f, 15.f * dt);
+        for (int i = 0; i < snap.heroCount; i++) {
+            Vector2 target = cellCenter(snap.heroes[i].x, snap.heroes[i].y);
+            if (!heroVis[i].active) {
+                heroVis[i].pos    = target;
+                heroVis[i].prevPos = target;
                 heroVis[i].prevHp = snap.heroes[i].hp;
                 heroVis[i].prevAlive = snap.heroes[i].alive;
                 heroVis[i].prevUltActive = snap.heroes[i].ultActive;
+                heroVis[i].active = true;
+            } else {
+                heroVis[i].prevPos = heroVis[i].pos;
+                heroVis[i].pos.x += (target.x - heroVis[i].pos.x) * k;
+                heroVis[i].pos.y += (target.y - heroVis[i].pos.y) * k;
             }
-
-            // Drag & drop for deployment positioning
-            if (snap.phase == PHASE_POSITIONING) {
-                Vector2 mouse = GetMousePosition();
-
-                if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-                    for (int i = 0; i < snap.heroCount; i++) {
-                        if (snap.heroes[i].ownerId == (uint8_t)myId && snap.heroes[i].alive) {
-                            float d = sqrtf(
-                                powf(mouse.x - heroVis[i].pos.x, 2) +
-                                powf(mouse.y - heroVis[i].pos.y, 2));
-                            if (d < CELLW * 0.4f) { draggingHeroIdx = i; break; }
+            if (heroVis[i].active && heroVis[i].prevHp != snap.heroes[i].hp) {
+                int delta = (int)snap.heroes[i].hp - (int)heroVis[i].prevHp;
+                if (delta < 0) {
+                    spawnHitFlash(heroVis[i].pos);
+                    spawnFloatingText(heroVis[i].pos, delta, RED);
+                    for (int j = 0; j < snap.heroCount; j++) {
+                        if (snap.heroes[j].ownerId == snap.heroes[i].ownerId) continue;
+                        if (!snap.heroes[j].alive) continue;
+                        int dx = abs((int)snap.heroes[j].x - (int)snap.heroes[i].x);
+                        int dy = abs((int)snap.heroes[j].y - (int)snap.heroes[i].y);
+                        if (dx <= 1 && dy <= 1) {
+                            uint8_t arch = snap.heroes[j].archetype;
+                            if (arch == ARCHETYPE_MAGE || arch == ARCHETYPE_SUPPORT) {
+                                spawnProjectile(heroVis[j].pos, heroVis[i].pos, arch);
+                            } else {
+                                spawnAttackAnim(heroVis[j].pos, heroVis[i].pos);
+                            }
+                            break;
                         }
                     }
-                }
-                if (IsMouseButtonDown(MOUSE_LEFT_BUTTON) && draggingHeroIdx != -1)
-                    heroVis[draggingHeroIdx].pos = mouse;
-
-                if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON) && draggingHeroIdx != -1) {
-                    Vector2 m = GetMousePosition();
-                    int mx = (int)((m.x - GX) / CELLW);
-                    int my = (int)((m.y - GY) / CELLH);
-                    if (mx >= 0 && mx < GRID_COLS && my >= 0 && my < GRID_ROWS) {
-                        InputPacket inp{};
-                        inp.playerId = (uint8_t)myId;
-                        inp.type     = INPUT_PLACE;
-                        inp.placeX   = (uint8_t)mx;
-                        inp.placeY   = (uint8_t)my;
-                        int localIdx = 0;
-                        for (int j = 0; j < draggingHeroIdx; j++)
-                            if (snap.heroes[j].ownerId == (uint8_t)myId) localIdx++;
-                        inp.heroIndex = (uint8_t)localIdx;
-                        sendto(sock, &inp, sizeof(inp), 0,
-                               (sockaddr*)&serverAddr, sizeof(serverAddr));
-                    }
-                    draggingHeroIdx = -1;
+                } else {
+                    spawnFloatingText(heroVis[i].pos, delta, GREEN);
                 }
             }
-
-            // ── Targeting (during battle) ────────────────────────────────────
-            if (snap.phase == PHASE_BATTLE) {
-                Vector2 mouse = GetMousePosition();
-
-                if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
-                    for (int i = 0; i < snap.heroCount; i++) {
-                        if (snap.heroes[i].ownerId == (uint8_t)myId && snap.heroes[i].alive) {
-                            float d = sqrtf(
-                                powf(mouse.x - heroVis[i].pos.x, 2) +
-                                powf(mouse.y - heroVis[i].pos.y, 2));
-                            if (d < CELLW * 0.4f) {
-                                targetingHeroIdx = i;
-                                isTargeting = true;
-                                break;
-                            }
-                        }
-                    }
-                }
-
-                if (isTargeting && IsMouseButtonDown(MOUSE_LEFT_BUTTON)) {
-                    // Continue dragging - arrow is drawn in render
-                }
-
-                if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON) && isTargeting) {
-                    // Find which enemy we dropped on
-                    int localHeroIdx = -1;
-                    int myHeroCount = 0;
-                    for (int i = 0; i < snap.heroCount; i++) {
-                        if (snap.heroes[i].ownerId == (uint8_t)myId) {
-                            if (i == targetingHeroIdx) {
-                                localHeroIdx = myHeroCount;
-                                break;
-                            }
-                            myHeroCount++;
-                        }
-                    }
-
-                    if (localHeroIdx >= 0) {
-                        for (int i = 0; i < snap.heroCount; i++) {
-                            if (snap.heroes[i].ownerId == (uint8_t)myId) continue;
-                            if (!snap.heroes[i].alive) continue;
-
-                            float d = sqrtf(
-                                powf(mouse.x - heroVis[i].pos.x, 2) +
-                                powf(mouse.y - heroVis[i].pos.y, 2));
-                            if (d < CELLW * 0.5f) {
-                                // Check adjacency
-                                int dx = abs((int)snap.heroes[targetingHeroIdx].x - (int)snap.heroes[i].x);
-                                int dy = abs((int)snap.heroes[targetingHeroIdx].y - (int)snap.heroes[i].y);
-                                if (dx <= 1 && dy <= 1) {
-                                    // Convert global enemy index to local enemy index (0-2)
-                                    int localTargetIdx = 0;
-                                    for (int j = 0; j < i; j++) {
-                                        if (snap.heroes[j].ownerId != (uint8_t)myId)
-                                            localTargetIdx++;
-                                    }
-                                    TargetPacket tgt{};
-                                    tgt.playerId    = (uint8_t)myId;
-                                    tgt.type        = INPUT_TARGET;
-                                    tgt.heroIndex   = (uint8_t)localHeroIdx;
-                                    tgt.targetIndex = (uint8_t)localTargetIdx;
-                                    sendto(sock, &tgt, sizeof(tgt), 0,
-                                           (sockaddr*)&serverAddr, sizeof(serverAddr));
-                                }
-                                break;
-                            }
-                        }
-                    }
-                    targetingHeroIdx = -1;
-                    isTargeting = false;
-                }
+            if (heroVis[i].active && heroVis[i].prevAlive && !snap.heroes[i].alive) {
+                spawnDeathEffect(heroVis[i].pos);
             }
+            if (heroVis[i].active && !heroVis[i].prevUltActive && snap.heroes[i].ultActive) {
+                spawnUltimateEffect(heroVis[i].pos);
+            }
+            heroVis[i].prevHp = snap.heroes[i].hp;
+            heroVis[i].prevAlive = snap.heroes[i].alive;
+            heroVis[i].prevUltActive = snap.heroes[i].ultActive;
         }
 
         // ════════════════════════════════════════════════════════════════════
@@ -387,117 +310,66 @@ int main(int argc, char *argv[])
         BeginDrawing();
         ClearBackground({12, 12, 26, 255});
 
-        if (clientPhase == ClientPhase::TRAINER_SELECT) {
-            drawTrainerSelect(TRAINERS, N_TRAINERS, selCursor, selTrainerIdx, myId);
-        }
-        else if (clientPhase == ClientPhase::HERO_SELECT) {
-            drawHeroSelect(TRAINERS[selTrainerIdx],
-                           HEROES, N_HEROES,
-                           HERO_GRID_COLS,
-                           selCursor, heroPicks, myId);
-        }
-        else /* PLAYING */ {
-            if (snap.phase == PHASE_VS_INTRO) {
-                drawVSScreen(snap, myId);
+        if (snap.phase == PHASE_SELECT) {
+            // Draw arena as background for selection screens (MK style)
+            DrawTexturePro(arena,
+                {0, 0, (float)arena.width, (float)arena.height},
+                {0, 0, 936, 684}, {}, 0.f, WHITE);
+            if (snap.selectSubphase == 0) {
+                drawTrainerSelectMK(snap, TRAINERS, N_TRAINERS_LOCAL, inputs[0], inputs[1]);
             } else {
-                // Arena background
-                DrawTexturePro(arena,
-                    {0, 0, (float)arena.width, (float)arena.height},
-                    {0, 0, 936, 684}, {}, 0.f, WHITE);
-
-                // Deployment zone highlights (only during positioning)
-                if (snap.phase == PHASE_POSITIONING && draggingHeroIdx != -1) {
-                    uint8_t arch   = snap.heroes[draggingHeroIdx].archetype;
-                    bool    isLeft = (myId == 0);
-                    Color   hl     = {0, 255, 0, 40};
-                    for (int r = 0; r < GRID_ROWS; r++) {
-                        for (int c = 0; c < GRID_COLS; c++) {
-                            bool valid = isLeft ? (c <= 3) : (c >= 4);
-                            if (valid) {
-                                if      (arch == ARCHETYPE_TANK)
-                                    valid = isLeft ? (c == 3) : (c == 4);
-                                else if (arch == ARCHETYPE_FIGHTER)
-                                    valid = isLeft ? (c >= 2) : (c <= 5);
-                                else if (arch == ARCHETYPE_ASSASSIN)
-                                    valid = (isLeft ? (c >= 2) : (c <= 5)) && (r <= 1 || r >= 6);
-                                else if (arch == ARCHETYPE_MAGE || arch == ARCHETYPE_SUPPORT)
-                                    valid = isLeft ? (c <= 1) : (c >= 6);
-                            }
-                            if (valid) {
-                                DrawRectangleRec(cellRect(c, r), hl);
-                                DrawRectangleLinesEx(cellRect(c, r), 2, {0, 255, 0, 100});
-                            }
-                        }
-                    }
-                }
-
-                drawBuffZones(snap);
-                drawGrid();
-
-                for (int i = 0; i < snap.heroCount; i++) {
-                    if (!snap.heroes[i].alive) continue;
-                    // Pedestal (team-colored base)
-                    drawPedestal(heroVis[i].pos, snap.heroes[i].ownerId);
-                    // Idle breathing
-                    float breathScale = 0.95f + 0.10f * (0.5f + 0.5f * sinf((float)GetTime() * PI));
-                    // Move tilt: derive from delta position
-                    Vector2 delta = {
-                        heroVis[i].pos.x - heroVis[i].prevPos.x,
-                        heroVis[i].pos.y - heroVis[i].prevPos.y
-                    };
-                    float tiltAngle = (fabsf(delta.x) > 0.5f || fabsf(delta.y) > 0.5f)
-                        ? atan2f(delta.y, delta.x) * 0.12f
-                        : 0.f;
-                    drawHero(snap.heroes[i], heroVis[i].pos, myId,
-                             (draggingHeroIdx == i), breathScale, tiltAngle);
-                }
-
-                // Draw existing target focus arrows
-                for (int i = 0; i < snap.heroCount; i++) {
-                    if (!snap.heroes[i].alive) continue;
-                    if (snap.heroes[i].ownerId != (uint8_t)myId) continue;
-                    if (snap.heroes[i].targetFocus >= 0) {
-                        int tf = snap.heroes[i].targetFocus;
-                        // Find global index of focused enemy
-                        int enemyCount = 0;
-                        for (int j = 0; j < snap.heroCount; j++) {
-                            if (snap.heroes[j].ownerId != (uint8_t)myId) {
-                                if (enemyCount == tf && snap.heroes[j].alive) {
-                                    drawTargetArrow(heroVis[i].pos, heroVis[j].pos);
-                                    drawTargetHighlight(heroVis[j].pos, CELLW * 0.42f, RED);
-                                    break;
-                                }
-                                enemyCount++;
-                            }
-                        }
-                    }
-                }
-
-                // Draw targeting arrow being dragged
-                if (isTargeting && targetingHeroIdx >= 0) {
-                    Vector2 mouse = GetMousePosition();
-                    drawTargetArrow(heroVis[targetingHeroIdx].pos, mouse);
-                    drawAdjacentEnemyHighlights(snap, myId, targetingHeroIdx);
-                }
-
-                updateAndDrawAttackAnims(dt);
-                updateAndDrawProjectiles(dt);
-                updateAndDrawHitFlashes(dt);
-                updateAndDrawFloatingTexts(dt);
-                updateAndDrawVisualEffects(dt);
-
-                drawHUD(snap, myId);
-                drawOverlays(snap, myId);
+                drawHeroSelectMK(snap, TRAINERS, HEROES, N_HEROES_LOCAL, inputs[0], inputs[1]);
             }
+        }
+        else if (snap.phase == PHASE_VS_INTRO) {
+            drawVSScreen(snap, 0);
+        }
+        else if (snap.phase == PHASE_POSITIONING ||
+                 snap.phase == PHASE_BATTLE ||
+                 snap.phase == PHASE_ROUND_END ||
+                 snap.phase == PHASE_MATCH_END)
+        {
+            DrawTexturePro(arena,
+                {0, 0, (float)arena.width, (float)arena.height},
+                {0, 0, 936, 684}, {}, 0.f, WHITE);
+
+            drawBuffZones(snap);
+            drawGrid();
+
+            for (int i = 0; i < snap.heroCount; i++) {
+                if (!snap.heroes[i].alive) continue;
+                drawPedestal(heroVis[i].pos, snap.heroes[i].ownerId);
+                float breathScale = 0.95f + 0.10f * (0.5f + 0.5f * sinf((float)GetTime() * PI));
+                Vector2 delta = {
+                    heroVis[i].pos.x - heroVis[i].prevPos.x,
+                    heroVis[i].pos.y - heroVis[i].prevPos.y
+                };
+                float tiltAngle = (fabsf(delta.x) > 0.5f || fabsf(delta.y) > 0.5f)
+                    ? atan2f(delta.y, delta.x) * 0.12f
+                    : 0.f;
+                drawHero(snap.heroes[i], heroVis[i].pos, 0, false, breathScale, tiltAngle);
+            }
+
+            if (snap.phase == PHASE_POSITIONING) {
+                drawPlacementCursors(snap, inputs[0], inputs[1]);
+            }
+
+            updateAndDrawAttackAnims(dt);
+            updateAndDrawProjectiles(dt);
+            updateAndDrawHitFlashes(dt);
+            updateAndDrawFloatingTexts(dt);
+            updateAndDrawVisualEffects(dt);
+
+            drawHUD(snap, 0);
+            drawOverlays(snap, 0);
         }
 
         EndDrawing();
     }
 
-    // ── Cleanup ───────────────────────────────────────────────────────────────
+    freeSelectionAssets(N_TRAINERS_LOCAL, N_HEROES_LOCAL);
     unloadTextures();
     UnloadTexture(arena);
-    close(sock);
     CloseWindow();
     return 0;
 }
