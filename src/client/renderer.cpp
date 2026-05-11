@@ -75,12 +75,7 @@ void drawHero(const HeroNetState& hs, Vector2 ctr, int myId, bool dragging,
     Color pCol = kPlayerColor[hs.ownerId];
     if (dragging) pCol.a = 120;
 
-    // Start with pedestal already drawn (called separately)
-
-    // 1. Colored circle as background
-    DrawCircleV(ctr, r, pCol);
-
-    // 2. Draw hero sprite clipped inside the circle area
+    // Draw hero sprite (no circle background, no scissoring)
     uint8_t texIdx = (hs.heroDefIndex < N_HEROES) ? hs.heroDefIndex : hs.archetype;
     Texture2D& tex = heroTextures[texIdx];
     if (tex.id != 0) {
@@ -91,34 +86,29 @@ void drawHero(const HeroNetState& hs, Vector2 ctr, int myId, bool dragging,
         float sw = tex.width  * scale;
         float sh = tex.height * scale * breathScale;
 
-        int sx = (int)(ctr.x - r);
-        int sy = (int)(ctr.y - r * breathScale);
-        int sd = (int)(diameter);
-        BeginScissorMode(sx, sy, sd, sd);
         DrawTexturePro(
             tex,
             { 0, 0, (float)tex.width, (float)tex.height },
             { ctr.x - sw * 0.5f, ctr.y - sh * 0.5f, sw, sh },
             { sw * 0.5f, sh * 0.5f }, tiltAngle * RAD2DEG, WHITE
         );
-        EndScissorMode();
     } else {
         const char* archNames[] = {"TNK", "FGT", "MAG", "ASN", "SUP"};
         DrawText(archNames[hs.archetype], (int)ctr.x - 12, (int)ctr.y - 6, 10, WHITE);
     }
 
-    // 3. Circle outline drawn ON TOP to mask sprite corners
+    // Thin colored border around hero area (team identification)
     Color rimColor = (hs.ownerId == (uint8_t)myId) ? WHITE : LIGHTGRAY;
-    DrawCircleLinesV(ctr, r, rimColor);
-    DrawCircleLinesV(ctr, r - 1, pCol);
+    DrawCircleLinesV(ctr, r, { rimColor.r, rimColor.g, rimColor.b, 90 });
+    DrawCircleLinesV(ctr, r - 1, { pCol.r, pCol.g, pCol.b, 90 });
 
-    // 4. Ultimate glow
+    // Ultimate glow
     if (hs.ultActive) {
         DrawCircleLinesV(ctr, r + 3, GOLD);
         DrawCircleLinesV(ctr, r + 6, { 255, 215, 0, 120 });
     }
 
-    // 5. HP bar above the circle
+    // HP bar above the hero
     float bw = CELLW * 0.85f, bh = 6.f;
     float bx = ctr.x - bw * 0.5f, by = ctr.y - r - 14.f;
     float pct = (hs.maxHp > 0) ? (float)hs.hp / hs.maxHp : 0.f;
