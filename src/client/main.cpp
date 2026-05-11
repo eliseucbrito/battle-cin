@@ -106,6 +106,7 @@ int main(int argc, char *argv[])
     // Visual interpolation state per hero (smooth movement)
     struct HeroVis {
         Vector2 pos;
+        Vector2 prevPos;
         uint16_t prevHp;
         bool active;
         bool prevAlive;
@@ -114,6 +115,7 @@ int main(int argc, char *argv[])
     HeroVis heroVis[MAX_HEROES_TOTAL];
     for (int i = 0; i < MAX_HEROES_TOTAL; i++) {
         heroVis[i].active = false;
+        heroVis[i].prevPos = {0, 0};
         heroVis[i].prevAlive = true;
         heroVis[i].prevUltActive = false;
     }
@@ -220,16 +222,39 @@ int main(int argc, char *argv[])
                 Vector2 target = cellCenter(snap.heroes[i].x, snap.heroes[i].y);
                 if (!heroVis[i].active) {
                     heroVis[i].pos    = target;
+                    heroVis[i].prevPos = target;
                     heroVis[i].active = true;
                 } else {
+                    heroVis[i].prevPos = heroVis[i].pos;
                     heroVis[i].pos.x += (target.x - heroVis[i].pos.x) * k;
                     heroVis[i].pos.y += (target.y - heroVis[i].pos.y) * k;
                 }
-                // Detect HP changes for floating text
+                // Detect HP changes for floating text + attack visuals
                 if (heroVis[i].active && heroVis[i].prevHp != snap.heroes[i].hp) {
                     int delta = (int)snap.heroes[i].hp - (int)heroVis[i].prevHp;
-                    Color c = (delta > 0) ? GREEN : RED;
-                    spawnFloatingText(heroVis[i].pos, delta, c);
+                    if (delta < 0) {
+                        // Damage taken: spawn hit flash + find attacker for animation
+                        spawnHitFlash(heroVis[i].pos);
+                        spawnFloatingText(heroVis[i].pos, delta, RED);
+                        // Find an adjacent enemy to attribute the attack
+                        for (int j = 0; j < snap.heroCount; j++) {
+                            if (snap.heroes[j].ownerId == snap.heroes[i].ownerId) continue;
+                            if (!snap.heroes[j].alive) continue;
+                            int dx = abs((int)snap.heroes[j].x - (int)snap.heroes[i].x);
+                            int dy = abs((int)snap.heroes[j].y - (int)snap.heroes[i].y);
+                            if (dx <= 1 && dy <= 1) {
+                                uint8_t arch = snap.heroes[j].archetype;
+                                if (arch == ARCHETYPE_MAGE || arch == ARCHETYPE_SUPPORT) {
+                                    spawnProjectile(heroVis[j].pos, heroVis[i].pos, arch);
+                                } else {
+                                    spawnAttackAnim(heroVis[j].pos, heroVis[i].pos);
+                                }
+                                break;
+                            }
+                        }
+                    } else {
+                        spawnFloatingText(heroVis[i].pos, delta, GREEN);
+                    }
                 }
                 // Detect death transition
                 if (heroVis[i].active && heroVis[i].prevAlive && !snap.heroes[i].alive) {
@@ -411,7 +436,20 @@ int main(int argc, char *argv[])
 
                 for (int i = 0; i < snap.heroCount; i++) {
                     if (!snap.heroes[i].alive) continue;
-                    drawHero(snap.heroes[i], heroVis[i].pos, myId, (draggingHeroIdx == i));
+                    // Pedestal (team-colored base)
+                    drawPedestal(heroVis[i].pos, snap.heroes[i].ownerId);
+                    // Idle breathing
+                    float breathScale = 0.95f + 0.10f * (0.5f + 0.5f * sinf((float)GetTime() * PI));
+                    // Move tilt: derive from delta position
+                    Vector2 delta = {
+                        heroVis[i].pos.x - heroVis[i].prevPos.x,
+                        heroVis[i].pos.y - heroVis[i].prevPos.y
+                    };
+                    float tiltAngle = (fabsf(delta.x) > 0.5f || fabsf(delta.y) > 0.5f)
+                        ? atan2f(delta.y, delta.x) * 0.12f
+                        : 0.f;
+                    drawHero(snap.heroes[i], heroVis[i].pos, myId,
+                             (draggingHeroIdx == i), breathScale, tiltAngle);
                 }
 
                 // Draw existing target focus arrows
@@ -442,6 +480,9 @@ int main(int argc, char *argv[])
                     drawAdjacentEnemyHighlights(snap, myId, targetingHeroIdx);
                 }
 
+                updateAndDrawAttackAnims(dt);
+                updateAndDrawProjectiles(dt);
+                updateAndDrawHitFlashes(dt);
                 updateAndDrawFloatingTexts(dt);
                 updateAndDrawVisualEffects(dt);
 

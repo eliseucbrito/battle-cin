@@ -52,7 +52,9 @@ Rectangle cellRect(int cx, int cy);
 
 void drawGrid();
 void drawBuffZones(const GameSnapshot& snap);
-void drawHero(const HeroNetState& hs, Vector2 pos, int myId, bool dragging);
+void drawPedestal(Vector2 ctr, int ownerId);
+void drawHero(const HeroNetState& hs, Vector2 pos, int myId, bool dragging,
+              float breathScale = 1.0f, float tiltAngle = 0.0f);
 void drawHUD(const GameSnapshot& snap, int myId);
 void drawOverlays(const GameSnapshot& snap, int myId);
 void drawVSScreen(const GameSnapshot& snap, int myId);
@@ -65,6 +67,18 @@ void updateAndDrawFloatingTexts(float dt);
 void spawnDeathEffect(Vector2 pos);
 void spawnUltimateEffect(Vector2 pos);
 void updateAndDrawVisualEffects(float dt);
+
+// ─── Attack animations (melee slingshot) ────────────────────────────────────
+void spawnAttackAnim(Vector2 from, Vector2 to);
+void updateAndDrawAttackAnims(float dt);
+
+// ─── Ranged projectiles ─────────────────────────────────────────────────────
+void spawnProjectile(Vector2 from, Vector2 to, uint8_t archetype);
+void updateAndDrawProjectiles(float dt);
+
+// ─── Hit flash on damage ────────────────────────────────────────────────────
+void spawnHitFlash(Vector2 pos);
+void updateAndDrawHitFlashes(float dt);
 
 // ─── Targeting arrows ──────────────────────────────────────────────────────────
 void drawTargetArrow(Vector2 from, Vector2 to);
