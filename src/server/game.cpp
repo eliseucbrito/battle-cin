@@ -1,17 +1,29 @@
 #include "../../include/game.h"
 #include "../../include/hero_assassin.h"
 #include "../../include/hero_support.h"
+#include "../../include/priority_queue.h"
 #include <cstdio>
 #include <algorithm>
 #include <cmath>
 
+// Combatant for priority queue (file scope for operator> visibility)
+struct Combatant {
+    Hero* hero;
+    int   team;
+    float asRate;
+    bool operator>(const Combatant& other) const { return asRate > other.asRate; }
+};
+
 Game::Game()
     : connectedCount_(0), phase_(PHASE_WAITING), phaseTimer_(0.f),
       buffZoneCount_(0), roundWinner_(0xFF), matchWinner_(0xFF),
-      initialized_(false)
+      roundNumber_(0), initialized_(false), tournament_(WIN_SCORE)
 {
     selected_[0] = false;
     selected_[1] = false;
+    isBot_[0] = false;
+    isBot_[1] = false;
+    botPlaced_ = false;
 }
 
 void Game::registerPlayer(int pid, const sockaddr_in& from)
@@ -65,6 +77,70 @@ void Game::initFromSelections()
     printf("Game initialized from player selections! VS intro...\n");
 }
 
+void Game::createBot(int pid)
+{
+    if (pid < 0 || pid > 1) return;
+    if (selected_[pid]) return;
+
+    // Random trainer
+    int tIdx = rand() % N_TRAINERS;
+    // Random 3 heroes
+    int hIdx[3];
+    for (int i = 0; i < 3; i++) {
+        hIdx[i] = rand() % N_HEROES;
+    }
+
+    selections_[pid].playerId = (uint8_t)pid;
+    selections_[pid].type = INPUT_SELECT;
+    selections_[pid].trainerIndex = (uint8_t)tIdx;
+    for (int i = 0; i < 3; i++) {
+        selections_[pid].heroIndices[i] = (uint8_t)hIdx[i];
+    }
+    selected_[pid] = true;
+    isBot_[pid] = true;
+
+    printf("Bot created for Player %d (trainer=%d, heroes=%d,%d,%d)\n",
+           pid, tIdx, hIdx[0], hIdx[1], hIdx[2]);
+
+    if (connectedCount_ >= 1 && selected_[0] && selected_[1] && !initialized_)
+        initFromSelections();
+}
+
+void Game::updateBot(float dt)
+{
+    (void)dt;
+    for (int pid = 0; pid < 2; pid++) {
+        if (!isBot_[pid]) continue;
+
+        // Auto-positioning
+        if (phase_ == PHASE_POSITIONING) {
+            if (!botPlaced_) {
+                bool isLeft = (pid == 0);
+                for (int h = 0; h < trainers_[pid].heroCount(); h++) {
+                    uint8_t arch = trainers_[pid].heroAt(h).archetype();
+                    uint8_t tx, ty;
+                    // Simple positioning logic
+                    if (arch == ARCHETYPE_TANK)       { tx = isLeft ? 3 : 4; ty = 2 + h; }
+                    else if (arch == ARCHETYPE_MAGE)  { tx = isLeft ? 0 : 7; ty = 2 + h; }
+                    else if (arch == ARCHETYPE_SUPPORT){ tx = isLeft ? 1 : 6; ty = 2 + h; }
+                    else                              { tx = isLeft ? 2 : 5; ty = 2 + h; }
+                    trainers_[pid].placeHero(h, tx, ty, isLeft);
+                }
+                botPlaced_ = true;
+            }
+        } else {
+            botPlaced_ = false;
+        }
+
+        // Auto-ability during battle
+        if (phase_ == PHASE_BATTLE) {
+            if (trainers_[pid].canUseAbility()) {
+                trainers_[pid].useAbility();
+            }
+        }
+    }
+}
+
 void Game::handlePlaceHero(int pid, int heroIdx, uint8_t tx, uint8_t ty)
 {
     if (phase_ != PHASE_POSITIONING) return;
@@ -80,13 +156,39 @@ void Game::handleUseAbility(int pid)
     trainers_[pid].useAbility();
 }
 
+void Game::handleTarget(int pid, int heroIdx, int targetIdx)
+{
+    if (phase_ != PHASE_BATTLE) return;
+    if (heroIdx < 0 || heroIdx >= trainers_[pid].heroCount()) return;
+
+    Hero& hero = trainers_[pid].heroAt(heroIdx);
+    if (!hero.alive()) return;
+
+    if (targetIdx < 0) {
+        hero.clearTargetFocus();
+        return;
+    }
+
+    if (targetIdx >= trainers_[1 - pid].heroCount()) return;
+    Hero& target = trainers_[1 - pid].heroAt(targetIdx);
+    if (!target.alive()) return;
+
+    // Only allow targeting adjacent enemies
+    if (!hero.isAdjacentTo(target)) return;
+
+    hero.setTargetFocus(targetIdx);
+}
+
 void Game::update(float dt)
 {
+    updateBot(dt);
+
     for (int i = 0; i < 2; i++) {
         for (int h = 0; h < trainers_[i].heroCount(); h++) {
             Hero& hero = trainers_[i].heroAt(h);
             hero.tickTimers(dt);
             hero.tickUltimate(dt);
+            hero.tickEffects(dt);
         }
         trainers_[i].tickAbility(dt);
     }
@@ -145,7 +247,8 @@ void Game::buildSnapshot(GameSnapshot& snap) const
                     (uint16_t)hero.hp(), (uint16_t)hero.maxHp(),
                     (uint8_t)hero.ad(), (uint8_t)hero.arm(),
                     hero.archetype(), hero.heroDefIndex(), hero.buff(),
-                    (uint8_t)hero.alive(), (uint8_t)hero.ultActive(), (uint8_t)i
+                    (uint8_t)hero.alive(), (uint8_t)hero.ultActive(), (uint8_t)i,
+                    hero.targetFocus()
                 };
             }
         }
@@ -164,6 +267,7 @@ void Game::startPositioning()
     phase_ = PHASE_POSITIONING;
     phaseTimer_ = POSITIONING_TIME;
     roundWinner_ = 0xFF;
+    ++roundNumber_;
 
     for (int i = 0; i < 2; i++) {
         trainers_[i].resetForRound();
@@ -186,7 +290,7 @@ void Game::startBattle()
             Hero& hero = trainers_[i].heroAt(h);
             for (int b = 0; b < buffZoneCount_; b++) {
                 if (hero.x() == buffZones_[b].x && hero.y() == buffZones_[b].y) {
-                    hero.applyBuff(buffZones_[b].type);
+                    hero.applyBuff(buffZones_[b].type, 30.f);  // 30s duration
                     break;
                 }
             }
@@ -197,10 +301,10 @@ void Game::startBattle()
 void Game::endRound(uint8_t winner)
 {
     roundWinner_ = winner;
+    tournament_.recordRoundResult(roundNumber_, winner);
     if (winner != 0xFF) {
         trainers_[winner].addScore();
-
-        uint8_t loser = 1 - winner;
+uint8_t loser = 1 - winner;
         db_.saveMatch(
             trainers_[winner].name(),
             trainers_[loser].name(),
@@ -208,9 +312,13 @@ void Game::endRound(uint8_t winner)
             trainers_[loser].score()
         );
 
-        if (trainers_[winner].score() >= WIN_SCORE) {
-            matchWinner_ = winner;
+        uint8_t tw = tournament_.getMatchWinner();
+        if (tw != 0xFF) {
+            matchWinner_ = tw;
             phase_ = PHASE_MATCH_END;
+
+            printf("Match winner: Player %d!\n", tw);
+            tournament_.print();
 
             printf("\n=== RANKING ===\n");
             auto ranking = db_.getRanking();
@@ -229,38 +337,65 @@ void Game::endRound(uint8_t winner)
 void Game::autoBattleMove()
 {
     for (int i = 0; i < 2; i++) {
+        // Build obstacle map (blocked cells occupied by alive heroes)
+        bool blocked[GRID_ROWS][GRID_COLS];
+        for (int y = 0; y < GRID_ROWS; y++)
+            for (int x = 0; x < GRID_COLS; x++)
+                blocked[y][x] = false;
+
+        for (int t = 0; t < 2; t++) {
+            for (int h = 0; h < trainers_[t].heroCount(); h++) {
+                Hero& hero = trainers_[t].heroAt(h);
+                if (hero.alive()) blocked[hero.y()][hero.x()] = true;
+            }
+        }
+
         for (int h = 0; h < trainers_[i].heroCount(); h++) {
             Hero& hero = trainers_[i].heroAt(h);
             if (!hero.alive() || hero.moveTimer() > 0.f) continue;
 
-            // Find nearest enemy
+            // Determine movement target: focused enemy first, then nearest
             Hero* target = nullptr;
-            float minDist = 1000.f;
-            
-            for (int eh = 0; eh < trainers_[1 - i].heroCount(); eh++) {
-                Hero& enemy = trainers_[1 - i].heroAt(eh);
-                if (!enemy.alive()) continue;
-                
-                float d = sqrtf(powf((float)hero.x() - enemy.x(), 2) + powf((float)hero.y() - enemy.y(), 2));
-                if (d < minDist) { minDist = d; target = &enemy; }
+            if (hero.targetFocus() >= 0) {
+                int tf = hero.targetFocus();
+                if (tf < trainers_[1 - i].heroCount()) {
+                    Hero& focused = trainers_[1 - i].heroAt(tf);
+                    if (focused.alive()) target = &focused;
+                }
+            }
+            if (!target) {
+                // Fallback: nearest enemy
+                float minDist = 1000.f;
+                for (int eh = 0; eh < trainers_[1 - i].heroCount(); eh++) {
+                    Hero& enemy = trainers_[1 - i].heroAt(eh);
+                    if (!enemy.alive()) continue;
+                    float d = sqrtf(powf((float)hero.x() - enemy.x(), 2) + powf((float)hero.y() - enemy.y(), 2));
+                    if (d < minDist) { minDist = d; target = &enemy; }
+                }
             }
 
             if (target && !hero.isAdjacentTo(*target)) {
+                uint8_t oldX = hero.x();
+                uint8_t oldY = hero.y();
+
+                // Unblock current hero's cell and target cell for pathfinding
+                blocked[oldY][oldX] = false;
+                blocked[target->y()][target->x()] = false;
+
                 int nx, ny;
-                if (hero.chooseMove(target->x(), target->y(), nx, ny)) {
-                    // Check if cell is occupied by ally
-                    bool occupied = false;
-                    for (int ah = 0; ah < trainers_[i].heroCount(); ah++) {
-                        if (ah == h) continue;
-                        if (trainers_[i].heroAt(ah).alive() && trainers_[i].heroAt(ah).x() == nx && trainers_[i].heroAt(ah).y() == ny) {
-                            occupied = true; break;
-                        }
-                    }
-                    if (!occupied) {
-                        hero.setPosition(nx, ny);
-                        hero.startMoveTimer();
-                    }
+                if (graph_.findPath(hero.x(), hero.y(), target->x(), target->y(), blocked, nx, ny)) {
+                    hero.setPosition(nx, ny);
+                    hero.startMoveTimer();
+                    // Update blocked: hero left oldX,oldY and now occupies nx,ny
+                    blocked[oldY][oldX] = false;
+                    blocked[ny][nx] = true;
+                } else {
+                    // Path not found: re-block old position
+                    blocked[oldY][oldX] = true;
                 }
+
+                // Re-block target cell
+                blocked[target->y()][target->x()] = true;
             }
         }
     }
@@ -268,20 +403,61 @@ void Game::autoBattleMove()
 
 void Game::runCombat()
 {
+    // Collect all heroes ready to attack
+    Combatant combatants[MAX_HEROES_TOTAL];
+    int combatantCount = 0;
+
     for (int i = 0; i < 2; i++) {
         for (int h = 0; h < trainers_[i].heroCount(); h++) {
             Hero& hero = trainers_[i].heroAt(h);
-            if (!hero.alive() || hero.attackTimer() > 0.f) continue;
+            if (hero.alive() && hero.attackTimer() <= 0.f) {
+                combatants[combatantCount++] = { &hero, i, hero.asRate() };
+            }
+        }
+    }
 
-            // Find adjacent enemy
+    if (combatantCount == 0) return;
+
+    // Priority queue: higher attack speed attacks first (uses Combatant::operator>)
+    PriorityQueue<Combatant> pq;
+
+    for (int i = 0; i < combatantCount; i++) {
+        pq.push(combatants[i]);
+    }
+
+    // Process attacks in priority order
+    while (!pq.empty()) {
+        Combatant c = pq.pop();
+        Hero& hero = *c.hero;
+        if (!hero.alive()) continue;
+        int i = c.team;
+
+        Hero* target = nullptr;
+
+        // Try focused target first
+        if (hero.targetFocus() >= 0) {
+            int tf = hero.targetFocus();
+            if (tf < trainers_[1 - i].heroCount()) {
+                Hero& focused = trainers_[1 - i].heroAt(tf);
+                if (focused.alive() && hero.isAdjacentTo(focused))
+                    target = &focused;
+                else
+                    hero.clearTargetFocus();
+            }
+        }
+
+        // Fallback: first adjacent enemy
+        if (!target) {
             for (int eh = 0; eh < trainers_[1 - i].heroCount(); eh++) {
                 Hero& enemy = trainers_[1 - i].heroAt(eh);
                 if (enemy.alive() && hero.isAdjacentTo(enemy)) {
-                    hero.attackTarget(enemy);
-                    break; // one attack per tick
+                    target = &enemy;
+                    break;
                 }
             }
         }
+
+        if (target) hero.attackTarget(*target);
     }
 }
 
@@ -330,9 +506,37 @@ void Game::tickUltimates(float dt)
     }
 }
 
-void Game::resolveTimeLimit() { /* Similar to MVP, check total team HP % */ }
+void Game::resolveTimeLimit() {
+    float hpPct[2] = { 0.f, 0.f };
+    for (int i = 0; i < 2; i++) {
+        int totalHp = 0, totalMaxHp = 0;
+        for (int h = 0; h < trainers_[i].heroCount(); h++) {
+            const Hero& hero = trainers_[i].heroAt(h);
+            totalHp    += hero.hp();
+            totalMaxHp += hero.maxHp();
+        }
+        hpPct[i] = (totalMaxHp > 0) ? (float)totalHp / totalMaxHp : 0.f;
+    }
+    if      (hpPct[0] > hpPct[1]) endRound(0);
+    else if (hpPct[1] > hpPct[0]) endRound(1);
+    else                           endRound(0xFF);  // empate
+}
 
-void Game::generateBuffZones() { /* Same as original logic */ }
+void Game::generateBuffZones() {
+    buffZoneCount_ = 0;
+    int desired = 2 + (rand() % 2);  // 2 ou 3 zonas
+    for (int attempt = 0; attempt < 20 && buffZoneCount_ < desired; attempt++) {
+        uint8_t bx = (uint8_t)(2 + rand() % 4);   // cols 2-5
+        uint8_t by = (uint8_t)(rand() % GRID_ROWS);
+        bool dup = false;
+        for (int i = 0; i < buffZoneCount_; i++) {
+            if (buffZones_[i].x == bx && buffZones_[i].y == by) { dup = true; break; }
+        }
+        if (dup) continue;
+        uint8_t type = (uint8_t)(1 + rand() % 3);  // BUFF_AD, BUFF_HP ou BUFF_ARM
+        buffZones_[buffZoneCount_++] = { bx, by, type };
+    }
+}
 
 bool Game::isConnected(int pid) const { return trainers_[pid].isConnected(); }
 bool Game::playerMatchesAddr(int pid, const sockaddr_in& a) const { return trainers_[pid].matchesAddr(a); }

@@ -52,6 +52,7 @@
 #define INPUT_PLACE       1   // drag-and-drop: move hero to (placeX, placeY)
 #define INPUT_USE_ABILITY 2   // trainer presses Q to use ability
 #define INPUT_SELECT      3   // client sends trainer + hero selection
+#define INPUT_TARGET      4   // client focuses hero attack on specific enemy
 
 // ── Packets ───────────────────────────────────────────────────────────────────
 #pragma pack(push, 1)
@@ -73,6 +74,17 @@ struct SelectionPacket {
     uint8_t heroIndices[3];   // indices into HERO_DEFS[]
 };
 
+// TargetPacket — sent during battle to focus attack on a specific enemy
+// Size is 4 bytes (vs InputPacket 5 bytes, SelectionPacket 6 bytes)
+#pragma pack(push, 1)
+struct TargetPacket {
+    uint8_t playerId;      // 0 or 1
+    uint8_t type;          // INPUT_TARGET
+    uint8_t heroIndex;     // which hero (local index 0-2)
+    uint8_t targetIndex;   // which enemy to focus (0xFF = clear focus)
+};
+#pragma pack(pop)
+
 struct BuffZoneInfo {
     uint8_t x, y, type;
 };
@@ -90,6 +102,7 @@ struct HeroNetState {
     uint8_t  alive;
     uint8_t  ultActive;   // 1 if ultimate is currently active
     uint8_t  ownerId;     // trainer index: 0 or 1
+    int8_t   targetFocus; // enemy index to focus attack, -1 = no focus
 };
 
 // Network state of a trainer

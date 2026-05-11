@@ -3,6 +3,8 @@
 #include "protocol.h"
 #include "game_defs.h"
 #include "database.h"
+#include "graph.h"
+#include "tournament_tree.h"
 #include <netinet/in.h>
 
 class Game {
@@ -13,9 +15,14 @@ public:
     void handlePlaceHero(int pid, int heroIdx, uint8_t tx, uint8_t ty);
     void handleUseAbility(int pid);
     void handleSelect(int pid, const SelectionPacket& sel);
+    void handleTarget(int pid, int heroIdx, int targetIdx);
     void initFromSelections();
 
     bool isInitialized() const { return initialized_; }
+    bool isBot(int pid) const { return isBot_[pid]; }
+
+    void createBot(int pid);
+    void updateBot(float dt);
 
     void update(float dt);
     void buildSnapshot(GameSnapshot& snap) const;
@@ -45,12 +52,20 @@ private:
     int          buffZoneCount_;
     uint8_t      roundWinner_;
     uint8_t      matchWinner_;
+    int          roundNumber_;   // current round (1-based)
 
     // Selection state
     bool             selected_[2];
     SelectionPacket  selections_[2];
     bool             initialized_;
+Database db_;
 
-    Database db_;
-    
+    bool             isBot_[2];
+    bool             botPlaced_;
+
+    // Pathfinding graph (BFS on 8x8 grid)
+    Graph graph_;
+
+    // Tournament tree for match history
+    TournamentTree tournament_;
 };

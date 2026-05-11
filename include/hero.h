@@ -2,6 +2,7 @@
 #include <cstdint>
 
 #include "../include/protocol.h"
+#include "../include/linked_list.h"
 
 // ─────────────────────────────────────────────────────────────────────────────
 // StatProfile — base stats defined by each Hero subclass
@@ -34,8 +35,8 @@ protected:
     float moveTimer_;
     float attackTimer_;
 
-    // ── Buff (from buff zone) ─────────────────────────────────────────────
-    uint8_t buff_;
+    // ── Active effects (buffs/debuffs with duration) ──────────────────────
+    LinkedList<ActiveEffect> effects_;
 
     // ── Ultimate state ────────────────────────────────────────────────────
     float ultCooldownTimer_;   // counts down; ult available when <= 0
@@ -54,6 +55,9 @@ protected:
 
     // ── Identity ──────────────────────────────────────────────────────────
     uint8_t heroDefIndex_;     // index into HERO_DEFS[] (for client lookup)
+
+    // ── Target focus ──────────────────────────────────────────────────────
+    int8_t targetFocus_;       // enemy index to focus attack, -1 = no focus
 
 public:
     explicit Hero(uint8_t ownerId);
@@ -107,8 +111,14 @@ public:
     /// Resets all stats to baseStats() values. Called at round start.
     void resetStats();
 
-    /// Applies a buff zone bonus.
-    void applyBuff(uint8_t type);
+    /// Applies a buff zone bonus (adds to effects list with duration).
+    void applyBuff(uint8_t type, float duration = 9999.f);
+
+    /// Tick all active effects (decrement duration, remove expired).
+    void tickEffects(float dt);
+
+    /// Recalculate stats from base + custom + active effects.
+    void recalcStats();
 
     /// Deals damage to target. Returns true if target died.
     bool attackTarget(Hero& target);
@@ -134,7 +144,13 @@ public:
     uint8_t x()        const { return x_; }
     uint8_t y()        const { return y_; }
     bool    alive()    const { return alive_; }
-    uint8_t buff()     const { return buff_; }
+    uint8_t buff()     const {
+        // Return first effect type, or BUFF_NONE if no effects
+        for (const auto& e : effects_) return e.effectType;
+        return BUFF_NONE;
+    }
+    size_t  effectCount() const { return effects_.size(); }
+    const LinkedList<ActiveEffect>& effects() const { return effects_; }
     bool    ultActive()  const { return ultActive_; }
     uint8_t ownerId()  const { return ownerId_; }
     float   moveTimer()  const { return moveTimer_; }
@@ -157,4 +173,9 @@ public:
     // ── Identity ──────────────────────────────────────────────────────────
     uint8_t heroDefIndex() const { return heroDefIndex_; }
     void setHeroDefIndex(uint8_t idx) { heroDefIndex_ = idx; }
+
+    // ── Target focus ──────────────────────────────────────────────────────
+    int8_t targetFocus() const { return targetFocus_; }
+    void setTargetFocus(int8_t idx) { targetFocus_ = idx; }
+    void clearTargetFocus() { targetFocus_ = -1; }
 };

@@ -1,8 +1,8 @@
 # Battle-CIn: Auto-Battle Game (EDOO)
 
-Este é um jogo auto-battle desenvolvido para a disciplina de **Estrutura de Dados e Orientação a Objetos (EDOO)** no CIn-UFPE. O projeto utiliza C++, Raylib e conceitos avançados de OOP como Herança, Polimorfismo, Encapsulamento e Composição.
+> **Plataforma**: Linux | **Engine**: Custom C++ + Raylib | **Rede**: UDP Autoritativo | **Gênero**: Auto-Battle Tático 1v1
 
-## Funcionalidades Atuais (Versão Modular)
+---
 
 - **Hierarquia de Heróis**: 5 classes (Tank, Fighter, Mage, Assassin, Support) com comportamentos e stats distintos via polimorfismo.
 - **Arena Horizontal**: Layout Esquerda (Treinador 0) vs Direita (Treinador 1).
@@ -11,78 +11,189 @@ Este é um jogo auto-battle desenvolvido para a disciplina de **Estrutura de Dad
 - **Multiplayer UDP**: Sincronização em tempo real entre cliente e servidor.
 - **Histórico de Partidas**: Resultados salvos em banco de dados SQLite com ranking de treinadores.
 
-## Requisitos
-
-- **C++17**
-- **CMake** (3.15+)
-- **Raylib**
-- **SQLite3**
-- **Conan** (opcional, para gerenciamento de dependências)
-
-> O SQLite3 é baixado automaticamente pelo Conan.
-> Se não estiver usando Conan, instale manualmente:
-> - macOS: `brew install sqlite`
-> - Ubuntu: `sudo apt install libsqlite3-dev`
-
-## Como Rodar o Projeto
-
-### 1. Preparar Dependências
-
-Se estiver usando o ambiente configurado com Conan:
-
-```bash
-mkdir -p build
-conan install . --output-folder=build --build=missing
-cd build
-cmake .. -G "Unix Makefiles" -DCMAKE_TOOLCHAIN_FILE=conan_toolchain.cmake -DCMAKE_POLICY_DEFAULT_CMP0091=NEW -DCMAKE_BUILD_TYPE=Release
-cmake --build .
-```
-
-Ou instale a `raylib` e o `sqlite3` no seu sistema e use o CMake padrão:
-
-```bash
-mkdir build && cd build
-cmake ..
-cmake --build .
-```
-
-### 2. Executar o Servidor
-
-O servidor deve ser iniciado primeiro:
-
-```bash
-./servidor
-```
-
-> Na primeira execução, o banco de dados `battle_cin.db` será criado
-> automaticamente na pasta `build/` com os dados dos heróis.
-
-### 3. Executar os Clientes
-
-Abra dois terminais adicionais para os jogadores:
-
-**Jogador 1 (Esquerda):**
-```bash
-./meu_projeto 0
-```
-
-**Jogador 2 (Direita):**
-```bash
-./meu_projeto 1
-```
+---
 
 ## Controles
 
-- **Fase de Posicionamento**: Clique e arraste seus heróis para as colunas permitidas pela classe deles.
-- **Fase de Batalha**: 
-    - Os heróis lutam automaticamente.
-    - Pressione **Q** para usar a habilidade especial do seu Treinador (1 vez por round).
-- **Ultimates**: Ativam sozinhos quando as condições são atingidas (ex: Tank com vida baixa ganha armadura).
+| Ação | Entrada |
+|------|---------|
+| Selecionar treinador/heróis | `WASD` / `Setas` + `Enter` / `Espaço` |
+| Posicionar herói | Clique e arraste (fase de posicionamento) |
+| Usar habilidade do treinador | `Q` (1 vez por round) |
+| Direcionar foco de ataque | Clique e arraste de herói próprio → inimigo adjacente |
+
+---
+
+## Features Implementadas
+
+### Core Gameplay
+- [x] **5 Classes de Heróis**: Tank, Fighter, Mage, Assassin, Support — cada uma com stats, ultimate e comportamento únicos via polimorfismo.
+- [x] **Treinadores (Professores)**: 4 treinadores com habilidades especiais distintas (Rally, Shield Wall, Battle Heal, Frenzy).
+- [x] **Auto-Battle**: Heróis se movem e atacam automaticamente durante a fase de batalha.
+- [x] **Ultimates Automáticas**: Cada classe tem uma ultimate com condição de ativação e probabilidade por tick.
+- [x] **Sistema de Rounds**: Best-of-5 com timer de 120s por round, resolução por HP% em caso de empate.
+- [x] **Zonas de Buff**: 2-3 zonas aleatórias surgem no grid central a cada round (AD, HP, ARM).
+- [x] **Bot Solo**: Se apenas 1 jogador conectar, um bot é criado automaticamente após 5s.
+- [x] **Histórico de Partidas**: Banco de dados SQLite salva resultados e exibe ranking ao final da partida.
+
+### Visual e Feedback
+- [x] **Barras de HP**: Exibidas acima de cada herói (verde > 50%, amarelo > 25%, vermelho ≤ 25%).
+- [x] **Números de Dano Flutuantes**: Texto que sobe e desaparece ao receber dano (vermelho) ou cura (verde).
+- [x] **Efeitos Visuais**: Expansão de anel branco na morte; explosão dourada na ultimate.
+- [x] **Seta de Foco de Ataque**: Linha/seta indicando qual inimigo o herói está focando.
+- [x] **Destaque de Inimigos Adjacentes**: Borda pulsante em inimigos válidos durante o drag de targeting.
+- [x] **Tela VS**: Tela de transição entre seleção e posicionamento.
+- [x] **Pedestais e Idle Breathing**: Elipse colorida sob cada herói, animação de respiração sutil.
+- [x] **Animações de Ataque**: Slingshot melee, projéteis ranged, flash de hit.
+
+### Rede e Protocolo
+- [x] **Servidor Autoritativo UDP**: 20Hz tick rate, snapshots broadcast para clientes.
+- [x] **Seleção via Rede**: Clientes enviam `SelectionPacket` com treinador + 3 heróis escolhidos.
+- [x] **Target Focus via Rede**: `TargetPacket` (4 bytes) para definir foco de ataque durante batalha.
+- [x] **Heartbeat**: Keep-alive do cliente para manter conexão ativa.
+
+### Estruturas de Dados (EDOO)
+- [x] **LinkedList<T>**: Lista encadeada genérica usada para efeitos ativos (buffs/debuffs com duração) e lista de adjacência do grafo.
+- [x] **Graph + BFS**: Grafo 8x8 com BFS para pathfinding de heróis, evitando obstáculos (outros heróis).
+- [x] **PriorityQueue (Max-Heap)**: Fila de prioridade para ordem de ataque por attack speed (`as_rate`).
+- [x] **TournamentTree**: Árvore binária de torneio para rastrear histórico de rounds (best-of-5).
+- [x] **HashTable / Database**: Banco de dados SQLite para persistência de resultados e ranking.
+
+---
+
+## Features Planejadas / Em Aberto
+
+### Mecânicas de Jogo
+- [ ] **Efeitos com Duração Real**: Buffs e debuffs com duração de verdade (stacks, múltiplos efeitos simultâneos).
+- [ ] **Novos Tipos de Buff**: Debuffs (redução de AD/ARM), status effects (stun, slow, poison).
+- [ ] **IA do Bot com Target Focus**: Bot também deve usar target focus em vez de atacar o primeiro adjacente.
+- [ ] **Dificuldade do Bot**: Níveis de dificuldade (agressivo, defensivo, aleatório).
+
+### Qualidade de Vida
+- [ ] **Efeitos Sonoros**: Sons para ataques, ultimates, morte, buff zone.
+- [ ] **Reconexão**: Suporte a desconectar e reconectar sem perder a partida.
+- [ ] **Conflito de Treinador**: Impedir que ambos os jogadores escolham o mesmo treinador (ou adicionar UI de aviso).
+- [ ] **Espectador**: Permitir 3º cliente assistir sem jogar.
+
+### Persistência e Meta
+- [ ] **Estatísticas de Partida**: Win rate, heróis mais usados, média de duração de rounds.
+- [ ] **Modo Campanha / Tutorial**: Single-player contra bot com progressão.
+
+### Técnicos / Refatoração
+- [ ] **QuadTree / Spatial Hash**: Otimizar detecção de proximidade em grids maiores.
+- [ ] **Replay System**: Gravar inputs do servidor e reproduzir partidas.
+- [ ] **Testes Automatizados**: Unit tests para `LinkedList`, `Graph`, `PriorityQueue`, `TournamentTree`.
+
+---
+
+## Arquitetura Técnica
+
+```
+Servidor (src/server/)
+├── game.cpp          → Loop principal, fases, auto-battle, pathfinding, combate
+├── main.cpp          → Socket UDP, deserialização de pacotes, broadcast de snapshots
+
+Cliente (src/client/)
+├── main.cpp          → Loop de jogo, input, interpolação visual, envio de pacotes
+├── renderer.cpp      → Renderização de grid, heróis, HUD, efeitos, targeting
+
+Heróis (src/heroes/)
+├── hero.cpp          → Lógica base: stats, ataque, movimento, buffs, ultimate
+├── hero_factory.cpp  → Criação polimórfica (TankHero, MageHero, etc.)
+
+EDOO (include/)
+├── linked_list.h     → Lista encadeada genérica + iterador
+├── graph.h           → Grafo do grid + BFS shortest path
+├── priority_queue.h  → Max-heap para ordem de combate
+├── tournament_tree.h → Árvore binária de torneio
+├── database.h        → SQLite database para histórico e ranking
+
+Protocolo (include/)
+└── protocol.h        → Pacotes UDP: InputPacket, SelectionPacket, TargetPacket, GameSnapshot
+```
+
+---
+
+## Como Rodar
+
+### Build
+
+```bash
+# Build completo (Makefile wrapper)
+make
+
+# Ou via CMake/Conan
+mkdir build && cd build
+conan install .. --build=missing
+cmake .. -DCMAKE_BUILD_TYPE=Release
+cmake --build .
+```
+
+### Execução (Solo — Human vs Bot)
+
+```bash
+make run-solo
+```
+
+### Execução (2 Jogadores)
+
+```bash
+make run-2players
+```
+
+### Execução Manual
+
+```bash
+# Terminal 1 — Servidor
+make run-server
+
+# Terminal 2 — Jogador 0
+make run-client0
+
+# Terminal 3 — Jogador 1
+make run-client1
+```
+
+> Na primeira execução, o banco de dados `battle_cin.db` será criado automaticamente com os dados dos heróis.
+
+---
+
+## Requisitos
+
+- **C++17**
+- **CMake** 3.15+
+- **Raylib** (instalada no sistema ou via Conan)
+- **SQLite3** (baixado automaticamente pelo Conan, ou instale manualmente: `sudo apt install libsqlite3-dev`)
+- **Conan** (opcional, para gerenciamento de dependências)
+- **Linux** (desenvolvido e testado em ambiente Linux)
+
+---
 
 ## Estrutura de Pastas
 
-- `include/`: Headers (`.h`) das classes e protocolo.
-- `src/heroes/`: Implementação das classes herdeiras de `Hero`.
-- `src/server/`: Lógica da Game Engine e Servidor UDP.
-- `src/client/`: Lógica de renderização Raylib e Input.
-- `assets/`: Imagens da arena e retratos dos heróis/treinadores.
+```
+battle-cin/
+├── include/            → Headers (.h) das classes e protocolo
+│   ├── linked_list.h
+│   ├── graph.h
+│   ├── priority_queue.h
+│   ├── tournament_tree.h
+│   ├── database.h
+│   ├── protocol.h
+│   ├── game.h
+│   └── hero.h
+├── src/
+│   ├── heroes/         → Implementação das classes herdeiras de Hero
+│   ├── server/         → Game Engine + Servidor UDP
+│   ├── database.cpp    → SQLite database para histórico e ranking
+│   └── client/         → Renderização Raylib + Input
+├── assets/             → Imagens da arena e retratos dos heróis/treinadores
+├── .opencode/plans/    → Roadmaps e planos de correção
+└── Makefile            → Build simplificado (make, make run-2players, etc.)
+```
+
+---
+
+## Créditos
+
+Desenvolvido para a disciplina **Estrutura de Dados e Orientação a Objetos (EDOO)** — Centro de Informática (CIn), Universidade Federal de Pernambuco (UFPE).

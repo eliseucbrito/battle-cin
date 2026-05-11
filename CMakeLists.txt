@@ -19,6 +19,7 @@ set(SHARED_SOURCES
     src/heroes/hero_support.cpp
     src/hero_factory.cpp
     src/trainer.cpp
+    src/tournament_tree.cpp
 )
 
 # ── Client ────────────────────────────────────────────────────────────────────

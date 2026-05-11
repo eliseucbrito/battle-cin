@@ -58,59 +58,61 @@ void drawBuffZones(const GameSnapshot& snap) {
     }
 }
 
-void drawHero(const HeroNetState& hs, Vector2 ctr, int myId, bool dragging) {
+void drawPedestal(Vector2 ctr, int ownerId) {
+    float rx = CELLW * 0.55f;
+    float ry = CELLH * 0.22f;
+    Color fill = (ownerId == 0) ? Color{60, 120, 230, 120} : Color{230, 60, 60, 120};
+    Color border = (ownerId == 0) ? Color{40, 90, 200, 180} : Color{200, 40, 40, 180};
+    float baseY = ctr.y + CELLH * 0.32f;
+    DrawEllipse((int)ctr.x, (int)baseY, rx, ry, fill);
+    DrawEllipseLines((int)ctr.x, (int)baseY, rx, ry, border);
+}
+
+void drawHero(const HeroNetState& hs, Vector2 ctr, int myId, bool dragging,
+              float breathScale, float tiltAngle)
+{
     float r = CELLW * 0.42f;
     Color pCol = kPlayerColor[hs.ownerId];
     if (dragging) pCol.a = 120;
 
-    // 1. Colored circle as background
-    DrawCircleV(ctr, r, pCol);
+    // Shift hero draw position up so feet sit on the pedestal
+    float heroShift = -CELLH * 0.12f;
+    Vector2 heroCtr = { ctr.x, ctr.y + heroShift };
 
-    // 2. Draw hero sprite clipped inside the circle area
+    // Draw hero sprite (no circle background, no scissoring)
     uint8_t texIdx = (hs.heroDefIndex < N_HEROES) ? hs.heroDefIndex : hs.archetype;
     Texture2D& tex = heroTextures[texIdx];
     if (tex.id != 0) {
-        // Scale sprite to fill the circle diameter (2*r x 2*r)
-        float diameter = r * 2.0f;
-        float scaleX = diameter / tex.width;
-        float scaleY = diameter / tex.height;
-        float scale  = (scaleX < scaleY) ? scaleX : scaleY;
+        float wantedH = CELLH * 0.72f;
+        float scale = wantedH / tex.height;
         float sw = tex.width  * scale;
-        float sh = tex.height * scale;
+        float sh = tex.height * scale * breathScale;
 
-        // Use scissor to clip sprite to the circle's bounding square
-        int sx = (int)(ctr.x - r);
-        int sy = (int)(ctr.y - r);
-        int sd = (int)(diameter);
-        BeginScissorMode(sx, sy, sd, sd);
         DrawTexturePro(
             tex,
             { 0, 0, (float)tex.width, (float)tex.height },
-            { ctr.x - sw * 0.5f, ctr.y - sh * 0.5f, sw, sh },
-            { 0, 0 }, 0.f, WHITE
+            { heroCtr.x, heroCtr.y, sw, sh },
+            { sw * 0.5f, sh * 0.5f }, tiltAngle * RAD2DEG, WHITE
         );
-        EndScissorMode();
     } else {
-        // Fallback: archetype label
         const char* archNames[] = {"TNK", "FGT", "MAG", "ASN", "SUP"};
-        DrawText(archNames[hs.archetype], (int)ctr.x - 12, (int)ctr.y - 6, 10, WHITE);
+        DrawText(archNames[hs.archetype], (int)heroCtr.x - 12, (int)heroCtr.y - 6, 10, WHITE);
     }
 
-    // 3. Circle outline drawn ON TOP to mask sprite corners
+    // Thin colored border around hero area (team identification)
     Color rimColor = (hs.ownerId == (uint8_t)myId) ? WHITE : LIGHTGRAY;
-    DrawCircleLinesV(ctr, r, rimColor);
-    // Thicker colored rim for visual quality
-    DrawCircleLinesV(ctr, r - 1, pCol);
+    DrawCircleLinesV(heroCtr, r, { rimColor.r, rimColor.g, rimColor.b, 90 });
+    DrawCircleLinesV(heroCtr, r - 1, { pCol.r, pCol.g, pCol.b, 90 });
 
-    // 4. Ultimate glow
+    // Ultimate glow
     if (hs.ultActive) {
-        DrawCircleLinesV(ctr, r + 3, GOLD);
-        DrawCircleLinesV(ctr, r + 6, { 255, 215, 0, 120 });
+        DrawCircleLinesV(heroCtr, r + 3, GOLD);
+        DrawCircleLinesV(heroCtr, r + 6, { 255, 215, 0, 120 });
     }
 
-    // 5. HP bar above the circle
+    // HP bar above the hero
     float bw = CELLW * 0.85f, bh = 6.f;
-    float bx = ctr.x - bw * 0.5f, by = ctr.y - r - 14.f;
+    float bx = heroCtr.x - bw * 0.5f, by = heroCtr.y - r - 14.f;
     float pct = (hs.maxHp > 0) ? (float)hs.hp / hs.maxHp : 0.f;
     DrawRectangle((int)bx, (int)by, (int)bw, (int)bh, DARKGRAY);
     DrawRectangle((int)bx, (int)by, (int)(bw * pct), (int)bh,
@@ -303,6 +305,300 @@ void unloadTextures() {
         if (heroTextures[i].id != 0) UnloadTexture(heroTextures[i]);
     }
     texturesLoaded = false;
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  FLOATING DAMAGE/HEAL TEXT
+// ═════════════════════════════════════════════════════════════════════════════
+
+struct FloatingText {
+    Vector2 pos;
+    int     value;
+    float   timer;
+    float   maxTimer;
+    Color   color;
+};
+
+static std::vector<FloatingText> floatingTexts;
+
+void spawnFloatingText(Vector2 pos, int value, Color color) {
+    floatingTexts.push_back({ pos, value, 1.0f, 1.0f, color });
+}
+
+void updateAndDrawFloatingTexts(float dt) {
+    for (int i = (int)floatingTexts.size() - 1; i >= 0; i--) {
+        FloatingText& ft = floatingTexts[i];
+        ft.timer -= dt;
+        if (ft.timer <= 0.f) {
+            floatingTexts.erase(floatingTexts.begin() + i);
+            continue;
+        }
+        ft.pos.y -= 30.f * dt;  // sobe
+        float alpha = ft.timer / ft.maxTimer;
+        Color c = ft.color;
+        c.a = (unsigned char)(255.f * alpha);
+        char buf[16];
+        snprintf(buf, sizeof(buf), "%+d", ft.value);
+        int fontSize = 16;
+        int w = MeasureText(buf, fontSize);
+        DrawText(buf, (int)(ft.pos.x - w * 0.5f), (int)ft.pos.y, fontSize, c);
+    }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  VISUAL EFFECTS (death, ultimate)
+// ═════════════════════════════════════════════════════════════════════════════
+
+struct VisualEffect {
+    Vector2 pos;
+    float   timer;
+    float   maxTimer;
+    float   startRadius;
+    float   endRadius;
+    Color   color;
+    int     type;  // 0 = death, 1 = ultimate
+};
+
+static std::vector<VisualEffect> visualEffects;
+
+void spawnDeathEffect(Vector2 pos) {
+    visualEffects.push_back({
+        pos, 0.6f, 0.6f, 5.f, 45.f,
+        {200, 200, 220, 255}, 0
+    });
+}
+
+void spawnUltimateEffect(Vector2 pos) {
+    visualEffects.push_back({
+        pos, 0.4f, 0.4f, 10.f, 50.f,
+        {255, 215, 0, 255}, 1
+    });
+}
+
+void updateAndDrawVisualEffects(float dt) {
+    for (int i = (int)visualEffects.size() - 1; i >= 0; i--) {
+        VisualEffect& ve = visualEffects[i];
+        ve.timer -= dt;
+        if (ve.timer <= 0.f) {
+            visualEffects.erase(visualEffects.begin() + i);
+            continue;
+        }
+        float t = 1.f - (ve.timer / ve.maxTimer);  // 0 -> 1
+        float radius = ve.startRadius + (ve.endRadius - ve.startRadius) * t;
+        float alpha = 1.f - t;
+        Color c = ve.color;
+        c.a = (unsigned char)(255.f * alpha);
+
+        if (ve.type == 0) {
+            // Death: expanding ring
+            DrawCircleLinesV(ve.pos, radius, c);
+            DrawCircleLinesV(ve.pos, radius * 0.7f, c);
+        } else {
+            // Ultimate: expanding filled circle
+            Color fill = c; fill.a = (unsigned char)(80.f * alpha);
+            DrawCircleV(ve.pos, radius, fill);
+            DrawCircleLinesV(ve.pos, radius, c);
+            // Star burst lines
+            int rays = 8;
+            for (int r = 0; r < rays; r++) {
+                float angle = (float)r * (2.f * PI / rays) + t * PI;
+                Vector2 end = {
+                    ve.pos.x + cosf(angle) * radius * 1.3f,
+                    ve.pos.y + sinf(angle) * radius * 1.3f
+                };
+                DrawLineV(ve.pos, end, c);
+            }
+        }
+    }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  MELEE ATTACK ANIMATIONS (slingshot)
+// ═════════════════════════════════════════════════════════════════════════════
+
+struct AttackAnim {
+    Vector2 from;
+    Vector2 to;
+    Vector2 start;
+    Vector2 end;
+    float   timer;
+    float   maxTimer;
+};
+
+static std::vector<AttackAnim> attackAnims;
+
+void spawnAttackAnim(Vector2 from, Vector2 to) {
+    attackAnims.push_back({ from, to, from, to, 0.16f, 0.16f });
+}
+
+void updateAndDrawAttackAnims(float dt) {
+    for (int i = (int)attackAnims.size() - 1; i >= 0; i--) {
+        AttackAnim& a = attackAnims[i];
+        a.timer -= dt;
+        if (a.timer <= 0.f) {
+            attackAnims.erase(attackAnims.begin() + i);
+            continue;
+        }
+        float t = 1.f - (a.timer / a.maxTimer);  // 0->1
+        // Slingshot: advance 30% toward target then return
+        float phase = (t < 0.5f) ? t * 2.f : 2.f * (1.f - t);
+        Vector2 pos = {
+            a.from.x + (a.to.x - a.from.x) * phase * 0.3f,
+            a.from.y + (a.to.y - a.from.y) * phase * 0.3f
+        };
+        float alpha = (t < 0.5f) ? 1.f : 1.f - (t - 0.5f) * 2.f;
+        Color c = {255, 220, 100, (unsigned char)(255.f * alpha)};
+        DrawCircleV(pos, 6.f, c);
+        // Quick arc line from original position
+        if (phase > 0.01f) {
+            Color lineC = {255, 200, 80, (unsigned char)(180.f * alpha)};
+            DrawLineEx(a.from, pos, 2.f, lineC);
+        }
+    }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  RANGED PROJECTILES
+// ═════════════════════════════════════════════════════════════════════════════
+
+struct Projectile {
+    Vector2 from;
+    Vector2 to;
+    float   timer;
+    float   maxTimer;
+    uint8_t archetype;
+};
+
+static std::vector<Projectile> projectiles;
+
+void spawnProjectile(Vector2 from, Vector2 to, uint8_t archetype) {
+    projectiles.push_back({ from, to, 0.3f, 0.3f, archetype });
+}
+
+void updateAndDrawProjectiles(float dt) {
+    for (int i = (int)projectiles.size() - 1; i >= 0; i--) {
+        Projectile& p = projectiles[i];
+        p.timer -= dt;
+        if (p.timer <= 0.f) {
+            projectiles.erase(projectiles.begin() + i);
+            continue;
+        }
+        float t = 1.f - (p.timer / p.maxTimer);
+        Vector2 pos = {
+            p.from.x + (p.to.x - p.from.x) * t,
+            p.from.y + (p.to.y - p.from.y) * t
+        };
+        float alpha = 1.f;
+        Color c;
+        if (p.archetype == ARCHETYPE_MAGE) {
+            c = {160, 80, 255, (unsigned char)(255.f * alpha)};  // purple
+        } else {
+            c = {80, 220, 130, (unsigned char)(255.f * alpha)};   // green
+        }
+        // Trail (fading line)
+        Color trailC = c; trailC.a = (unsigned char)(100.f * (1.f - t));
+        DrawLineEx(p.from, pos, 2.f, trailC);
+        // Projectile circle
+        DrawCircleV(pos, 5.f, c);
+        DrawCircleLinesV(pos, 5.f, WHITE);
+        // Impact flash at destination on last 20%
+        if (t > 0.8f) {
+            float flash = (t - 0.8f) / 0.2f;
+            Color flashC = WHITE; flashC.a = (unsigned char)(200.f * (1.f - flash));
+            DrawCircleV(p.to, 8.f * flash, flashC);
+        }
+    }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  HIT FLASH
+// ═════════════════════════════════════════════════════════════════════════════
+
+struct HitFlash {
+    Vector2 pos;
+    float   timer;
+    float   maxTimer;
+};
+
+static std::vector<HitFlash> hitFlashes;
+
+void spawnHitFlash(Vector2 pos) {
+    hitFlashes.push_back({ pos, 0.066f, 0.066f });
+}
+
+void updateAndDrawHitFlashes(float dt) {
+    for (int i = (int)hitFlashes.size() - 1; i >= 0; i--) {
+        HitFlash& hf = hitFlashes[i];
+        hf.timer -= dt;
+        if (hf.timer <= 0.f) {
+            hitFlashes.erase(hitFlashes.begin() + i);
+            continue;
+        }
+        float alpha = hf.timer / hf.maxTimer;
+        Color c = {255, 255, 255, (unsigned char)(255.f * alpha)};
+        DrawCircleV(hf.pos, CELLW * 0.42f * 1.2f, c);
+    }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  TARGETING ARROWS & HIGHLIGHTS
+// ═════════════════════════════════════════════════════════════════════════════
+
+void drawTargetArrow(Vector2 from, Vector2 to) {
+    Color c = {255, 50, 50, 200};
+    float thickness = 3.f;
+    DrawLineEx(from, to, thickness, c);
+
+    // Arrowhead
+    float dx = to.x - from.x;
+    float dy = to.y - from.y;
+    float len = sqrtf(dx * dx + dy * dy);
+    if (len < 1.f) return;
+
+    float nx = dx / len, ny = dy / len;
+    float headLen = 10.f;
+    float headAngle = 0.5f;
+
+    Vector2 tip1 = {
+        to.x - headLen * (nx * cosf(headAngle) - ny * sinf(headAngle)),
+        to.y - headLen * (nx * sinf(headAngle) + ny * cosf(headAngle))
+    };
+    Vector2 tip2 = {
+        to.x - headLen * (nx * cosf(-headAngle) - ny * sinf(-headAngle)),
+        to.y - headLen * (nx * sinf(-headAngle) + ny * cosf(-headAngle))
+    };
+    DrawTriangle(to, tip1, tip2, c);
+}
+
+void drawTargetHighlight(Vector2 pos, float radius, Color color) {
+    float t = (float)GetTime();
+    unsigned char alpha = (unsigned char)(150 + 105 * sinf(t * 6.f));
+    Color c = color; c.a = alpha;
+    DrawCircleLinesV(pos, radius + 5, c);
+    DrawCircleLinesV(pos, radius + 8, {c.r, c.g, c.b, (unsigned char)(alpha * 0.5f)});
+}
+
+void drawAdjacentEnemyHighlights(const GameSnapshot& snap, int myId, int heroIdx) {
+    if (heroIdx < 0 || heroIdx >= snap.heroCount) return;
+    const HeroNetState& hero = snap.heroes[heroIdx];
+    if (hero.ownerId != (uint8_t)myId || !hero.alive) return;
+
+    Vector2 heroPos = cellCenter(hero.x, hero.y);
+    float heroR = CELLW * 0.42f;
+
+    for (int i = 0; i < snap.heroCount; i++) {
+        if (snap.heroes[i].ownerId == (uint8_t)myId) continue;
+        if (!snap.heroes[i].alive) continue;
+
+        int dx = abs((int)hero.x - (int)snap.heroes[i].x);
+        int dy = abs((int)hero.y - (int)snap.heroes[i].y);
+        if (dx <= 1 && dy <= 1) {
+            Vector2 enemyPos = cellCenter(snap.heroes[i].x, snap.heroes[i].y);
+            float t = (float)GetTime();
+            unsigned char alpha = (unsigned char)(100 + 80 * sinf(t * 4.f));
+            DrawCircleLinesV(enemyPos, heroR + 4, {255, 80, 80, alpha});
+        }
+    }
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
