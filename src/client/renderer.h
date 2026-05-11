@@ -3,47 +3,57 @@
 #include "../../include/protocol.h"
 #include <vector>
 
-// ─── Grid layout constants (shared with main.cpp) ────────────────────────────
 extern const float GX, GY, GW, GH, CELLW, CELLH;
 
-// ─── Selection screen data structures ────────────────────────────────────────
-
-// Lightweight display-only struct for Trainer cards (local, pre-server)
 struct TrainerDef {
     const char* name;
     const char* discipline;
     Color       color;
-    uint8_t     abilityType;   // ABILITY_* from protocol.h
-    const char* abilityName;   // Human-readable ability label
-    const char* portraitPath;  // "" = use colored placeholder
+    uint8_t     abilityType;
+    const char* abilityName;
+    const char* portraitPath;
 };
 
-// Lightweight display-only struct for Hero cards (local, pre-server)
 struct HeroDef {
     const char* name;
-    uint8_t     archetype;     // ARCHETYPE_* from protocol.h
-    const char* className;     // "Tank", "Fighter", etc.
+    uint8_t     archetype;
+    uint8_t     trainerIndex;
+    const char* className;
     int         hp, ad, arm;
     const char* assetPath;
 };
 
-// ─── Texture lifecycle for selection screens ─────────────────────────────────
+struct PlayerInput {
+    int  trainerCursor = 0;
+    int  trainerLocked  = -1;
+    int  heroCursor     = 0;
+    std::vector<int> heroPicks;
+    bool herosLocked    = false;
+    int   moveHeroIdx   = 0;
+    bool  isPositioning = false;
+    uint8_t cursorX     = 0;
+    uint8_t cursorY     = 0;
+    bool  abilityReady  = true;
+};
+
 void initSelectionAssets(const TrainerDef* trainers, int nTrainers,
                          const HeroDef*   heroes,   int nHeroes);
 void freeSelectionAssets(int nTrainers, int nHeroes);
 
-// ─── Selection screen draw calls ─────────────────────────────────────────────
-void drawTrainerSelect(const TrainerDef* trainers, int nTrainers,
-                       int cursor, int selectedIdx, int myId);
+void drawTrainerSelectMK(const GameSnapshot& snap,
+                         const TrainerDef* trainers, int nTrainers,
+                         const PlayerInput& p1, const PlayerInput& p2);
 
-void drawHeroSelect(const TrainerDef& trainer,
-                    const HeroDef* heroes, int nHeroes,
-                    int gridCols,
-                    int cursor,
-                    const std::vector<int>& picks,
-                    int myId);
+void drawHeroSelectMK(const GameSnapshot& snap,
+                      const TrainerDef* trainers,
+                      const HeroDef* heroes, int nHeroes,
+                      const PlayerInput& p1, const PlayerInput& p2);
 
-// ─── Battle screen draw calls ─────────────────────────────────────────────────
+void drawPlacementCursors(const GameSnapshot& snap,
+                          const PlayerInput& p1, const PlayerInput& p2);
+
+bool isValidDeployCell(int col, int row, uint8_t archetype, bool isLeft);
+
 void loadTextures();
 void unloadTextures();
 
@@ -59,28 +69,22 @@ void drawHUD(const GameSnapshot& snap, int myId);
 void drawOverlays(const GameSnapshot& snap, int myId);
 void drawVSScreen(const GameSnapshot& snap, int myId);
 
-// ─── Floating damage/heal text ───────────────────────────────────────────────
 void spawnFloatingText(Vector2 pos, int value, Color color);
 void updateAndDrawFloatingTexts(float dt);
 
-// ─── Visual effects (death, ultimate) ────────────────────────────────────────
 void spawnDeathEffect(Vector2 pos);
 void spawnUltimateEffect(Vector2 pos);
 void updateAndDrawVisualEffects(float dt);
 
-// ─── Attack animations (melee slingshot) ────────────────────────────────────
 void spawnAttackAnim(Vector2 from, Vector2 to);
 void updateAndDrawAttackAnims(float dt);
 
-// ─── Ranged projectiles ─────────────────────────────────────────────────────
 void spawnProjectile(Vector2 from, Vector2 to, uint8_t archetype);
 void updateAndDrawProjectiles(float dt);
 
-// ─── Hit flash on damage ────────────────────────────────────────────────────
 void spawnHitFlash(Vector2 pos);
 void updateAndDrawHitFlashes(float dt);
 
-// ─── Targeting arrows ──────────────────────────────────────────────────────────
 void drawTargetArrow(Vector2 from, Vector2 to);
 void drawTargetHighlight(Vector2 pos, float radius, Color color);
 void drawAdjacentEnemyHighlights(const GameSnapshot& snap, int myId, int heroIdx);

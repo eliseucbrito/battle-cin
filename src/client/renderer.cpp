@@ -9,8 +9,10 @@ const float CELLW = GW / GRID_COLS;
 const float CELLH = GH / GRID_ROWS;
 
 static const Color kPlayerColor[2] = { BLUE, RED };
+static const Color kP1Color = {80, 150, 255, 255};
+static const Color kP2Color = {255, 100, 80, 255};
 static Texture2D trainerTextures[N_TRAINERS];
-static Texture2D heroTextures[N_HEROES]; // mapping heroDefIndex to textures
+static Texture2D heroTextures[N_HEROES];
 static bool texturesLoaded = false;
 
 void loadTextures() {
@@ -40,7 +42,6 @@ void drawGrid() {
     for (int col = 0; col <= GRID_COLS; col++) DrawLineV({ GX + col * CELLW, GY }, { GX + col * CELLW, GY + GH }, c);
     for (int row = 0; row <= GRID_ROWS; row++) DrawLineV({ GX, GY + row * CELLH }, { GX + GW, GY + row * CELLH }, c);
     
-    // Vertical dividing line (Horizontal Arena: Left vs Right)
     float midX = GX + 4 * CELLW;
     DrawLineEx({ midX, GY }, { midX, GY + GH }, 2.f, { 255, 255, 100, 160 });
 }
@@ -75,11 +76,9 @@ void drawHero(const HeroNetState& hs, Vector2 ctr, int myId, bool dragging,
     Color pCol = kPlayerColor[hs.ownerId];
     if (dragging) pCol.a = 120;
 
-    // Shift hero draw position up so feet sit on the pedestal
     float heroShift = -CELLH * 0.12f;
     Vector2 heroCtr = { ctr.x, ctr.y + heroShift };
 
-    // Draw hero sprite (no circle background, no scissoring)
     uint8_t texIdx = (hs.heroDefIndex < N_HEROES) ? hs.heroDefIndex : hs.archetype;
     Texture2D& tex = heroTextures[texIdx];
     if (tex.id != 0) {
@@ -99,18 +98,15 @@ void drawHero(const HeroNetState& hs, Vector2 ctr, int myId, bool dragging,
         DrawText(archNames[hs.archetype], (int)heroCtr.x - 12, (int)heroCtr.y - 6, 10, WHITE);
     }
 
-    // Thin colored border around hero area (team identification)
     Color rimColor = (hs.ownerId == (uint8_t)myId) ? WHITE : LIGHTGRAY;
     DrawCircleLinesV(heroCtr, r, { rimColor.r, rimColor.g, rimColor.b, 90 });
     DrawCircleLinesV(heroCtr, r - 1, { pCol.r, pCol.g, pCol.b, 90 });
 
-    // Ultimate glow
     if (hs.ultActive) {
         DrawCircleLinesV(heroCtr, r + 3, GOLD);
         DrawCircleLinesV(heroCtr, r + 6, { 255, 215, 0, 120 });
     }
 
-    // HP bar above the hero
     float bw = CELLW * 0.85f, bh = 6.f;
     float bx = heroCtr.x - bw * 0.5f, by = heroCtr.y - r - 14.f;
     float pct = (hs.maxHp > 0) ? (float)hs.hp / hs.maxHp : 0.f;
@@ -121,9 +117,9 @@ void drawHero(const HeroNetState& hs, Vector2 ctr, int myId, bool dragging,
 }
 
 void drawHUD(const GameSnapshot& snap, int myId) {
-    loadTextures(); // ensures textures are loaded once
+    loadTextures();
+    (void)myId;
 
-    // Trainer Portraits in top corners
     float pSize = 80.f;
     uint8_t tId0 = snap.trainers[0].trainerId;
     uint8_t tId1 = snap.trainers[1].trainerId;
@@ -134,7 +130,6 @@ void drawHUD(const GameSnapshot& snap, int myId) {
         DrawTexturePro(trainerTextures[tId1], {0,0,(float)trainerTextures[tId1].width, (float)trainerTextures[tId1].height}, {936 - pSize - 10,10,pSize,pSize}, {0,0}, 0.f, WHITE);
     }
 
-    // Scores
     char s0[32], s1[32];
     snprintf(s0, sizeof(s0), "P0: %d", snap.trainers[0].score);
     snprintf(s1, sizeof(s1), "P1: %d", snap.trainers[1].score);
@@ -146,31 +141,29 @@ void drawHUD(const GameSnapshot& snap, int myId) {
         DrawText(t, 468 - MeasureText(t, 28)/2, 20, 28, GOLD);
     }
 
-    if (snap.trainers[myId].abilityReady) {
-        const char* msg = "Q: ACTIVAR PODER TREINADOR";
+    if (snap.trainers[0].abilityReady || snap.trainers[1].abilityReady) {
+        const char* msg = "P1: Q  |  P2: E  = Poder do Treinador";
         DrawText(msg, 468 - MeasureText(msg, 20)/2, 640, 20, YELLOW);
     }
 
     if (snap.phase == PHASE_POSITIONING) {
-        const char* hint = (myId == 0) ? "ESQUERDA (Cols 0-3)" : "DIREITA (Cols 4-7)";
-        DrawText(hint, 468 - MeasureText(hint, 20)/2, 610, 20, SKYBLUE);
+        const char* hint = "P1: 1/2/3 heroi  |  WASD mover  |  Space posicionar     |     P2: Numpad 1/2/3 heroi  |  Setas mover  |  Enter posicionar";
+        int hw = MeasureText(hint, 18);
+        DrawRectangle(468 - hw/2 - 6, 604, hw + 12, 30, {0,0,0,200});
+        DrawText(hint, 468 - hw/2, 610, 18, SKYBLUE);
     }
 }
 
 void drawOverlays(const GameSnapshot& snap, int myId) {
-    if (snap.phase == PHASE_WAITING) {
-        DrawRectangle(0, 0, 936, 684, {0, 0, 0, 150});
-        const char* msg = "Aguardando Segundo Treinador...";
-        DrawText(msg, 468 - MeasureText(msg, 30)/2, 342, 30, WHITE);
-    }
+    (void)myId;
     if (snap.phase == PHASE_ROUND_END) {
         DrawRectangle(0, 0, 936, 684, {0, 0, 0, 100});
-        const char* msg = (snap.roundWinner == (uint8_t)myId) ? "PONTO PARA VOCÊ!" : (snap.roundWinner == 0xFF ? "EMPATE!" : "PONTO PARA O OPONENTE");
-        DrawText(msg, 468 - MeasureText(msg, 40)/2, 300, 40, (snap.roundWinner == (uint8_t)myId) ? GREEN : RED);
+        const char* msg = (snap.roundWinner == 0) ? "PONTO PARA P1!" : (snap.roundWinner == 1 ? "PONTO PARA P2!" : "EMPATE!");
+        DrawText(msg, 468 - MeasureText(msg, 40)/2, 300, 40, snap.roundWinner == 0 ? BLUE : RED);
     }
     if (snap.phase == PHASE_MATCH_END) {
         DrawRectangle(0, 0, 936, 684, {0, 0, 0, 200});
-        const char* res = (snap.matchWinner == (uint8_t)myId) ? "VITÓRIA!" : "DERROTA";
+        const char* res = (snap.matchWinner == 0) ? "P1 VENCEU!" : "P2 VENCEU!";
         DrawText(res, 468 - MeasureText(res, 60)/2, 300, 60, GOLD);
         DrawText("Feche o jogo para reiniciar", 468 - MeasureText("Feche o jogo para reiniciar", 20)/2, 400, 20, LIGHTGRAY);
     }
@@ -178,22 +171,19 @@ void drawOverlays(const GameSnapshot& snap, int myId) {
 
 void drawVSScreen(const GameSnapshot& snap, int myId) {
     loadTextures();
+    (void)myId;
 
-    // Background
     ClearBackground({12, 12, 26, 255});
     DrawRectangle(0, 0, 936, 684, {0, 0, 0, 80});
 
-    // Colors for each player
     static const Color kTint[2] = { {80, 160, 230, 255}, {230, 80, 80, 255} };
 
-    // ── Helper to draw one side ──
     auto drawSide = [&](int side, float cx, float tintColor) {
-        // Trainer portrait
+        (void)tintColor;
         uint8_t tId = snap.trainers[side].trainerId;
         if (tId < N_TRAINERS) {
             const TrainerDefEntry& td = TRAINER_DEFS[tId];
 
-            // Portrait
             float pSize = 140.f;
             float px = cx - pSize * 0.5f;
             float py = 60.f;
@@ -205,16 +195,13 @@ void drawVSScreen(const GameSnapshot& snap, int myId) {
                 DrawRectangle((int)px, (int)py, (int)pSize, (int)pSize, kTint[side]);
             }
 
-            // Trainer name
             int nw = MeasureText(td.name, 22);
             DrawText(td.name, (int)(cx - nw * 0.5f), (int)(py + pSize + 10), 22, WHITE);
 
-            // Discipline
             int dw = MeasureText(td.discipline, 14);
             DrawText(td.discipline, (int)(cx - dw * 0.5f), (int)(py + pSize + 36), 14, LIGHTGRAY);
         }
 
-        // Collect this side's heroes from snapshot
         uint8_t heroDefIdxs[3];
         int heroCount = 0;
         for (int i = 0; i < snap.heroCount && heroCount < 3; i++) {
@@ -223,7 +210,6 @@ void drawVSScreen(const GameSnapshot& snap, int myId) {
             }
         }
 
-        // Hero cards
         float cardW = 110.f, cardH = 140.f;
         float gap = 16.f;
         float totalW = heroCount * cardW + (heroCount - 1) * gap;
@@ -237,11 +223,9 @@ void drawVSScreen(const GameSnapshot& snap, int myId) {
 
             float hx = startX + h * (cardW + gap);
 
-            // Card background
             DrawRectangleRounded({hx, hy, cardW, cardH}, 0.06f, 6, {30, 30, 50, 255});
             DrawRectangleRoundedLines({hx, hy, cardW, cardH}, 0.06f, 6, kTint[side]);
 
-            // Hero portrait
             float ps = 64.f;
             float pxx = hx + (cardW - ps) * 0.5f;
             float pyy = hy + 10.f;
@@ -253,11 +237,9 @@ void drawVSScreen(const GameSnapshot& snap, int myId) {
                 DrawRectangle((int)pxx, (int)pyy, (int)ps, (int)ps, kTint[side]);
             }
 
-            // Hero name
             int nn = MeasureText(hd.name, 11);
             DrawText(hd.name, (int)(hx + (cardW - nn) * 0.5f), (int)(pyy + ps + 6), 11, WHITE);
 
-            // Class name
             static const char* archNames[] = {"Tank", "Fighter", "Mage", "Assassin", "Support"};
             static const Color archColors[] = {
                 {80,130,220,255}, {220,80,80,255}, {150,80,220,255},
@@ -267,7 +249,6 @@ void drawVSScreen(const GameSnapshot& snap, int myId) {
             int cw = MeasureText(cls, 10);
             DrawText(cls, (int)(hx + (cardW - cw) * 0.5f), (int)(pyy + ps + 20), 10, archColors[hd.archetype]);
 
-            // Stats
             char stats[48];
             snprintf(stats, sizeof(stats), "HP:%d AD:%d ARM:%d", hd.hp, hd.ad, hd.arm);
             int sw = MeasureText(stats, 10);
@@ -275,23 +256,17 @@ void drawVSScreen(const GameSnapshot& snap, int myId) {
         }
     };
 
-    // Draw left side (Player 0)
     drawSide(0, 234.f, 0);
-
-    // Draw right side (Player 1)
     drawSide(1, 702.f, 1);
 
-    // "VS" text in center
     DrawText("VS", 468 - MeasureText("VS", 72)/2, 150, 72, GOLD);
 
-    // Countdown timer at bottom
     if (snap.phase == PHASE_VS_INTRO) {
         char timerStr[16];
         snprintf(timerStr, sizeof(timerStr), "%d", snap.timer);
         DrawText(timerStr, 468 - MeasureText(timerStr, 48)/2, 580, 48, {255, 255, 255, 180});
     }
 
-    // "Preparando arena..." hint
     const char* hint = "Preparando arena...";
     DrawText(hint, 468 - MeasureText(hint, 18)/2, 640, 18, {255, 255, 255, 120});
 }
@@ -333,7 +308,7 @@ void updateAndDrawFloatingTexts(float dt) {
             floatingTexts.erase(floatingTexts.begin() + i);
             continue;
         }
-        ft.pos.y -= 30.f * dt;  // sobe
+        ft.pos.y -= 30.f * dt;
         float alpha = ft.timer / ft.maxTimer;
         Color c = ft.color;
         c.a = (unsigned char)(255.f * alpha);
@@ -346,7 +321,7 @@ void updateAndDrawFloatingTexts(float dt) {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-//  VISUAL EFFECTS (death, ultimate)
+//  VISUAL EFFECTS
 // ═════════════════════════════════════════════════════════════════════════════
 
 struct VisualEffect {
@@ -356,7 +331,7 @@ struct VisualEffect {
     float   startRadius;
     float   endRadius;
     Color   color;
-    int     type;  // 0 = death, 1 = ultimate
+    int     type;
 };
 
 static std::vector<VisualEffect> visualEffects;
@@ -383,22 +358,19 @@ void updateAndDrawVisualEffects(float dt) {
             visualEffects.erase(visualEffects.begin() + i);
             continue;
         }
-        float t = 1.f - (ve.timer / ve.maxTimer);  // 0 -> 1
+        float t = 1.f - (ve.timer / ve.maxTimer);
         float radius = ve.startRadius + (ve.endRadius - ve.startRadius) * t;
         float alpha = 1.f - t;
         Color c = ve.color;
         c.a = (unsigned char)(255.f * alpha);
 
         if (ve.type == 0) {
-            // Death: expanding ring
             DrawCircleLinesV(ve.pos, radius, c);
             DrawCircleLinesV(ve.pos, radius * 0.7f, c);
         } else {
-            // Ultimate: expanding filled circle
             Color fill = c; fill.a = (unsigned char)(80.f * alpha);
             DrawCircleV(ve.pos, radius, fill);
             DrawCircleLinesV(ve.pos, radius, c);
-            // Star burst lines
             int rays = 8;
             for (int r = 0; r < rays; r++) {
                 float angle = (float)r * (2.f * PI / rays) + t * PI;
@@ -413,7 +385,7 @@ void updateAndDrawVisualEffects(float dt) {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-//  MELEE ATTACK ANIMATIONS (slingshot)
+//  MELEE ATTACK ANIMATIONS
 // ═════════════════════════════════════════════════════════════════════════════
 
 struct AttackAnim {
@@ -439,8 +411,7 @@ void updateAndDrawAttackAnims(float dt) {
             attackAnims.erase(attackAnims.begin() + i);
             continue;
         }
-        float t = 1.f - (a.timer / a.maxTimer);  // 0->1
-        // Slingshot: advance 30% toward target then return
+        float t = 1.f - (a.timer / a.maxTimer);
         float phase = (t < 0.5f) ? t * 2.f : 2.f * (1.f - t);
         Vector2 pos = {
             a.from.x + (a.to.x - a.from.x) * phase * 0.3f,
@@ -449,7 +420,6 @@ void updateAndDrawAttackAnims(float dt) {
         float alpha = (t < 0.5f) ? 1.f : 1.f - (t - 0.5f) * 2.f;
         Color c = {255, 220, 100, (unsigned char)(255.f * alpha)};
         DrawCircleV(pos, 6.f, c);
-        // Quick arc line from original position
         if (phase > 0.01f) {
             Color lineC = {255, 200, 80, (unsigned char)(180.f * alpha)};
             DrawLineEx(a.from, pos, 2.f, lineC);
@@ -491,17 +461,14 @@ void updateAndDrawProjectiles(float dt) {
         float alpha = 1.f;
         Color c;
         if (p.archetype == ARCHETYPE_MAGE) {
-            c = {160, 80, 255, (unsigned char)(255.f * alpha)};  // purple
+            c = {160, 80, 255, (unsigned char)(255.f * alpha)};
         } else {
-            c = {80, 220, 130, (unsigned char)(255.f * alpha)};   // green
+            c = {80, 220, 130, (unsigned char)(255.f * alpha)};
         }
-        // Trail (fading line)
         Color trailC = c; trailC.a = (unsigned char)(100.f * (1.f - t));
         DrawLineEx(p.from, pos, 2.f, trailC);
-        // Projectile circle
         DrawCircleV(pos, 5.f, c);
         DrawCircleLinesV(pos, 5.f, WHITE);
-        // Impact flash at destination on last 20%
         if (t > 0.8f) {
             float flash = (t - 0.8f) / 0.2f;
             Color flashC = WHITE; flashC.a = (unsigned char)(200.f * (1.f - flash));
@@ -541,7 +508,7 @@ void updateAndDrawHitFlashes(float dt) {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-//  TARGETING ARROWS & HIGHLIGHTS
+//  TARGETING ARROWS
 // ═════════════════════════════════════════════════════════════════════════════
 
 void drawTargetArrow(Vector2 from, Vector2 to) {
@@ -549,7 +516,6 @@ void drawTargetArrow(Vector2 from, Vector2 to) {
     float thickness = 3.f;
     DrawLineEx(from, to, thickness, c);
 
-    // Arrowhead
     float dx = to.x - from.x;
     float dy = to.y - from.y;
     float len = sqrtf(dx * dx + dy * dy);
@@ -605,14 +571,12 @@ void drawAdjacentEnemyHighlights(const GameSnapshot& snap, int myId, int heroIdx
 //  SELECTION SCREEN RENDERING
 // ═════════════════════════════════════════════════════════════════════════════
 
-// Archetype display helpers
 static const char*  ARCH_NAMES[]   = {"Tank","Fighter","Mage","Assassin","Support"};
 static const Color  ARCH_COLORS[]  = {
     {80,130,220,255}, {220,80,80,255}, {150,80,220,255},
     {70,70,70,255},   {80,200,130,255}
 };
 
-// Per-selection portrait textures (separate from battle heroTextures[])
 static Texture2D* selTrainerTex = nullptr;
 static Texture2D* selHeroTex    = nullptr;
 static int        selNTrainers  = 0;
@@ -641,200 +605,383 @@ void freeSelectionAssets(int nT, int nH) {
     delete[] selHeroTex;    selHeroTex    = nullptr;
 }
 
-// ── drawTrainerSelect ─────────────────────────────────────────────────────────
-// Renders 1xN grid of trainer cards with cursor highlight.
-void drawTrainerSelect(const TrainerDef* trainers, int nT,
-                       int cursor, int /*selectedIdx*/, int myId) {
-    static const Color BG   = {12,12,26,255};
-    static const Color CARD = {30,30,58,255};
+// ── drawTrainerSelectMK ──────────────────────────────────────────────────────
+void drawTrainerSelectMK(const GameSnapshot& snap,
+                         const TrainerDef* trainers, int nT,
+                         const PlayerInput& p1, const PlayerInput& p2)
+{
+    static const Color BG   = {12,12,26,220};
     DrawRectangle(0, 0, 936, 684, BG);
 
     // Title
-    const char* title = "BATTLE-CIn";
-    DrawText(title, (936 - MeasureText(title, 36))/2, 18, 36, WHITE);
-    const char* sub = "Selecione seu Treinador (Professor)";
-    DrawText(sub,   (936 - MeasureText(sub, 18))/2, 60, 18, {180,180,200,255});
+    const char* title = "SELECIONE SEU TREINADOR";
+    DrawText(title, (936 - MeasureText(title, 28))/2, 12, 28, WHITE);
 
-    // Player label
-    char plbl[24]; snprintf(plbl, sizeof(plbl), "Instancia %d (P%d)", myId, myId+1);
-    Color pidColor = (myId == 0) ? Color{255,100,100,255} : Color{100,150,255,255};
-    DrawText(plbl, (936 - MeasureText(plbl,16))/2, 90, 16, pidColor);
+    // Timer
+    char timerStr[32];
+    snprintf(timerStr, sizeof(timerStr), "%.1f", snap.selectTimer);
+    DrawText(timerStr, 468 - MeasureText(timerStr, 36)/2, 48, 36, GOLD);
 
-    // Card layout
-    const float CW = 188.f, CH = 250.f, PAD = 16.f;
+    // Left portrait (P1)
+    {
+        float px = 40.f, py = 100.f, pSize = 180.f;
+        int tIdx = p1.trainerLocked >= 0 ? p1.trainerLocked : p1.trainerCursor;
+        if (tIdx < nT && selTrainerTex && selTrainerTex[tIdx].id) {
+            DrawTexturePro(selTrainerTex[tIdx],
+                {0,0,(float)selTrainerTex[tIdx].width,(float)selTrainerTex[tIdx].height},
+                {px, py, pSize, pSize}, {0,0}, 0.f, WHITE);
+        } else {
+            DrawRectangle((int)px, (int)py, (int)pSize, (int)pSize, kP1Color);
+        }
+        DrawRectangleLinesEx({px, py, pSize, pSize}, 3, kP1Color);
+        const char* p1lbl = "P1";
+        DrawText(p1lbl, (int)(px + (pSize - MeasureText(p1lbl, 20))/2), (int)(py + pSize + 6), 20, kP1Color);
+        if (p1.trainerLocked >= 0) {
+            const char* ready = "READY!";
+            DrawText(ready, (int)(px + (pSize - MeasureText(ready, 24))/2), (int)(py + pSize + 30), 24, GREEN);
+        } else if (tIdx < nT) {
+            DrawText(trainers[tIdx].name, (int)(px + (pSize - MeasureText(trainers[tIdx].name, 14))/2), (int)(py + pSize + 30), 14, WHITE);
+        }
+    }
+
+    // Right portrait (P2)
+    {
+        float px = 936 - 40 - 180.f, py = 100.f, pSize = 180.f;
+        int tIdx = p2.trainerLocked >= 0 ? p2.trainerLocked : p2.trainerCursor;
+        if (tIdx < nT && selTrainerTex && selTrainerTex[tIdx].id) {
+            DrawTexturePro(selTrainerTex[tIdx],
+                {0,0,(float)selTrainerTex[tIdx].width,(float)selTrainerTex[tIdx].height},
+                {px, py, pSize, pSize}, {0,0}, 0.f, WHITE);
+        } else {
+            DrawRectangle((int)px, (int)py, (int)pSize, (int)pSize, kP2Color);
+        }
+        DrawRectangleLinesEx({px, py, pSize, pSize}, 3, kP2Color);
+        const char* p2lbl = "P2";
+        DrawText(p2lbl, (int)(px + (pSize - MeasureText(p2lbl, 20))/2), (int)(py + pSize + 6), 20, kP2Color);
+        if (p2.trainerLocked >= 0) {
+            const char* ready = "READY!";
+            DrawText(ready, (int)(px + (pSize - MeasureText(ready, 24))/2), (int)(py + pSize + 30), 24, GREEN);
+        } else if (tIdx < nT) {
+            DrawText(trainers[tIdx].name, (int)(px + (pSize - MeasureText(trainers[tIdx].name, 14))/2), (int)(py + pSize + 30), 14, WHITE);
+        }
+    }
+
+    // Trainer cards at bottom
+    const float CW = 188.f, CH = 200.f, PAD = 16.f;
     float totalW = nT * CW + (nT-1) * PAD;
     float startX = (936.f - totalW) / 2.f;
-    float startY = 118.f;
+    float startY = 400.f;
 
     for (int i = 0; i < nT; i++) {
         float x = startX + i * (CW + PAD);
         float y = startY;
-        bool  hov = (i == cursor);
+        bool hov1 = (i == p1.trainerCursor && p1.trainerLocked < 0);
+        bool hov2 = (i == p2.trainerCursor && p2.trainerLocked < 0);
 
-        // Card background
-        Color bg = hov ? Color{42,42,78,255} : CARD;
+        Color bg = (hov1 || hov2) ? Color{50,50,90,255} : Color{30,30,58,255};
         DrawRectangleRounded({x, y, CW, CH}, 0.08f, 6, bg);
         DrawRectangleRoundedLines({x, y, CW, CH}, 0.08f, 6, {60,60,90,255});
 
-        // Portrait area
-        float ps = 100.f, px = x + (CW-ps)/2.f, py = y + 14.f;
+        float ps = 100.f, px2 = x + (CW-ps)/2.f, py2 = y + 14.f;
         if (selTrainerTex && selTrainerTex[i].id) {
             DrawTexturePro(selTrainerTex[i],
                 {0,0,(float)selTrainerTex[i].width,(float)selTrainerTex[i].height},
-                {px, py, ps, ps}, {}, 0.f, WHITE);
+                {px2, py2, ps, ps}, {}, 0.f, WHITE);
         } else {
-            DrawRectangleRounded({px,py,ps,ps}, 0.2f, 6, trainers[i].color);
+            DrawRectangleRounded({px2,py2,ps,ps}, 0.2f, 6, trainers[i].color);
         }
-        DrawRectangleRoundedLines({px,py,ps,ps}, 0.2f, 6, trainers[i].color);
 
-        // Name
         int nw = MeasureText(trainers[i].name, 14);
-        DrawText(trainers[i].name, (int)(x+(CW-nw)/2), (int)(py+ps+10), 14, WHITE);
+        DrawText(trainers[i].name, (int)(x+(CW-nw)/2), (int)(py2+ps+10), 14, WHITE);
 
-        // Discipline
         int dw = MeasureText(trainers[i].discipline, 11);
-        DrawText(trainers[i].discipline, (int)(x+(CW-dw)/2), (int)(py+ps+28), 11, {160,160,190,255});
+        DrawText(trainers[i].discipline, (int)(x+(CW-dw)/2), (int)(py2+ps+28), 11, {160,160,190,255});
 
-        // Ability badge
         char abuf[32]; snprintf(abuf, sizeof(abuf), "Poder: %s", trainers[i].abilityName);
         int aw = MeasureText(abuf, 11);
-        DrawText(abuf, (int)(x+(CW-aw)/2), (int)(py+ps+48), 11, trainers[i].color);
+        DrawText(abuf, (int)(x+(CW-aw)/2), (int)(py2+ps+48), 11, trainers[i].color);
 
-        // Cursor border (pulses)
-        if (hov) {
+        // P1 cursor
+        if (hov1) {
             float t = (float)GetTime();
             unsigned char alpha = (unsigned char)(180 + 75 * sinf(t * 4.f));
-            Color bc = pidColor; bc.a = alpha;
-            DrawRectangleLinesEx({x-4,y-4,CW+8,CH+8}, 3, bc);
+            Color bc = kP1Color; bc.a = alpha;
+            DrawRectangleLinesEx({x-4, y-4, CW+8, CH+8}, 3, bc);
+        }
+        // P2 cursor
+        if (hov2) {
+            float t = (float)GetTime();
+            unsigned char alpha = (unsigned char)(180 + 75 * sinf(t * 4.f));
+            Color bc = kP2Color; bc.a = alpha;
+            DrawRectangleLinesEx({x-2, y-2, CW+4, CH+4}, 2, bc);
         }
     }
 
     // Controls
-    float cy = startY + CH + 24.f;
-    const char* ctrl = (myId == 0)
-        ? "A / D = Mover    |    SPACE = Confirmar"
-        : "< / > = Mover    |    ENTER = Confirmar";
-    DrawText(ctrl, (936 - MeasureText(ctrl,16))/2, (int)cy, 16, {160,160,190,255});
+    float cy = startY + CH + 16.f;
+    const char* ctrlHint = "P1: A / D + Space    |    P2: ← → + Enter";
+    DrawText(ctrlHint, (int)(468 - MeasureText(ctrlHint, 16)/2), (int)cy, 16, {160,160,190,255});
 }
 
-// ── drawHeroSelect ────────────────────────────────────────────────────────────
-// Renders a 2x5 hero grid. Left sidebar shows trainer info + picks progress.
-void drawHeroSelect(const TrainerDef& trainer,
-                    const HeroDef* heroes, int nH,
-                    int gridCols,
-                    int cursor,
-                    const std::vector<int>& picks,
-                    int myId) {
-    static const Color BG   = {12,12,26,255};
-    static const Color CARD = {30,30,58,255};
+// ── drawHeroSelectMK ─────────────────────────────────────────────────────────
+// Mortal Kombat style: trainers standing on sides, hero cards at bottom
+void drawHeroSelectMK(const GameSnapshot& snap,
+                      const TrainerDef* trainers,
+                      const HeroDef* heroes, int nH,
+                      const PlayerInput& p1, const PlayerInput& p2)
+{
+    (void)trainers;
+    static const Color BG = {12,12,26,180};
     DrawRectangle(0, 0, 936, 684, BG);
 
-    // ── Left sidebar (trainer info + picks) ──────────────────────────────────
-    const float SIDEBAR_W = 200.f;
-    DrawRectangle(0, 0, (int)SIDEBAR_W, 684, {22,22,46,240});
+    // Timer
+    char timerStr[32];
+    snprintf(timerStr, sizeof(timerStr), "Escolha 3 Herois  —  %.1f", snap.selectTimer);
+    int tw = MeasureText(timerStr, 24);
+    DrawRectangle(468 - tw/2 - 8, 6, tw + 16, 36, {0,0,0,160});
+    DrawText(timerStr, 468 - tw/2, 12, 24, GOLD);
 
-    int tw = MeasureText(trainer.name, 13);
-    DrawText(trainer.name, (int)((SIDEBAR_W-tw)/2), 16, 13, WHITE);
-    int dw = MeasureText(trainer.discipline, 11);
-    DrawText(trainer.discipline, (int)((SIDEBAR_W-dw)/2), 34, 11, {160,160,190,255});
+    const float CARD_W = 78.f, CARD_H = 110.f, PAD = 6.f;
 
-    // Picks list
-    char prog[24]; snprintf(prog, sizeof(prog), "Herois: %d / 3", (int)picks.size());
-    int pw = MeasureText(prog, 13);
-    DrawText(prog, (int)((SIDEBAR_W-pw)/2), 68, 13,
-             picks.size() == 3 ? GREEN : Color{220,180,50,255});
+    auto drawPlayerSide = [&](int pid, const PlayerInput& inp, Color pCol, float sideX, bool isLeft) {
+        int tIdx = snap.trainerChoice[pid];
 
-    for (int p = 0; p < (int)picks.size(); p++) {
-        int    idx  = picks[p];
-        float  py   = 92.f + p * 72.f;
-        uint8_t arc = heroes[idx].archetype;
-        Color  ac   = ARCH_COLORS[arc];
-        DrawRectangleRounded({8, py, SIDEBAR_W-16, 64}, 0.1f, 4, CARD);
-        DrawRectangleRounded({8, py, 4, 64}, 0.1f, 4, ac);   // accent strip
-        // mini portrait
-        if (selHeroTex && selHeroTex[idx].id)
-            DrawTexturePro(selHeroTex[idx],
-                {0,0,(float)selHeroTex[idx].width,(float)selHeroTex[idx].height},
-                {14, py+4, 54, 56}, {}, 0.f, WHITE);
-        else
-            DrawRectangleRounded({14,py+4,54,56}, 0.1f, 4, ac);
-        int nw2 = MeasureText(heroes[idx].name, 10);
-        DrawText(heroes[idx].name, (int)(72), (int)(py+8), 10, WHITE);
-        DrawText(ARCH_NAMES[arc], 72, (int)(py+24), 10, ac);
-        char sb[24]; snprintf(sb,sizeof(sb),"HP:%d AD:%d",heroes[idx].hp,heroes[idx].ad);
-        DrawText(sb, 72, (int)(py+40), 10, {160,160,190,255});
-        (void)nw2;
-    }
+        // ── Trainer standing on side (large portrait) ──
+        float tW = 200.f, tH = 360.f;
+        float tX = isLeft ? 30.f : (936 - 30 - tW);
+        float tY = 50.f;
 
-    // ── Hero grid ─────────────────────────────────────────────────────────────
-    const float CW = 140.f, CH = 178.f, PAD = 12.f;
-    int   gridRows = (nH + gridCols - 1) / gridCols;
-    float gridW    = gridCols * CW + (gridCols-1) * PAD;
-    float availW   = 936.f - SIDEBAR_W;
-    float startX   = SIDEBAR_W + (availW - gridW) / 2.f;
-    float startY   = 60.f;
+        // Shadow/ground effect under trainer
+        DrawEllipse((int)(tX + tW/2), (int)(tY + tH + 10), tW*0.45f, 12.f, {0,0,0,120});
 
-    // Title
-    const char* title = "Escolha 3 Herois";
-    DrawText(title, (int)(SIDEBAR_W + (availW - MeasureText(title,18))/2), 18, 18, WHITE);
-
-    Color pidColor = (myId==0) ? Color{255,100,100,255} : Color{100,150,255,255};
-
-    for (int i = 0; i < nH; i++) {
-        int   row  = i / gridCols,  col = i % gridCols;
-        float x    = startX + col * (CW + PAD);
-        float y    = startY + row * (CH + PAD);
-        bool  hov  = (i == cursor);
-        bool  picked = (std::find(picks.begin(), picks.end(), i) != picks.end());
-        uint8_t arc = heroes[i].archetype;
-        Color   ac  = ARCH_COLORS[arc];
-
-        // Background
-        Color bg = picked ? Color{40,50,70,255} : (hov ? Color{42,42,78,255} : CARD);
-        DrawRectangleRounded({x,y,CW,CH}, 0.08f, 6, bg);
-        DrawRectangleRounded({x,y,CW,4},  0.1f,  4, ac);  // accent bar
-
-        // Portrait
-        float imgH = CH * 0.48f;
-        if (selHeroTex && selHeroTex[i].id)
-            DrawTexturePro(selHeroTex[i],
-                {0,0,(float)selHeroTex[i].width,(float)selHeroTex[i].height},
-                {x+6, y+8, CW-12, imgH}, {}, 0.f, WHITE);
-        else
-            DrawRectangleRounded({x+6,y+8,CW-12,imgH}, 0.1f, 4, ac);
-
-        // Name
-        float ty = y + 8 + imgH + 5;
-        int   nw = MeasureText(heroes[i].name, 10);
-        DrawText(heroes[i].name, (int)(x+(CW-nw)/2), (int)ty, 10, WHITE); ty += 14;
-
-        // Class badge
-        int bw = MeasureText(ARCH_NAMES[arc],10);
-        DrawRectangleRounded({x+(CW-bw-10)/2, ty, (float)(bw+10), 16}, 0.4f, 4, ac);
-        DrawText(ARCH_NAMES[arc], (int)(x+(CW-bw)/2), (int)(ty+3), 10, WHITE); ty += 20;
-
-        // Stats
-        char sb[32]; snprintf(sb,sizeof(sb),"HP:%d AD:%d ARM:%d",heroes[i].hp,heroes[i].ad,heroes[i].arm);
-        int sw = MeasureText(sb,9);
-        DrawText(sb,(int)(x+(CW-sw)/2),(int)ty,9,{160,160,190,255});
-
-        // Cursor border
-        if (hov)
-            DrawRectangleLinesEx({x-3,y-3,CW+6,CH+6}, 3, pidColor);
-        // Picked indicator
-        if (picked) {
-            DrawRectangleLinesEx({x,y,CW,CH}, 2, ac);
-            DrawText("✓", (int)(x+CW-16), (int)(y+4), 14, GREEN);
+        if (tIdx < N_TRAINERS && selTrainerTex && selTrainerTex[tIdx].id) {
+            DrawTexturePro(selTrainerTex[tIdx],
+                {0,0,(float)selTrainerTex[tIdx].width,(float)selTrainerTex[tIdx].height},
+                {tX, tY, tW, tH}, {0,0}, 0.f, WHITE);
+        } else {
+            DrawRectangle((int)tX, (int)tY, (int)tW, (int)tH, pCol);
         }
+        DrawRectangleLinesEx({tX, tY, tW, tH}, 3, pCol);
+
+        // Trainer name below portrait
+        const char* tName = (tIdx < N_TRAINERS) ? TRAINER_DEFS[tIdx].name : "???";
+        int tnW = MeasureText(tName, 18);
+        DrawRectangle((int)(tX + (tW - tnW)/2 - 4), (int)(tY + tH + 16), tnW + 8, 28, {0,0,0,180});
+        DrawText(tName, (int)(tX + (tW - tnW)/2), (int)(tY + tH + 20), 18, WHITE);
+
+        // "READY!" or cursor indicator
+        if (inp.herosLocked) {
+            const char* ready = "PRONTO!";
+            int rw = MeasureText(ready, 20);
+            DrawRectangle((int)(tX + (tW - rw)/2 - 4), (int)(tY + tH + 48), rw + 8, 28, {0,0,0,180});
+            DrawText(ready, (int)(tX + (tW - rw)/2), (int)(tY + tH + 52), 20, GREEN);
+        }
+
+        // ── Pick slots (3 small squares between trainer and cards) ──
+        float slotSize = 56.f;
+        float slotGap = 10.f;
+        float slotsTotalW = 3 * slotSize + 2 * slotGap;
+        float slotsX = sideX + (464.f - slotsTotalW) / 2.f;
+        float slotsY = 440.f;
+
+        for (int s = 0; s < 3; s++) {
+            float sx = slotsX + s * (slotSize + slotGap);
+            bool filled = s < (int)inp.heroPicks.size();
+            Color slotBg = filled ? Color{40,60,40,220} : Color{30,30,50,180};
+            DrawRectangleRounded({sx, slotsY, slotSize, slotSize}, 0.1f, 4, slotBg);
+            DrawRectangleRoundedLines({sx, slotsY, slotSize, slotSize}, 0.1f, 4, filled ? GREEN : Color{60,60,80,200});
+            if (filled) {
+                int hIdx = inp.heroPicks[s];
+                if (selHeroTex && selHeroTex[hIdx].id) {
+                    DrawTexturePro(selHeroTex[hIdx],
+                        {0,0,(float)selHeroTex[hIdx].width,(float)selHeroTex[hIdx].height},
+                        {sx+2, slotsY+2, slotSize-4, slotSize-4}, {}, 0.f, WHITE);
+                } else {
+                    DrawRectangle((int)(sx+2), (int)(slotsY+2), (int)(slotSize-4), (int)(slotSize-4), ARCH_COLORS[heroes[hIdx].archetype]);
+                }
+                // Small archetype label
+                const char* an = ARCH_NAMES[heroes[hIdx].archetype];
+                int anw = MeasureText(an, 8);
+                DrawRectangle((int)(sx + (slotSize-anw)/2 - 2), (int)(slotsY + slotSize - 14), anw + 4, 12, {0,0,0,200});
+                DrawText(an, (int)(sx + (slotSize-anw)/2), (int)(slotsY + slotSize - 12), 8, WHITE);
+            } else {
+                DrawText("?", (int)(sx + (slotSize - MeasureText("?", 20))/2), (int)(slotsY + (slotSize-20)/2), 20, Color{80,80,100,255});
+            }
+        }
+
+        // ── Hero cards at bottom (single horizontal row) ──
+        std::vector<int> filtered;
+        for (int i = 0; i < nH; i++)
+            if (heroes[i].trainerIndex == (uint8_t)tIdx)
+                filtered.push_back(i);
+
+        int nFiltered = (int)filtered.size();
+        float cardsTotalW = nFiltered * CARD_W + (nFiltered - 1) * PAD;
+        float cardsX = sideX + (464.f - cardsTotalW) / 2.f;
+        float cardsY = 520.f;
+
+        for (int fi = 0; fi < nFiltered; fi++) {
+            int i = filtered[fi];
+            float x = cardsX + fi * (CARD_W + PAD);
+            float y = cardsY;
+
+            bool hov = (fi == inp.heroCursor);
+            bool picked = (std::find(inp.heroPicks.begin(), inp.heroPicks.end(), i) != inp.heroPicks.end());
+
+            Color bg = picked ? Color{40,80,40,230} : (hov ? Color{60,60,100,230} : Color{35,35,60,230});
+            DrawRectangleRounded({x, y, CARD_W, CARD_H}, 0.08f, 6, bg);
+
+            // Hero portrait
+            float imgH = CARD_H * 0.50f;
+            if (selHeroTex && selHeroTex[i].id) {
+                DrawTexturePro(selHeroTex[i],
+                    {0,0,(float)selHeroTex[i].width,(float)selHeroTex[i].height},
+                    {x+3, y+4, CARD_W-6, imgH}, {}, 0.f, WHITE);
+            } else {
+                DrawRectangleRounded({x+3, y+4, CARD_W-6, imgH}, 0.1f, 4, ARCH_COLORS[heroes[i].archetype]);
+            }
+
+            // Name
+            float ty = y + 4 + imgH + 3;
+            int nw = MeasureText(heroes[i].name, 9);
+            DrawText(heroes[i].name, (int)(x+(CARD_W-nw)/2), (int)ty, 9, WHITE); ty += 12;
+
+            // Class badge
+            int bw = MeasureText(ARCH_NAMES[heroes[i].archetype], 9);
+            DrawRectangleRounded({x+(CARD_W-bw-8)/2, ty, (float)(bw+8), 14}, 0.4f, 4, ARCH_COLORS[heroes[i].archetype]);
+            DrawText(ARCH_NAMES[heroes[i].archetype], (int)(x+(CARD_W-bw)/2), (int)(ty+2), 9, WHITE); ty += 16;
+
+            // Stats
+            char sb[32]; snprintf(sb, sizeof(sb), "HP:%d AD:%d", heroes[i].hp, heroes[i].ad);
+            int sw = MeasureText(sb, 8);
+            DrawText(sb, (int)(x+(CARD_W-sw)/2), (int)ty, 8, {160,160,190,255});
+
+            // Cursor highlight
+            if (hov) {
+                float t = (float)GetTime();
+                unsigned char alpha = (unsigned char)(180 + 75 * sinf(t * 5.f));
+                Color bc = pCol; bc.a = alpha;
+                DrawRectangleLinesEx({x-3, y-3, CARD_W+6, CARD_H+6}, 3, bc);
+            }
+            if (picked) {
+                DrawRectangleLinesEx({x, y, CARD_W, CARD_H}, 2, GREEN);
+                DrawText("✓", (int)(x+CARD_W-14), (int)(y+4), 12, GREEN);
+            }
+        }
+
+        // Controls hint
+        const char* ctrl = (pid == 0) ? "P1: A / D + Space" : "P2: ← → + Enter";
+        int cw = MeasureText(ctrl, 16);
+        float cx = sideX + (464.f - cw) / 2.f;
+        DrawRectangle((int)(cx - 4), 640, cw + 8, 24, {0,0,0,180});
+        DrawText(ctrl, (int)cx, 642, 16, pCol);
+    };
+
+    drawPlayerSide(0, p1, kP1Color, 0.f, true);
+    drawPlayerSide(1, p2, kP2Color, 472.f, false);
+}
+
+// ── isValidDeployCell ────────────────────────────────────────────────────────
+bool isValidDeployCell(int col, int row, uint8_t archetype, bool isLeft)
+{
+    if (isLeft && col > 3) return false;
+    if (!isLeft && col < 4) return false;
+    switch (archetype) {
+        case ARCHETYPE_TANK:     return isLeft ? (col == 3) : (col == 4);
+        case ARCHETYPE_FIGHTER:  return isLeft ? (col >= 2 && col <= 3) : (col >= 4 && col <= 5);
+        case ARCHETYPE_MAGE:     return isLeft ? (col <= 1) : (col >= 6);
+        case ARCHETYPE_ASSASSIN: return ((row <= 1) || (row >= 6)) && (isLeft ? (col <= 3) : (col >= 4));
+        case ARCHETYPE_SUPPORT:  return isLeft ? (col <= 2) : (col >= 5);
+        default: return false;
+    }
+}
+
+// ── drawPlacementCursors ─────────────────────────────────────────────────────
+void drawPlacementCursors(const GameSnapshot& snap,
+                          const PlayerInput& p1, const PlayerInput& p2)
+{
+    // Helper: find hero info for a player by moveHeroIdx
+    auto findHeroInfo = [&](int pid, int moveIdx, uint8_t& outArch, bool& outPlaced, const char*& outName) {
+        outArch = 0xFF;
+        outPlaced = false;
+        outName = "???";
+        int localIdx = 0;
+        for (int i = 0; i < snap.heroCount; i++) {
+            if (snap.heroes[i].ownerId != (uint8_t)pid) continue;
+            if (localIdx == moveIdx) {
+                outArch = snap.heroes[i].archetype;
+                // Check if already placed (not at default position)
+                outPlaced = (snap.heroes[i].x != (pid == 0 ? 1 : 6)) || (snap.heroes[i].y != (2 + localIdx));
+                // Find name from HERO_DEFS
+                uint8_t hdi = snap.heroes[i].heroDefIndex;
+                if (hdi < N_HEROES) outName = HERO_DEFS[hdi].name;
+                return;
+            }
+            localIdx++;
+        }
+    };
+
+    // Draw valid cells for each player
+    auto drawValidCells = [&](int pid, int moveIdx, Color pCol) {
+        uint8_t arch = 0xFF;
+        bool placed = false;
+        const char* name = "???";
+        findHeroInfo(pid, moveIdx, arch, placed, name);
+        if (arch == 0xFF) return;
+        bool isLeft = (pid == 0);
+        // Valid cells highlight
+        for (int r = 0; r < GRID_ROWS; r++) {
+            for (int c = 0; c < GRID_COLS; c++) {
+                if (isValidDeployCell(c, r, arch, isLeft)) {
+                    Color fill = isLeft ? Color{80, 150, 255, 90} : Color{255, 100, 80, 90};
+                    Color border = isLeft ? Color{80, 150, 255, 200} : Color{255, 100, 80, 200};
+                    DrawRectangleRec(cellRect(c, r), fill);
+                    DrawRectangleLinesEx(cellRect(c, r), 2, border);
+                }
+            }
+        }
+    };
+
+    drawValidCells(0, p1.moveHeroIdx, kP1Color);
+    drawValidCells(1, p2.moveHeroIdx, kP2Color);
+
+    // P1 cursor
+    {
+        float alpha = 0.3f + 0.2f * sinf((float)GetTime() * 4.f);
+        Color c = kP1Color; c.a = (unsigned char)(255.f * alpha);
+        Rectangle r = cellRect(p1.cursorX, p1.cursorY);
+        DrawRectangleRec(r, c);
+        DrawRectangleLinesEx(r, 3, kP1Color);
+        // Hero number in cursor
+        char num[4]; snprintf(num, sizeof(num), "%d", p1.moveHeroIdx + 1);
+        DrawText(num, (int)(r.x + (r.width - MeasureText(num, 14))/2), (int)(r.y + (r.height - 14)/2), 14, WHITE);
     }
 
-    // Controls
-    float cy = startY + gridRows * (CH + PAD) + 8;
-    const char* ctrl = "A/W/S/D = Mover  |  SPACE = Selecionar/Desmarcar  |  Q = Desfazer";
-    DrawText(ctrl, (int)(SIDEBAR_W+(availW-MeasureText(ctrl,13))/2), (int)cy, 13, {160,160,190,255});
-
-    if ((int)picks.size() == 3) {
-        const char* ok = "3 herois prontos! Iniciando...";
-        DrawText(ok, (int)(SIDEBAR_W+(availW-MeasureText(ok,16))/2), (int)(cy+20), 16, GREEN);
+    // P2 cursor
+    {
+        float alpha = 0.3f + 0.2f * sinf((float)GetTime() * 4.f + 1.f);
+        Color c = kP2Color; c.a = (unsigned char)(255.f * alpha);
+        Rectangle r = cellRect(p2.cursorX, p2.cursorY);
+        DrawRectangleRec(r, c);
+        DrawRectangleLinesEx(r, 3, kP2Color);
+        char num[4]; snprintf(num, sizeof(num), "%d", p2.moveHeroIdx + 1);
+        DrawText(num, (int)(r.x + (r.width - MeasureText(num, 14))/2), (int)(r.y + (r.height - 14)/2), 14, WHITE);
     }
+
+    // Labels at bottom
+    uint8_t arch1 = 0xFF; bool placed1 = false; const char* name1 = "???";
+    findHeroInfo(0, p1.moveHeroIdx, arch1, placed1, name1);
+    char lbl1[128];
+    snprintf(lbl1, sizeof(lbl1), "P1: [%d/3] %s  |  1/2/3 heroi  |  WASD mover  |  Space posicionar", p1.moveHeroIdx + 1, name1);
+    int w1 = MeasureText(lbl1, 18);
+    DrawRectangle(0, 650, w1 + 16, 30, {0,0,0,200});
+    DrawText(lbl1, 8, 654, 18, kP1Color);
+
+    uint8_t arch2 = 0xFF; bool placed2 = false; const char* name2 = "???";
+    findHeroInfo(1, p2.moveHeroIdx, arch2, placed2, name2);
+    char lbl2[128];
+    snprintf(lbl2, sizeof(lbl2), "P2: [%d/3] %s  |  Numpad 1/2/3 heroi  |  Setas mover  |  Enter posicionar", p2.moveHeroIdx + 1, name2);
+    int w2 = MeasureText(lbl2, 18);
+    DrawRectangle(936 - w2 - 16, 650, w2 + 16, 30, {0,0,0,200});
+    DrawText(lbl2, 936 - w2 - 8, 654, 18, kP2Color);
 }
