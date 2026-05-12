@@ -1060,11 +1060,15 @@ void drawHeroCards(const GameSnapshot& snap, int myId) {
         float containerX = player == 0 ? 0.f : sw * 0.5f;
         float containerW = sw * 0.5f;
 
-        // space-between: 3 cards distributed across the full half-screen container
+        // space-around: 3 cards with equal margins on both edges
+        float totalCardW = 3.f * cardW;
+        float totalGap = containerW - totalCardW;
+        float gap = totalGap / 4.f;
+
         float cardX[3];
-        cardX[0] = containerX;                                      // left edge
-        cardX[1] = containerX + (containerW - cardW) * 0.5f;        // center
-        cardX[2] = containerX + containerW - cardW;                 // right edge
+        cardX[0] = containerX + gap * 0.5f;
+        cardX[1] = cardX[0] + cardW + gap;
+        cardX[2] = cardX[1] + cardW + gap;
 
         Color pCol = player == 0 ? Color{80,150,255,255} : Color{255,100,80,255};
         Color dimCol = player == 0 ? Color{80,150,255,120} : Color{255,100,80,120};
