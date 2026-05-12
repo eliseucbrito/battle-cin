@@ -13,6 +13,41 @@ Layout g_layout = {};
 
 DebugParams g_debug = {};
 
+void debugBeginFrame() {
+    if (!g_debug.enabled) return;
+    for (int i = 0; i < 32; i++) g_debug.debugRectCount[i] = 0;
+}
+
+void debugRecordRect(int idx, Rectangle r) {
+    if (!g_debug.enabled || idx < 0 || idx >= 32) return;
+    int c = g_debug.debugRectCount[idx];
+    if (c < 8) {
+        g_debug.debugRects[idx * 8 + c] = r;
+        g_debug.debugRectCount[idx] = c + 1;
+    }
+}
+
+void debugDrawOverlay() {
+    if (!g_debug.enabled) return;
+    int idx = g_debug.selectedImage;
+    if (idx < 0 || idx >= g_debug.numDebugImages) return;
+
+    int baseIdx = idx * 8;
+    int count = g_debug.debugRectCount[idx];
+    if (count == 0) return;
+
+    float t = (float)GetTime();
+    unsigned char alpha = (unsigned char)(180 + 75 * sinf(t * 5.f));
+    Color hl = {255, 255, 0, alpha};
+    Color hlDim = {255, 255, 0, (unsigned char)(alpha * 0.4f)};
+
+    for (int i = 0; i < count; i++) {
+        Rectangle r = g_debug.debugRects[baseIdx + i];
+        DrawRectangleLinesEx(r, 3, hl);
+        DrawRectangleLinesEx({r.x - 2, r.y - 2, r.width + 4, r.height + 4}, 1, hlDim);
+    }
+}
+
 // ── Icon system ──────────────────────────────────────────────────────────────
 static Texture2D iconsTex = {0};
 
@@ -38,14 +73,393 @@ static void unloadIcons() {
     iconsTex = {0};
 }
 
+void debugInitParams() {
+    g_debug.selectedImage = 0;
+    g_debug.numDebugImages = 0;
+
+    g_debug.arenaX = 220.f; g_debug.arenaY = 0.f; g_debug.arenaW = 1201.f; g_debug.arenaH = 880.f;
+    g_debug.trainerSelectP1PortraitW = 377.f; g_debug.trainerSelectP1PortraitH = 610.f;
+    g_debug.trainerSelectP2PortraitW = 377.f; g_debug.trainerSelectP2PortraitH = 610.f;
+    g_debug.trainerSelectCardThumbW = 100.f; g_debug.trainerSelectCardThumbH = 100.f;
+    g_debug.heroSelectTrainerW = 200.f; g_debug.heroSelectTrainerH = 360.f;
+    g_debug.heroSelectPickSlotW = 52.f; g_debug.heroSelectPickSlotH = 52.f;
+    g_debug.heroSelectCardPortraitW = 72.f; g_debug.heroSelectCardPortraitH = 55.f;
+    g_debug.vsTrainerPortraitW = 140.f; g_debug.vsTrainerPortraitH = 140.f;
+    g_debug.vsHeroCardPortraitW = 64.f; g_debug.vsHeroCardPortraitH = 64.f;
+    g_debug.battleHeroSpriteH = 0.9000f;
+    g_debug.hudTrainerPortraitW = 100.f; g_debug.hudTrainerPortraitH = 80.f;
+    g_debug.sidePanelTrainerPortraitMaxW = 226.f;
+    g_debug.battleHeroCardPortraitH = 60.f;
+    g_debug.fxSpriteSize = 64.f;
+    g_debug.shopItemIconW = 18.f; g_debug.shopItemIconH = 18.f;
+    g_debug.shopEquippedIconW = 14.f; g_debug.shopEquippedIconH = 14.f;
+    g_debug.shopHelpIconW = 14.f; g_debug.shopHelpIconH = 14.f;
+    g_debug.shopCoinIconW = 22.f; g_debug.shopCoinIconH = 22.f;
+
+    auto& add = g_debug.images[g_debug.numDebugImages++];
+    add.name = "Arena BG (battle)"; add.location = "main.cpp:596";
+    add.w = &g_debug.arenaW; add.h = &g_debug.arenaH;
+
+    auto& add2 = g_debug.images[g_debug.numDebugImages++];
+    add2.name = "Trainer Select P1 Portrait"; add2.location = "renderer.cpp:823";
+    add2.w = &g_debug.trainerSelectP1PortraitW; add2.h = &g_debug.trainerSelectP1PortraitH;
+
+    auto& add3 = g_debug.images[g_debug.numDebugImages++];
+    add3.name = "Trainer Select P2 Portrait"; add3.location = "renderer.cpp:845";
+    add3.w = &g_debug.trainerSelectP2PortraitW; add3.h = &g_debug.trainerSelectP2PortraitH;
+
+    auto& add4 = g_debug.images[g_debug.numDebugImages++];
+    add4.name = "Trainer Select Card Thumb"; add4.location = "renderer.cpp:880";
+    add4.w = &g_debug.trainerSelectCardThumbW; add4.h = &g_debug.trainerSelectCardThumbH;
+
+    auto& add5 = g_debug.images[g_debug.numDebugImages++];
+    add5.name = "Hero Select Trainer Standing"; add5.location = "renderer.cpp:954";
+    add5.w = &g_debug.heroSelectTrainerW; add5.h = &g_debug.heroSelectTrainerH;
+
+    auto& add6 = g_debug.images[g_debug.numDebugImages++];
+    add6.name = "Hero Select Pick Slot"; add6.location = "renderer.cpp:992";
+    add6.w = &g_debug.heroSelectPickSlotW; add6.h = &g_debug.heroSelectPickSlotH;
+
+    auto& add7 = g_debug.images[g_debug.numDebugImages++];
+    add7.name = "Hero Select Card Portrait"; add7.location = "renderer.cpp:1033";
+    add7.w = &g_debug.heroSelectCardPortraitW; add7.h = &g_debug.heroSelectCardPortraitH;
+
+    auto& add8 = g_debug.images[g_debug.numDebugImages++];
+    add8.name = "VS Screen Trainer"; add8.location = "renderer.cpp:318";
+    add8.w = &g_debug.vsTrainerPortraitW; add8.h = &g_debug.vsTrainerPortraitH;
+
+    auto& add9 = g_debug.images[g_debug.numDebugImages++];
+    add9.name = "VS Screen Hero Card"; add9.location = "renderer.cpp:360";
+    add9.w = &g_debug.vsHeroCardPortraitW; add9.h = &g_debug.vsHeroCardPortraitH;
+
+    auto& add10 = g_debug.images[g_debug.numDebugImages++];
+    add10.name = "Battle Hero Sprite (scale)"; add10.location = "renderer.cpp:208";
+    add10.w = &g_debug.battleHeroSpriteH; add10.h = nullptr;
+
+    auto& add11 = g_debug.images[g_debug.numDebugImages++];
+    add11.name = "HUD Trainer Portrait"; add11.location = "renderer.cpp:248/251";
+    add11.w = &g_debug.hudTrainerPortraitW; add11.h = &g_debug.hudTrainerPortraitH;
+
+    auto& add12 = g_debug.images[g_debug.numDebugImages++];
+    add12.name = "Side Panel Trainer"; add12.location = "renderer.cpp:1493";
+    add12.w = &g_debug.sidePanelTrainerPortraitMaxW; add12.h = nullptr;
+
+    auto& add13 = g_debug.images[g_debug.numDebugImages++];
+    add13.name = "Battle Hero Card Portrait"; add13.location = "renderer.cpp:1348";
+    add13.w = nullptr; add13.h = &g_debug.battleHeroCardPortraitH;
+
+    auto& add14 = g_debug.images[g_debug.numDebugImages++];
+    add14.name = "FX Sprite Size"; add14.location = "renderer.cpp:535";
+    add14.w = &g_debug.fxSpriteSize; add14.h = nullptr;
+
+    auto& add15 = g_debug.images[g_debug.numDebugImages++];
+    add15.name = "Shop Item Icon"; add15.location = "renderer.cpp:1201";
+    add15.w = &g_debug.shopItemIconW; add15.h = &g_debug.shopItemIconH;
+
+    auto& add16 = g_debug.images[g_debug.numDebugImages++];
+    add16.name = "Shop Equipped Icon"; add16.location = "renderer.cpp:1249";
+    add16.w = &g_debug.shopEquippedIconW; add16.h = &g_debug.shopEquippedIconH;
+
+    auto& add17 = g_debug.images[g_debug.numDebugImages++];
+    add17.name = "Shop Help Icon"; add17.location = "renderer.cpp:1263";
+    add17.w = &g_debug.shopHelpIconW; add17.h = &g_debug.shopHelpIconH;
+
+    auto& add18 = g_debug.images[g_debug.numDebugImages++];
+    add18.name = "Shop Coin Icon"; add18.location = "renderer.cpp:1175";
+    add18.w = &g_debug.shopCoinIconW; add18.h = &g_debug.shopCoinIconH;
+}
+
+static bool debugKeyOnce(int key) {
+    static int prevFrame[512] = {0};
+    static int frameCount = 0;
+    frameCount++;
+    bool pressed = IsKeyDown(key) && prevFrame[key] != frameCount;
+    if (IsKeyDown(key)) prevFrame[key] = frameCount;
+    else if (!IsKeyDown(key)) prevFrame[key] = 0;
+    return pressed;
+}
+
+static bool debugHasUnsavedChanges() {
+    if (g_debug.arenaW != 1201.f || g_debug.arenaH != 880.f) return true;
+    if (g_debug.trainerSelectP1PortraitW != 377.f || g_debug.trainerSelectP1PortraitH != 610.f) return true;
+    if (g_debug.trainerSelectP2PortraitW != 377.f || g_debug.trainerSelectP2PortraitH != 610.f) return true;
+    if (g_debug.trainerSelectCardThumbW != 100.f || g_debug.trainerSelectCardThumbH != 100.f) return true;
+    if (g_debug.heroSelectTrainerW != 200.f || g_debug.heroSelectTrainerH != 360.f) return true;
+    if (g_debug.heroSelectPickSlotW != 52.f || g_debug.heroSelectPickSlotH != 52.f) return true;
+    if (g_debug.heroSelectCardPortraitW != 72.f || g_debug.heroSelectCardPortraitH != 55.f) return true;
+    if (g_debug.vsTrainerPortraitW != 140.f || g_debug.vsTrainerPortraitH != 140.f) return true;
+    if (g_debug.vsHeroCardPortraitW != 64.f || g_debug.vsHeroCardPortraitH != 64.f) return true;
+    if (g_debug.battleHeroSpriteH != 0.9000f) return true;
+    if (g_debug.hudTrainerPortraitW != 100.f || g_debug.hudTrainerPortraitH != 80.f) return true;
+    if (g_debug.sidePanelTrainerPortraitMaxW != 226.f) return true;
+    if (g_debug.battleHeroCardPortraitH != 60.f) return true;
+    if (g_debug.fxSpriteSize != 64.f) return true;
+    if (g_debug.shopItemIconW != 18.f || g_debug.shopItemIconH != 18.f) return true;
+    if (g_debug.shopEquippedIconW != 14.f || g_debug.shopEquippedIconH != 14.f) return true;
+    if (g_debug.shopHelpIconW != 14.f || g_debug.shopHelpIconH != 14.f) return true;
+    if (g_debug.shopCoinIconW != 22.f || g_debug.shopCoinIconH != 22.f) return true;
+    return false;
+}
+
 void debugHandleInput() {
     if (!g_debug.enabled) return;
-    if (IsKeyPressed(KEY_F1)) g_debug.selectedIndex = (g_debug.selectedIndex + 1) % 3;
+
+    if (IsKeyPressed(KEY_F1)) {
+        g_debug.selectedImage = (g_debug.selectedImage + 1) % g_debug.numDebugImages;
+    }
+    if (IsKeyPressed(KEY_F2)) {
+        g_debug.selectedImage = (g_debug.selectedImage + g_debug.numDebugImages - 1) % g_debug.numDebugImages;
+    }
+
+    int idx = g_debug.selectedImage;
+    if (idx < 0 || idx >= g_debug.numDebugImages) return;
+    DebugImageEntry& entry = g_debug.images[idx];
+
+    float step = IsKeyDown(KEY_LEFT_SHIFT) ? 10.f : 1.f;
+
+    if (entry.w) {
+        if (IsKeyPressed(KEY_EQUAL) || IsKeyPressed(KEY_KP_ADD)) *entry.w += step;
+        if (IsKeyPressed(KEY_MINUS) || IsKeyPressed(KEY_KP_SUBTRACT)) *entry.w -= step;
+    }
+    if (entry.h) {
+        if (IsKeyPressed(KEY_RIGHT_BRACKET)) *entry.h += step;
+        if (IsKeyPressed(KEY_LEFT_BRACKET)) *entry.h -= step;
+    }
+
+    if (IsKeyPressed(KEY_R)) {
+        debugInitParams();
+    }
+
+    if (IsKeyPressed(KEY_P)) {
+        debugSaveConfig();
+    }
+    if (IsKeyPressed(KEY_L)) {
+        debugLoadConfig();
+    }
 }
 
 void debugDrawHUD() {
     if (!g_debug.enabled) return;
-    DrawText("DEBUG", 10, 10, 20, RED);
+
+    float x = 10.f, y = 10.f;
+    DrawRectangle(0, 0, 420, 296, {0, 0, 0, 180});
+
+    DrawText("DEBUG MODE", (int)x, (int)y, 18, RED);
+    y += 22;
+
+    int idx = g_debug.selectedImage;
+    DrawText(TextFormat("Image [%d/%d]: %s", idx + 1, g_debug.numDebugImages, g_debug.images[idx].name), (int)x, (int)y, 14, YELLOW);
+    y += 18;
+
+    DrawText(TextFormat("Location: %s", g_debug.images[idx].location), (int)x, (int)y, 12, LIGHTGRAY);
+    y += 18;
+
+    if (g_debug.images[idx].w) {
+        DrawText(TextFormat("W: %.1f", *g_debug.images[idx].w), (int)x, (int)y, 14, GREEN);
+    } else {
+        DrawText("W: N/A (aspect ratio)", (int)x, (int)y, 14, DARKGRAY);
+    }
+    y += 18;
+
+    if (g_debug.images[idx].h) {
+        DrawText(TextFormat("H: %.1f", *g_debug.images[idx].h), (int)x, (int)y, 14, GREEN);
+    } else {
+        DrawText("H: N/A (computed)", (int)x, (int)y, 14, DARKGRAY);
+    }
+    y += 24;
+
+    DrawText("CONTROLS:", (int)x, (int)y, 13, SKYBLUE);
+    y += 16;
+    DrawText("F1/F2: Next/Prev image", (int)x, (int)y, 12, WHITE); y += 14;
+    DrawText("+/-: Adjust W (Shift=+10)", (int)x, (int)y, 12, WHITE); y += 14;
+    DrawText("[/]: Adjust H (Shift=+10)", (int)x, (int)y, 12, WHITE); y += 14;
+    DrawText("R: Reset all to defaults", (int)x, (int)y, 12, WHITE); y += 14;
+    DrawText("P: Save config to debug_config.ini", (int)x, (int)y, 12, WHITE); y += 14;
+    DrawText("L: Load config from debug_config.ini", (int)x, (int)y, 12, WHITE); y += 14;
+    DrawText("N: Advance to next phase", (int)x, (int)y, 12, WHITE); y += 14;
+    DrawText("ESC: Disable debug", (int)x, (int)y, 12, WHITE); y += 16;
+
+    if (debugHasUnsavedChanges()) {
+        DrawText("* UNSAVED CHANGES", (int)x, (int)y, 13, YELLOW);
+    }
+
+    if (IsKeyPressed(KEY_ESCAPE)) {
+        g_debug.enabled = false;
+    }
+}
+
+void debugSaveConfig() {
+    FILE* f = fopen("debug_config.ini", "w");
+    if (!f) return;
+
+    fprintf(f, "; Battle-CIn Debug Image Config\n");
+    fprintf(f, "; Generated automatically — do not edit unless you know what you're doing\n\n");
+
+    fprintf(f, "[arena]\n");
+    fprintf(f, "x=%.1f\n", g_debug.arenaX);
+    fprintf(f, "y=%.1f\n", g_debug.arenaY);
+    fprintf(f, "w=%.1f\n", g_debug.arenaW);
+    fprintf(f, "h=%.1f\n\n", g_debug.arenaH);
+
+    fprintf(f, "[trainer_select_p1_portrait]\n");
+    fprintf(f, "w=%.1f\n", g_debug.trainerSelectP1PortraitW);
+    fprintf(f, "h=%.1f\n\n", g_debug.trainerSelectP1PortraitH);
+
+    fprintf(f, "[trainer_select_p2_portrait]\n");
+    fprintf(f, "w=%.1f\n", g_debug.trainerSelectP2PortraitW);
+    fprintf(f, "h=%.1f\n\n", g_debug.trainerSelectP2PortraitH);
+
+    fprintf(f, "[trainer_select_card_thumb]\n");
+    fprintf(f, "w=%.1f\n", g_debug.trainerSelectCardThumbW);
+    fprintf(f, "h=%.1f\n\n", g_debug.trainerSelectCardThumbH);
+
+    fprintf(f, "[hero_select_trainer]\n");
+    fprintf(f, "w=%.1f\n", g_debug.heroSelectTrainerW);
+    fprintf(f, "h=%.1f\n\n", g_debug.heroSelectTrainerH);
+
+    fprintf(f, "[hero_select_pick_slot]\n");
+    fprintf(f, "w=%.1f\n", g_debug.heroSelectPickSlotW);
+    fprintf(f, "h=%.1f\n\n", g_debug.heroSelectPickSlotH);
+
+    fprintf(f, "[hero_select_card_portrait]\n");
+    fprintf(f, "w=%.1f\n", g_debug.heroSelectCardPortraitW);
+    fprintf(f, "h=%.1f\n\n", g_debug.heroSelectCardPortraitH);
+
+    fprintf(f, "[vs_trainer_portrait]\n");
+    fprintf(f, "w=%.1f\n", g_debug.vsTrainerPortraitW);
+    fprintf(f, "h=%.1f\n\n", g_debug.vsTrainerPortraitH);
+
+    fprintf(f, "[vs_hero_card_portrait]\n");
+    fprintf(f, "w=%.1f\n", g_debug.vsHeroCardPortraitW);
+    fprintf(f, "h=%.1f\n\n", g_debug.vsHeroCardPortraitH);
+
+    fprintf(f, "[battle_hero_sprite]\n");
+    fprintf(f, "height_scale=%.4f\n\n", g_debug.battleHeroSpriteH);
+
+    fprintf(f, "[hud_trainer_portrait]\n");
+    fprintf(f, "w=%.1f\n", g_debug.hudTrainerPortraitW);
+    fprintf(f, "h=%.1f\n\n", g_debug.hudTrainerPortraitH);
+
+    fprintf(f, "[side_panel_trainer]\n");
+    fprintf(f, "max_w=%.1f\n\n", g_debug.sidePanelTrainerPortraitMaxW);
+
+    fprintf(f, "[battle_hero_card_portrait]\n");
+    fprintf(f, "h=%.1f\n\n", g_debug.battleHeroCardPortraitH);
+
+    fprintf(f, "[fx_sprite]\n");
+    fprintf(f, "size=%.1f\n\n", g_debug.fxSpriteSize);
+
+    fprintf(f, "[shop_item_icon]\n");
+    fprintf(f, "w=%.1f\n", g_debug.shopItemIconW);
+    fprintf(f, "h=%.1f\n\n", g_debug.shopItemIconH);
+
+    fprintf(f, "[shop_equipped_icon]\n");
+    fprintf(f, "w=%.1f\n", g_debug.shopEquippedIconW);
+    fprintf(f, "h=%.1f\n\n", g_debug.shopEquippedIconH);
+
+    fprintf(f, "[shop_help_icon]\n");
+    fprintf(f, "w=%.1f\n", g_debug.shopHelpIconW);
+    fprintf(f, "h=%.1f\n\n", g_debug.shopHelpIconH);
+
+    fprintf(f, "[shop_coin_icon]\n");
+    fprintf(f, "w=%.1f\n", g_debug.shopCoinIconW);
+    fprintf(f, "h=%.1f\n\n", g_debug.shopCoinIconH);
+
+    fclose(f);
+}
+
+static float readFloat(FILE* f, const char* key, float defaultVal) {
+    char line[256];
+    while (fgets(line, sizeof(line), f)) {
+        if (line[0] == ';' || line[0] == '[' || line[0] == '\n' || line[0] == '\r') continue;
+        char k[64];
+        float v;
+        if (sscanf(line, "%63[^=]=%f", k, &v) == 2 && strcmp(k, key) == 0) {
+            return v;
+        }
+    }
+    return defaultVal;
+}
+
+void debugLoadConfig() {
+    FILE* f = fopen("debug_config.ini", "r");
+    if (!f) return;
+
+    debugInitParams();
+
+    char section[64] = {0};
+    char line[256];
+    while (fgets(line, sizeof(line), f)) {
+        if (line[0] == '[') {
+            char* end = strchr(line, ']');
+            if (end) {
+                *end = '\0';
+                strncpy(section, line + 1, sizeof(section) - 1);
+            }
+        } else if (line[0] == ';' || line[0] == '\n' || line[0] == '\r') {
+            continue;
+        } else {
+            char k[64];
+            float v;
+            if (sscanf(line, "%63[^=]=%f", k, &v) == 2) {
+                if (strcmp(section, "arena") == 0) {
+                    if (strcmp(k, "x") == 0) g_debug.arenaX = v;
+                    else if (strcmp(k, "y") == 0) g_debug.arenaY = v;
+                    else if (strcmp(k, "w") == 0) g_debug.arenaW = v;
+                    else if (strcmp(k, "h") == 0) g_debug.arenaH = v;
+                } else if (strcmp(section, "trainer_select_p1_portrait") == 0) {
+                    if (strcmp(k, "w") == 0) g_debug.trainerSelectP1PortraitW = v;
+                    else if (strcmp(k, "h") == 0) g_debug.trainerSelectP1PortraitH = v;
+                } else if (strcmp(section, "trainer_select_p2_portrait") == 0) {
+                    if (strcmp(k, "w") == 0) g_debug.trainerSelectP2PortraitW = v;
+                    else if (strcmp(k, "h") == 0) g_debug.trainerSelectP2PortraitH = v;
+                } else if (strcmp(section, "trainer_select_card_thumb") == 0) {
+                    if (strcmp(k, "w") == 0) g_debug.trainerSelectCardThumbW = v;
+                    else if (strcmp(k, "h") == 0) g_debug.trainerSelectCardThumbH = v;
+                } else if (strcmp(section, "hero_select_trainer") == 0) {
+                    if (strcmp(k, "w") == 0) g_debug.heroSelectTrainerW = v;
+                    else if (strcmp(k, "h") == 0) g_debug.heroSelectTrainerH = v;
+                } else if (strcmp(section, "hero_select_pick_slot") == 0) {
+                    if (strcmp(k, "w") == 0) g_debug.heroSelectPickSlotW = v;
+                    else if (strcmp(k, "h") == 0) g_debug.heroSelectPickSlotH = v;
+                } else if (strcmp(section, "hero_select_card_portrait") == 0) {
+                    if (strcmp(k, "w") == 0) g_debug.heroSelectCardPortraitW = v;
+                    else if (strcmp(k, "h") == 0) g_debug.heroSelectCardPortraitH = v;
+                } else if (strcmp(section, "vs_trainer_portrait") == 0) {
+                    if (strcmp(k, "w") == 0) g_debug.vsTrainerPortraitW = v;
+                    else if (strcmp(k, "h") == 0) g_debug.vsTrainerPortraitH = v;
+                } else if (strcmp(section, "vs_hero_card_portrait") == 0) {
+                    if (strcmp(k, "w") == 0) g_debug.vsHeroCardPortraitW = v;
+                    else if (strcmp(k, "h") == 0) g_debug.vsHeroCardPortraitH = v;
+                } else if (strcmp(section, "battle_hero_sprite") == 0) {
+                    if (strcmp(k, "height_scale") == 0) g_debug.battleHeroSpriteH = v;
+                } else if (strcmp(section, "hud_trainer_portrait") == 0) {
+                    if (strcmp(k, "w") == 0) g_debug.hudTrainerPortraitW = v;
+                    else if (strcmp(k, "h") == 0) g_debug.hudTrainerPortraitH = v;
+                } else if (strcmp(section, "side_panel_trainer") == 0) {
+                    if (strcmp(k, "max_w") == 0) g_debug.sidePanelTrainerPortraitMaxW = v;
+                } else if (strcmp(section, "battle_hero_card_portrait") == 0) {
+                    if (strcmp(k, "h") == 0) g_debug.battleHeroCardPortraitH = v;
+                } else if (strcmp(section, "fx_sprite") == 0) {
+                    if (strcmp(k, "size") == 0) g_debug.fxSpriteSize = v;
+                } else if (strcmp(section, "shop_item_icon") == 0) {
+                    if (strcmp(k, "w") == 0) g_debug.shopItemIconW = v;
+                    else if (strcmp(k, "h") == 0) g_debug.shopItemIconH = v;
+                } else if (strcmp(section, "shop_equipped_icon") == 0) {
+                    if (strcmp(k, "w") == 0) g_debug.shopEquippedIconW = v;
+                    else if (strcmp(k, "h") == 0) g_debug.shopEquippedIconH = v;
+                } else if (strcmp(section, "shop_help_icon") == 0) {
+                    if (strcmp(k, "w") == 0) g_debug.shopHelpIconW = v;
+                    else if (strcmp(k, "h") == 0) g_debug.shopHelpIconH = v;
+                } else if (strcmp(section, "shop_coin_icon") == 0) {
+                    if (strcmp(k, "w") == 0) g_debug.shopCoinIconW = v;
+                    else if (strcmp(k, "h") == 0) g_debug.shopCoinIconH = v;
+                }
+            }
+        }
+    }
+
+    fclose(f);
 }
 
 // Arena image dimensions
@@ -200,7 +614,8 @@ void drawHero(const HeroNetState& hs, Vector2 ctr, int myId, bool dragging,
     uint8_t texIdx = (hs.heroDefIndex < N_HEROES) ? hs.heroDefIndex : hs.archetype;
     Texture2D& tex = heroTextures[texIdx];
     if (tex.id != 0) {
-        float wantedH = CELLH * 0.72f;
+        float scaleMult = g_debug.enabled ? g_debug.battleHeroSpriteH : 0.9000f;
+        float wantedH = CELLH * scaleMult;
         float scale = wantedH / tex.height;
         float sw = tex.width  * scale;
         float sh = tex.height * scale * breathScale;
@@ -211,6 +626,7 @@ void drawHero(const HeroNetState& hs, Vector2 ctr, int myId, bool dragging,
             { heroCtr.x, heroCtr.y, sw, sh },
             { sw * 0.5f, sh * 0.5f }, tiltAngle * RAD2DEG, WHITE
         );
+        debugRecordRect(9, {heroCtr.x - sw * 0.5f, heroCtr.y, sw, sh});
     } else {
         const char* archNames[] = {"TNK", "FGT", "MAG", "ASN", "SUP"};
         DrawText(archNames[hs.archetype], (int)heroCtr.x - 12, (int)heroCtr.y - 6, 10, WHITE);
@@ -241,14 +657,17 @@ void drawHUD(const GameSnapshot& snap, int myId) {
     float sw = g_layout.screenW;
     float midX = sw * 0.5f;
 
-    float pSize = 80.f;
+    float pSize = g_debug.enabled ? g_debug.hudTrainerPortraitW : 100.f;
+    float pSizeH = g_debug.enabled ? g_debug.hudTrainerPortraitH : 80.f;
     uint8_t tId0 = snap.trainers[0].trainerId;
     uint8_t tId1 = snap.trainers[1].trainerId;
     if (tId0 < N_TRAINERS && trainerTextures[tId0].id != 0) {
-        DrawTexturePro(trainerTextures[tId0], {0,0,(float)trainerTextures[tId0].width, (float)trainerTextures[tId0].height}, {10,10,pSize,pSize}, {0,0}, 0.f, WHITE);
+        DrawTexturePro(trainerTextures[tId0], {0,0,(float)trainerTextures[tId0].width, (float)trainerTextures[tId0].height}, {10,10,pSize,pSizeH}, {0,0}, 0.f, WHITE);
+        debugRecordRect(10, {10, 10, pSize, pSizeH});
     }
     if (tId1 < N_TRAINERS && trainerTextures[tId1].id != 0) {
-        DrawTexturePro(trainerTextures[tId1], {0,0,(float)trainerTextures[tId1].width, (float)trainerTextures[tId1].height}, {sw - pSize - 10,10,pSize,pSize}, {0,0}, 0.f, WHITE);
+        DrawTexturePro(trainerTextures[tId1], {0,0,(float)trainerTextures[tId1].width, (float)trainerTextures[tId1].height}, {sw - pSize - 10,10,pSize,pSizeH}, {0,0}, 0.f, WHITE);
+        debugRecordRect(10, {sw - pSize - 10, 10, pSize, pSizeH});
     }
 
     char s0[32], s1[32];
@@ -311,13 +730,15 @@ void drawVSScreen(const GameSnapshot& snap, int myId) {
         if (tId < N_TRAINERS) {
             const TrainerDefEntry& td = TRAINER_DEFS[tId];
 
-            float pSize = 140.f;
+            float pSize = g_debug.enabled ? g_debug.vsTrainerPortraitW : 140.f;
+            float pSizeH = g_debug.enabled ? g_debug.vsTrainerPortraitH : 140.f;
             float px = cx - pSize * 0.5f;
             float py = 60.f;
             if (trainerTextures[tId].id != 0) {
                 DrawTexturePro(trainerTextures[tId],
                     {0, 0, (float)trainerTextures[tId].width, (float)trainerTextures[tId].height},
-                    {px, py, pSize, pSize}, {0, 0}, 0.f, WHITE);
+                    {px, py, pSize, pSizeH}, {0, 0}, 0.f, WHITE);
+                debugRecordRect(7, {px, py, pSize, pSizeH});
             } else {
                 DrawRectangle((int)px, (int)py, (int)pSize, (int)pSize, kTint[side]);
             }
@@ -353,13 +774,15 @@ void drawVSScreen(const GameSnapshot& snap, int myId) {
             DrawRectangleRounded({hx, hy, cardW, cardH}, 0.06f, 6, {30, 30, 50, 255});
             DrawRectangleRoundedLines({hx, hy, cardW, cardH}, 0.06f, 6, kTint[side]);
 
-            float ps = 64.f;
+            float ps = g_debug.enabled ? g_debug.vsHeroCardPortraitW : 64.f;
+            float psH = g_debug.enabled ? g_debug.vsHeroCardPortraitH : 64.f;
             float pxx = hx + (cardW - ps) * 0.5f;
             float pyy = hy + 10.f;
             if (heroTextures[hDefIdx].id != 0) {
                 DrawTexturePro(heroTextures[hDefIdx],
                     {0, 0, (float)heroTextures[hDefIdx].width, (float)heroTextures[hDefIdx].height},
-                    {pxx, pyy, ps, ps}, {0, 0}, 0.f, WHITE);
+                    {pxx, pyy, ps, psH}, {0, 0}, 0.f, WHITE);
+                debugRecordRect(8, {pxx, pyy, ps, psH});
             } else {
                 DrawRectangle((int)pxx, (int)pyy, (int)ps, (int)ps, kTint[side]);
             }
@@ -524,7 +947,7 @@ void updateAndDrawFxAnims(float dt) {
         // Draw
         const SpriteSheet& sheet = fxSheets[fx.sheetIndex];
         Rectangle src = getFrameRect(sheet, fx.currentFrame, fx.spriteRow);
-        float spriteSize = CELLW * 0.8f;
+        float spriteSize = g_debug.enabled ? g_debug.fxSpriteSize : (CELLW * 0.8f);
         Rectangle dst = {
             fx.pos.x - spriteSize * 0.5f,
             fx.pos.y - spriteSize * 0.5f,
@@ -533,6 +956,7 @@ void updateAndDrawFxAnims(float dt) {
         };
         Vector2 origin = { spriteSize * 0.5f, spriteSize * 0.5f };
         DrawTexturePro(sheet.texture, src, dst, origin, fx.rotation, WHITE);
+        debugRecordRect(13, dst);
     }
 }
 
@@ -817,53 +1241,60 @@ void drawTrainerSelectMK(const GameSnapshot& snap,
 
     // Left portrait (P1)
     {
-        float px = 40.f, py = 100.f, pSize = 180.f;
+        float px = 40.f, py = 100.f;
+        float pSize = g_debug.enabled ? g_debug.trainerSelectP1PortraitW : 377.f;
+        float pSizeH = g_debug.enabled ? g_debug.trainerSelectP1PortraitH : 610.f;
         int tIdx = p1.trainerLocked >= 0 ? p1.trainerLocked : p1.trainerCursor;
         if (tIdx < nT && selTrainerTex && selTrainerTex[tIdx].id) {
             DrawTexturePro(selTrainerTex[tIdx],
                 {0,0,(float)selTrainerTex[tIdx].width,(float)selTrainerTex[tIdx].height},
-                {px, py, pSize, pSize}, {0,0}, 0.f, WHITE);
+                {px, py, pSize, pSizeH}, {0,0}, 0.f, WHITE);
+            debugRecordRect(1, {px, py, pSize, pSizeH});
         } else {
-            DrawRectangle((int)px, (int)py, (int)pSize, (int)pSize, kP1Color);
+            DrawRectangle((int)px, (int)py, (int)pSize, (int)pSizeH, kP1Color);
         }
-        DrawRectangleLinesEx({px, py, pSize, pSize}, 3, kP1Color);
+        DrawRectangleLinesEx({px, py, pSize, pSizeH}, 3, kP1Color);
         const char* p1lbl = "P1";
-        DrawText(p1lbl, (int)(px + (pSize - MeasureText(p1lbl, 20))/2), (int)(py + pSize + 6), 20, kP1Color);
+        DrawText(p1lbl, (int)(px + (pSize - MeasureText(p1lbl, 20))/2), (int)(py + pSizeH + 6), 20, kP1Color);
         if (p1.trainerLocked >= 0) {
             const char* ready = "READY!";
-            DrawText(ready, (int)(px + (pSize - MeasureText(ready, 24))/2), (int)(py + pSize + 30), 24, GREEN);
+            DrawText(ready, (int)(px + (pSize - MeasureText(ready, 24))/2), (int)(py + pSizeH + 30), 24, GREEN);
         } else if (tIdx < nT) {
-            DrawText(trainers[tIdx].name, (int)(px + (pSize - MeasureText(trainers[tIdx].name, 14))/2), (int)(py + pSize + 30), 14, WHITE);
+            DrawText(trainers[tIdx].name, (int)(px + (pSize - MeasureText(trainers[tIdx].name, 14))/2), (int)(py + pSizeH + 30), 14, WHITE);
         }
     }
 
     // Right portrait (P2)
     {
-        float px = sw - 40 - 180.f, py = 100.f, pSize = 180.f;
+        float px = sw - 40 - (g_debug.enabled ? g_debug.trainerSelectP2PortraitW : 377.f);
+        float py = 100.f;
+        float pSize = g_debug.enabled ? g_debug.trainerSelectP2PortraitW : 377.f;
+        float pSizeH = g_debug.enabled ? g_debug.trainerSelectP2PortraitH : 610.f;
         int tIdx = p2.trainerLocked >= 0 ? p2.trainerLocked : p2.trainerCursor;
         if (tIdx < nT && selTrainerTex && selTrainerTex[tIdx].id) {
             DrawTexturePro(selTrainerTex[tIdx],
                 {0,0,(float)selTrainerTex[tIdx].width,(float)selTrainerTex[tIdx].height},
-                {px, py, pSize, pSize}, {0,0}, 0.f, WHITE);
+                {px, py, pSize, pSizeH}, {0,0}, 0.f, WHITE);
+            debugRecordRect(2, {px, py, pSize, pSizeH});
         } else {
-            DrawRectangle((int)px, (int)py, (int)pSize, (int)pSize, kP2Color);
+            DrawRectangle((int)px, (int)py, (int)pSize, (int)pSizeH, kP2Color);
         }
-        DrawRectangleLinesEx({px, py, pSize, pSize}, 3, kP2Color);
+        DrawRectangleLinesEx({px, py, pSize, pSizeH}, 3, kP2Color);
         const char* p2lbl = "P2";
-        DrawText(p2lbl, (int)(px + (pSize - MeasureText(p2lbl, 20))/2), (int)(py + pSize + 6), 20, kP2Color);
+        DrawText(p2lbl, (int)(px + (pSize - MeasureText(p2lbl, 20))/2), (int)(py + pSizeH + 6), 20, kP2Color);
         if (p2.trainerLocked >= 0) {
             const char* ready = "READY!";
-            DrawText(ready, (int)(px + (pSize - MeasureText(ready, 24))/2), (int)(py + pSize + 30), 24, GREEN);
+            DrawText(ready, (int)(px + (pSize - MeasureText(ready, 24))/2), (int)(py + pSizeH + 30), 24, GREEN);
         } else if (tIdx < nT) {
-            DrawText(trainers[tIdx].name, (int)(px + (pSize - MeasureText(trainers[tIdx].name, 14))/2), (int)(py + pSize + 30), 14, WHITE);
+            DrawText(trainers[tIdx].name, (int)(px + (pSize - MeasureText(trainers[tIdx].name, 14))/2), (int)(py + pSizeH + 30), 14, WHITE);
         }
     }
 
-    // Trainer cards at bottom
+    // Trainer cards at bottom — positioned with ~20% bottom margin
     const float CW = 188.f, CH = 200.f, PAD = 16.f;
     float totalW = nT * CW + (nT-1) * PAD;
     float startX = (sw - totalW) / 2.f;
-    float startY = 400.f;
+    float startY = sh - CH - sh * 0.05f;
 
     for (int i = 0; i < nT; i++) {
         float x = startX + i * (CW + PAD);
@@ -875,11 +1306,14 @@ void drawTrainerSelectMK(const GameSnapshot& snap,
         DrawRectangleRounded({x, y, CW, CH}, 0.08f, 6, bg);
         DrawRectangleRoundedLines({x, y, CW, CH}, 0.08f, 6, {60,60,90,255});
 
-        float ps = 100.f, px2 = x + (CW-ps)/2.f, py2 = y + 14.f;
+        float ps = g_debug.enabled ? g_debug.trainerSelectCardThumbW : 100.f;
+        float psH = g_debug.enabled ? g_debug.trainerSelectCardThumbH : 100.f;
+        float px2 = x + (CW-ps)/2.f, py2 = y + 14.f;
         if (selTrainerTex && selTrainerTex[i].id) {
             DrawTexturePro(selTrainerTex[i],
                 {0,0,(float)selTrainerTex[i].width,(float)selTrainerTex[i].height},
-                {px2, py2, ps, ps}, {}, 0.f, WHITE);
+                {px2, py2, ps, psH}, {}, 0.f, WHITE);
+            debugRecordRect(3, {px2, py2, ps, psH});
         } else {
             DrawRectangleRounded({px2,py2,ps,ps}, 0.2f, 6, trainers[i].color);
         }
@@ -943,7 +1377,8 @@ void drawHeroSelectMK(const GameSnapshot& snap,
         float areaW = sw * 0.5f;
 
         // ── Trainer standing on side (large portrait) ──
-        float tW = 200.f, tH = 360.f;
+        float tW = g_debug.enabled ? g_debug.heroSelectTrainerW : 200.f;
+        float tH = g_debug.enabled ? g_debug.heroSelectTrainerH : 360.f;
         float tX = isLeft ? 30.f : (sw - 30 - tW);
         float tY = 50.f;
 
@@ -954,6 +1389,7 @@ void drawHeroSelectMK(const GameSnapshot& snap,
             DrawTexturePro(selTrainerTex[tIdx],
                 {0,0,(float)selTrainerTex[tIdx].width,(float)selTrainerTex[tIdx].height},
                 {tX, tY, tW, tH}, {0,0}, 0.f, WHITE);
+            debugRecordRect(4, {tX, tY, tW, tH});
         } else {
             DrawRectangle((int)tX, (int)tY, (int)tW, (int)tH, pCol);
         }
@@ -988,10 +1424,13 @@ void drawHeroSelectMK(const GameSnapshot& snap,
             DrawRectangleRoundedLines({sx, slotsY, slotSize, slotSize}, 0.1f, 4, filled ? GREEN : Color{60,60,80,200});
             if (filled) {
                 int hIdx = inp.heroPicks[s];
+                float slotW = g_debug.enabled ? g_debug.heroSelectPickSlotW : (slotSize - 4);
+                float slotH = g_debug.enabled ? g_debug.heroSelectPickSlotH : (slotSize - 4);
                 if (selHeroTex && selHeroTex[hIdx].id) {
                     DrawTexturePro(selHeroTex[hIdx],
                         {0,0,(float)selHeroTex[hIdx].width,(float)selHeroTex[hIdx].height},
-                        {sx+2, slotsY+2, slotSize-4, slotSize-4}, {}, 0.f, WHITE);
+                        {sx+2, slotsY+2, slotW, slotH}, {}, 0.f, WHITE);
+                    debugRecordRect(5, {sx+2, slotsY+2, slotW, slotH});
                 } else {
                     DrawRectangle((int)(sx+2), (int)(slotsY+2), (int)(slotSize-4), (int)(slotSize-4), ARCH_COLORS[heroes[hIdx].archetype]);
                 }
@@ -1028,11 +1467,13 @@ void drawHeroSelectMK(const GameSnapshot& snap,
             DrawRectangleRounded({x, y, CARD_W, CARD_H}, 0.08f, 6, bg);
 
             // Hero portrait
-            float imgH = CARD_H * 0.50f;
+            float imgW = g_debug.enabled ? g_debug.heroSelectCardPortraitW : (CARD_W - 6);
+            float imgH = g_debug.enabled ? g_debug.heroSelectCardPortraitH : (CARD_H * 0.50f);
             if (selHeroTex && selHeroTex[i].id) {
                 DrawTexturePro(selHeroTex[i],
                     {0,0,(float)selHeroTex[i].width,(float)selHeroTex[i].height},
-                    {x+3, y+4, CARD_W-6, imgH}, {}, 0.f, WHITE);
+                    {x+3, y+4, imgW, imgH}, {}, 0.f, WHITE);
+                debugRecordRect(6, {x+3, y+4, imgW, imgH});
             } else {
                 DrawRectangleRounded({x+3, y+4, CARD_W-6, imgH}, 0.1f, 4, ARCH_COLORS[heroes[i].archetype]);
             }
@@ -1172,7 +1613,8 @@ void drawShop(const GameSnapshot& snap, const PlayerInput& p1, const PlayerInput
         // ── Header: gold ──
         char goldStr[32];
         snprintf(goldStr, sizeof(goldStr), "P%d GOLD: %d", pid + 1, ss.players[pid].gold);
-        drawIcon(ICON_COIN, {sideX + 10, y, 22, 22}, GOLD);
+        drawIcon(ICON_COIN, {sideX + 10, y, g_debug.enabled ? g_debug.shopCoinIconW : 22, g_debug.enabled ? g_debug.shopCoinIconH : 22}, GOLD);
+        debugRecordRect(17, {sideX + 10, y, g_debug.enabled ? g_debug.shopCoinIconW : 22, g_debug.enabled ? g_debug.shopCoinIconH : 22});
         DrawText(goldStr, (int)(sideX + 36), (int)(y + 2), 18, pCol);
         if (ss.players[pid].confirmed)
             DrawText("OK", (int)(sideX + sideW - 30), (int)(y + 2), 14, GREEN);
@@ -1198,7 +1640,10 @@ void drawShop(const GameSnapshot& snap, const PlayerInput& p1, const PlayerInput
             if (item.rarity < 4)
                 DrawRectangleRoundedLines({cx, cy, cardW, cardH}, 0.06f, 5, rarityColors[item.rarity]);
             int ic = itemIdToIcon(item.itemId);
-            if (ic >= 0) drawIcon(ic, {cx + 4, cy + 4, 18, 18}, WHITE);
+            if (ic >= 0) {
+                drawIcon(ic, {cx + 4, cy + 4, g_debug.enabled ? g_debug.shopItemIconW : 18, g_debug.enabled ? g_debug.shopItemIconH : 18}, WHITE);
+                debugRecordRect(14, {cx + 4, cy + 4, g_debug.enabled ? g_debug.shopItemIconW : 18, g_debug.enabled ? g_debug.shopItemIconH : 18});
+            }
             DrawText(item.name, (int)(cx + 24), (int)(cy + 6), 10, WHITE);
             char pStr[16]; snprintf(pStr, sizeof(pStr), "%dg", item.price);
             DrawText(pStr, (int)(cx + 4), (int)(cy + cardH - 14), 10, GOLD);
@@ -1246,7 +1691,10 @@ void drawShop(const GameSnapshot& snap, const PlayerInput& p1, const PlayerInput
                 DrawRectangleRoundedLines({ssx, y, slotSz, slotSz}, 0.25f, 3, {40, 40, 60, 180});
                 if (filled) {
                     int ic = itemIdToIcon(hero.items[s]);
-                    if (ic >= 0) drawIcon(ic, {ssx + 1, y + 1, 14, 14}, WHITE);
+                    if (ic >= 0) {
+                        drawIcon(ic, {ssx + 1, y + 1, g_debug.enabled ? g_debug.shopEquippedIconW : 14, g_debug.enabled ? g_debug.shopEquippedIconH : 14}, WHITE);
+                        debugRecordRect(15, {ssx + 1, y + 1, g_debug.enabled ? g_debug.shopEquippedIconW : 14, g_debug.enabled ? g_debug.shopEquippedIconH : 14});
+                    }
                 }
             }
             y += 16;
@@ -1260,7 +1708,8 @@ void drawShop(const GameSnapshot& snap, const PlayerInput& p1, const PlayerInput
         }
 
         // ── Controls ──
-        drawIcon(ICON_HELP, {sideX + 6, sh - 20, 14, 14}, Color{100, 100, 120, 200});
+        drawIcon(ICON_HELP, {sideX + 6, sh - 20, g_debug.enabled ? g_debug.shopHelpIconW : 14, g_debug.enabled ? g_debug.shopHelpIconH : 14}, Color{100, 100, 120, 200});
+        debugRecordRect(16, {sideX + 6, sh - 20, g_debug.enabled ? g_debug.shopHelpIconW : 14, g_debug.enabled ? g_debug.shopHelpIconH : 14});
         const char* ctrl = (pid == 0)
             ? "WASD Navegar | Space Comprar | F Confirmar"
             : "Setas Navegar | Enter Comprar | . Confirmar";
@@ -1336,7 +1785,8 @@ void drawHeroCards(const GameSnapshot& snap, int myId) {
             DrawRectangle((int)cx + 8, (int)cy, (int)(cardW - 16), 2, pCol);
 
             // Portrait (left side, fixed size, vertically centered)
-            float portraitSize = 60.f;
+            float portraitH = g_debug.enabled ? g_debug.battleHeroCardPortraitH : 60.f;
+            float portraitSize = portraitH; // square aspect for the box
             float px2 = cx + 8.f;
             float py2 = cy + (cardH - portraitSize) * 0.5f;
 
@@ -1348,6 +1798,7 @@ void drawHeroCards(const GameSnapshot& snap, int myId) {
                 DrawTexturePro(tex,
                     {0, 0, (float)tex.width, (float)tex.height},
                     {px2, py2, sw2, portraitSize}, {0, 0}, 0.f, alive ? WHITE : (Color){120,120,120,180});
+                debugRecordRect(12, {px2, py2, sw2, portraitSize});
             } else {
                 DrawRectangleRounded({px2, py2, portraitSize, portraitSize}, 0.1f, 6, archColors[hs.archetype]);
             }
@@ -1484,7 +1935,8 @@ void drawSidePanels(const GameSnapshot& snap, const PlayerInput& p1, const Playe
 
         // Trainer portrait with glow ring
         uint8_t tId = snap.trainers[player].trainerId;
-        float ps = fminf(panelW - 2.f * pad, 150.f);
+        float maxPs = g_debug.enabled ? g_debug.sidePanelTrainerPortraitMaxW : 226.f;
+        float ps = fminf(panelW - 2.f * pad, maxPs);
         float psX = px + (panelW - ps) * 0.5f;
         if (tId < N_TRAINERS && trainerTextures[tId].id != 0) {
             // Glow ring behind portrait
@@ -1493,6 +1945,7 @@ void drawSidePanels(const GameSnapshot& snap, const PlayerInput& p1, const Playe
             DrawTexturePro(trainerTextures[tId],
                 {0, 0, (float)trainerTextures[tId].width, (float)trainerTextures[tId].height},
                 {psX, cy, ps, ps}, {0, 0}, 0.f, WHITE);
+            debugRecordRect(11, {psX, cy, ps, ps});
         } else {
             DrawCircle((int)(psX + ps * 0.5f), (int)(cy + ps * 0.5f), ps * 0.5f, {30,30,45,255});
         }

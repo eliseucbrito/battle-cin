@@ -220,42 +220,46 @@ void Game::update(float dt)
 
     switch (phase_) {
         case PHASE_SELECT:
-            selectTimer_ -= dt;
+            if (!debugMode_) selectTimer_ -= dt;
             if (selectSubphase_ == 0) {
-                if (selectTimer_ <= 0.f || (trainerLocked_[0] && trainerLocked_[1])) {
-                    for (int i = 0; i < 2; i++)
-                        if (!trainerLocked_[i]) trainerChoice_[i] = rand() % N_TRAINERS;
-                    selectSubphase_ = 1;
-                    selectTimer_ = SELECT_HERO_TIME;
+                if (debugMode_ || selectTimer_ <= 0.f || (trainerLocked_[0] && trainerLocked_[1])) {
+                    if (!debugMode_ || (trainerLocked_[0] && trainerLocked_[1])) {
+                        for (int i = 0; i < 2; i++)
+                            if (!trainerLocked_[i]) trainerChoice_[i] = rand() % N_TRAINERS;
+                        selectSubphase_ = 1;
+                        selectTimer_ = SELECT_HERO_TIME;
+                    }
                 }
             } else {
-                if (selectTimer_ <= 0.f || (herosLocked_[0] && herosLocked_[1])) {
-                    for (int i = 0; i < 2; i++)
-                        if (!herosLocked_[i]) autoPickHeroes(i);
-                    initFromSelections();
+                if (debugMode_ || selectTimer_ <= 0.f || (herosLocked_[0] && herosLocked_[1])) {
+                    if (!debugMode_ || (herosLocked_[0] && herosLocked_[1])) {
+                        for (int i = 0; i < 2; i++)
+                            if (!herosLocked_[i]) autoPickHeroes(i);
+                        initFromSelections();
+                    }
                 }
             }
             break;
 
         case PHASE_POSITIONING:
-            phaseTimer_ -= dt;
-            if (phaseTimer_ <= 0.f) startBattle();
+            if (!debugMode_) phaseTimer_ -= dt;
+            if (!debugMode_ && phaseTimer_ <= 0.f) startBattle();
             break;
 
         case PHASE_BATTLE:
-            phaseTimer_ -= dt;
+            if (!debugMode_) phaseTimer_ -= dt;
             autoBattleMove();
             runCombat();
             tickUltimates(dt);
             
             if (!trainers_[0].hasLiveHeroes()) endRound(1);
             else if (!trainers_[1].hasLiveHeroes()) endRound(0);
-            else if (phaseTimer_ <= 0.f) resolveTimeLimit();
+            else if (!debugMode_ && phaseTimer_ <= 0.f) resolveTimeLimit();
             break;
 
         case PHASE_ROUND_END:
-            phaseTimer_ -= dt;
-            if (phaseTimer_ <= 0.f) {
+            if (!debugMode_) phaseTimer_ -= dt;
+            if (phaseTimer_ <= 0.f && !debugMode_) {
                 if (matchWinner_ == 0xFF) {
                     enterShopPhase();
                 }
@@ -263,12 +267,12 @@ void Game::update(float dt)
             break;
 
         case PHASE_SHOP:
-            updateBot(dt);
+            if (!debugMode_) updateBot(dt);
             break;
 
         case PHASE_VS_INTRO:
-            phaseTimer_ -= dt;
-            if (phaseTimer_ <= 0.f) startPositioning();
+            if (!debugMode_) phaseTimer_ -= dt;
+            if (!debugMode_ && phaseTimer_ <= 0.f) startPositioning();
             break;
 
         default: break;
@@ -656,5 +660,52 @@ void Game::generateBuffZones() {
         if (dup) continue;
         uint8_t type = (uint8_t)(1 + rand() % 3);
         buffZones_[buffZoneCount_++] = { bx, by, type };
+    }
+}
+
+void Game::debugAdvancePhase()
+{
+    switch (phase_) {
+        case PHASE_SELECT:
+            if (selectSubphase_ == 0) {
+                for (int i = 0; i < 2; i++)
+                    if (!trainerLocked_[i]) {
+                        trainerChoice_[i] = rand() % N_TRAINERS;
+                        trainerLocked_[i] = true;
+                    }
+                selectSubphase_ = 1;
+                selectTimer_ = SELECT_HERO_TIME;
+            } else {
+                for (int i = 0; i < 2; i++)
+                    if (!herosLocked_[i]) autoPickHeroes(i);
+                initFromSelections();
+            }
+            break;
+
+        case PHASE_VS_INTRO:
+            startPositioning();
+            break;
+
+        case PHASE_POSITIONING:
+            startBattle();
+            break;
+
+        case PHASE_BATTLE:
+            resolveTimeLimit();
+            break;
+
+        case PHASE_ROUND_END:
+            if (matchWinner_ == 0xFF) enterShopPhase();
+            break;
+
+        case PHASE_SHOP:
+            for (int i = 0; i < 2; i++) {
+                if (!shop_.playerConfirmed(i)) shop_.confirm(i);
+            }
+            startPositioning();
+            break;
+
+        case PHASE_MATCH_END:
+            break;
     }
 }

@@ -56,7 +56,11 @@ int main(int argc, char *argv[])
     bool debugMode = (argc >= 2 && strcmp(argv[1], "--debug") == 0);
     if (!debugMode && argc >= 3) debugMode = (strcmp(argv[2], "--debug") == 0);
 
-    if (debugMode) g_debug.enabled = true;
+    if (debugMode) {
+        g_debug.enabled = true;
+        debugInitParams();
+        debugLoadConfig();
+    }
 
     InitWindow(1640, 1060, "Battle-CIn");
     SetTargetFPS(60);
@@ -64,6 +68,7 @@ int main(int argc, char *argv[])
     Game game;
     game.registerPlayerLocal(0);
     game.registerPlayerLocal(1);
+    if (debugMode) game.setDebugMode(true);
 
     PlayerInput inputs[2];
 
@@ -116,6 +121,10 @@ int main(int argc, char *argv[])
         // ════════════════════════════════════════════════════════════════════
 
         debugHandleInput();
+
+        if (g_debug.enabled && IsKeyPressed(KEY_N)) {
+            game.debugAdvancePhase();
+        }
 
         if (snap.phase == PHASE_SELECT) {
             if (snap.selectSubphase == 0) {
@@ -557,6 +566,7 @@ int main(int argc, char *argv[])
         applyLayout(computeLayout());
         BeginDrawing();
         ClearBackground({12, 12, 26, 255});
+        debugBeginFrame();
 
         if (snap.phase == PHASE_SELECT) {
             DrawTexturePro(arena,
@@ -584,10 +594,10 @@ int main(int argc, char *argv[])
         {
             float sw = (float)GetScreenWidth();
             float sh = (float)GetScreenHeight();
-            float arenaX = 220.f;
-            float arenaY = 0.f;
-            float arenaW = 1201.f;
-            float arenaH = 880.f;
+            float arenaX = g_debug.enabled ? g_debug.arenaX : 220.f;
+            float arenaY = g_debug.enabled ? g_debug.arenaY : 0.f;
+            float arenaW = g_debug.enabled ? g_debug.arenaW : 1201.f;
+            float arenaH = g_debug.enabled ? g_debug.arenaH : 880.f;
 
             // Black background for areas outside the arena
             DrawRectangle(0, 0, (int)sw, (int)sh, BLACK);
@@ -631,6 +641,7 @@ int main(int argc, char *argv[])
             drawHeroCards(snap, 0);
         }
 
+        debugDrawOverlay();
         debugDrawHUD();
         EndDrawing();
     }
