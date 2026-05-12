@@ -35,8 +35,12 @@
 #define ITEM_RARITY_RARE      2
 #define ITEM_RARITY_EPIC      3
 
+#define ITEM_CATEGORY_GENERAL  0
+#define ITEM_CATEGORY_HERO     1
+
 #define MAX_SHOP_STOCK        6
 #define MAX_HERO_ITEMS        4
+#define MAX_GENERAL_ITEMS     3
 
 #define BUFF_AD_BONUS    15
 #define BUFF_HP_BONUS    50
@@ -49,8 +53,8 @@
 #define VS_INTRO_TIME     3
 #define MAX_HEROES_SIDE   3
 #define MAX_HEROES_TOTAL  (MAX_HEROES_SIDE * 2)
-#define SELECT_TRAINER_TIME 8
-#define SELECT_HERO_TIME    15
+#define SELECT_TRAINER_TIME 45
+#define SELECT_HERO_TIME    45
 
 #define SERVER_PORT  7777
 #define GRID_COLS    8
@@ -97,6 +101,7 @@ struct ShopItemInfo {
     uint8_t itemType;
     uint8_t rarity;
     uint8_t price;
+    uint8_t category;
     char    name[32];
     char    desc[64];
 };
@@ -137,6 +142,8 @@ struct TrainerNetState {
     uint8_t  heroCount;
     uint8_t  abilityReady;
     uint16_t gold;
+    uint8_t  generalItemCount;
+    uint8_t  generalItems[MAX_GENERAL_ITEMS];
 };
 
 #pragma pack(push, 1)

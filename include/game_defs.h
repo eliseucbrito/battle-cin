@@ -1,7 +1,7 @@
 #pragma once
 #include <cstdint>
 
-static constexpr int N_TRAINERS = 2;
+static constexpr int N_TRAINERS = 6;
 
 struct TrainerDefEntry {
     const char* name;
@@ -11,8 +11,12 @@ struct TrainerDefEntry {
 };
 
 static constexpr TrainerDefEntry TRAINER_DEFS[N_TRAINERS] = {
-    { "Prof. Paulo",   "Estrutura de Dados",   0, "assets/trainer0.png" },
-    { "Prof. Eliseu",  "Orient. a Objetos",    1, "assets/trainer1.png" },
+    { "Abel Guilhermino",  "Estrutura de Dados",   0, "assets/trainers/presentation/Abel_Guilhermino_presentation.png" },
+    { "Alex Sandro",       "Orient. a Objetos",    1, "assets/trainers/presentation/Alex_Sandro_presentation.png" },
+    { "David Junior",      "Algoritmos",           2, "assets/trainers/presentation/David_presentation.png" },
+    { "Francisco Paulo",   "Banco de Dados",       3, "assets/trainers/presentation/Francisco_Paulo_presentation.png" },
+    { "Juliano Lyoda",     "Redes de Computadores",0, "assets/trainers/presentation/Juliano_lyoda_presentation.png" },
+    { "Valeria Cesario",   "Engenharia de Software",1,"assets/trainers/presentation/Valeria_Cesario_presentation.png" },
 };
 
 static constexpr int N_HEROES = 10;

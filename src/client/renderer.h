@@ -3,6 +3,24 @@
 #include "../../include/protocol.h"
 #include <vector>
 
+enum IconId {
+    ICON_COIN,
+    ICON_HELP,
+    ICON_SWORD,
+    ICON_SHIELD,
+    ICON_HEART,
+    ICON_BOOT,
+    ICON_WAND,
+    ICON_POTION,
+    ICON_RING,
+    ICON_ARROW,
+    ICON_COUNT
+};
+
+void loadIcons();
+void drawIcon(int iconId, Rectangle rect, Color tint);
+int itemIdToIcon(uint8_t itemId);
+
 struct Layout {
     float screenW, screenH;
     float topBarH;
@@ -30,6 +48,7 @@ struct TrainerDef {
     uint8_t     abilityType;
     const char* abilityName;
     const char* portraitPath;
+    const char* cardPath;
 };
 
 struct HeroDef {
@@ -43,6 +62,7 @@ struct HeroDef {
 
 struct PlayerInput {
     int  trainerCursor = 0;
+    int  trainerCursorRow = 0;
     int  trainerLocked  = -1;
     int  heroCursor     = 0;
     std::vector<int> heroPicks;
@@ -52,9 +72,10 @@ struct PlayerInput {
     uint8_t cursorX     = 0;
     uint8_t cursorY     = 0;
     bool  abilityReady  = true;
-    int   shopCursor     = 0;
-    int   shopHeroCursor = 0;
-    int   shopSlotCursor = 0;
+    int   shopCursorX    = 0;
+    int   shopCursorY    = 0;
+    int   generalItemCursor = 0;
+    int   shopSelectedHero = 0;
     bool  targetingMode   = false;
     int   targetingHeroIdx = -1;
     uint8_t targetCursorX = 0;
@@ -160,5 +181,21 @@ static inline int heroSlotToGlobal(const GameSnapshot& snap, int pid, int slot) 
 }
 
 void drawHeroCards(const GameSnapshot& snap, int myId);
-void drawSidePanels(const GameSnapshot& snap, int myId);
+void drawSidePanels(const GameSnapshot& snap, const PlayerInput& p1, const PlayerInput& p2);
 void drawShop(const GameSnapshot& snap, const PlayerInput& p1, const PlayerInput& p2);
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  DEBUG MODE — resizable image params
+// ═════════════════════════════════════════════════════════════════════════════
+
+struct DebugParams {
+    bool enabled;
+    float imgX, imgY, imgW, imgH;
+    float arenaScale;
+    int selectedIndex;
+};
+
+extern DebugParams g_debug;
+
+void debugHandleInput();
+void debugDrawHUD();

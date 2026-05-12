@@ -23,6 +23,9 @@ private:
     bool        connected_ = false;
     uint8_t     score_     = 0;
 
+    uint8_t generalItems_[MAX_GENERAL_ITEMS];
+    uint8_t generalItemCount_ = 0;
+
 public:
     Trainer() = default;
     Trainer(const std::string& name, const std::string& discipline,
@@ -55,6 +58,12 @@ public:
     uint8_t trainerId()    const { return trainerId_; }
     uint8_t abilityType()  const { return abilityType_; }
     const std::string& name() const { return name_; }
+
+    uint8_t generalItemCount()  const { return generalItemCount_; }
+    uint8_t generalItemInSlot(int s) const;
+    bool    addGeneralItem(uint8_t itemId);
+    void    removeGeneralItem(int slot);
+    void    clearGeneralItems();
 
 private:
     void applyAbilityEffect();

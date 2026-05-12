@@ -11,6 +11,43 @@ float CELLH = GH / GRID_ROWS;
 
 Layout g_layout = {};
 
+DebugParams g_debug = {};
+
+// ── Icon system ──────────────────────────────────────────────────────────────
+static Texture2D iconsTex = {0};
+
+void loadIcons() {
+    if (iconsTex.id != 0) return;
+    iconsTex = LoadTexture("assets/icons.png");
+}
+
+void drawIcon(int iconId, Rectangle rect, Color tint) {
+    if (iconsTex.id == 0) return;
+    float iw = (float)iconsTex.width / ICON_COUNT;
+    Rectangle src = {iconId * iw, 0, iw, (float)iconsTex.height};
+    DrawTexturePro(iconsTex, src, rect, {0, 0}, 0, tint);
+}
+
+int itemIdToIcon(uint8_t itemId) {
+    (void)itemId;
+    return ICON_POTION;
+}
+
+static void unloadIcons() {
+    if (iconsTex.id != 0) UnloadTexture(iconsTex);
+    iconsTex = {0};
+}
+
+void debugHandleInput() {
+    if (!g_debug.enabled) return;
+    if (IsKeyPressed(KEY_F1)) g_debug.selectedIndex = (g_debug.selectedIndex + 1) % 3;
+}
+
+void debugDrawHUD() {
+    if (!g_debug.enabled) return;
+    DrawText("DEBUG", 10, 10, 20, RED);
+}
+
 // Arena image dimensions
 static const float ARENA_W = 1201.f;
 static const float ARENA_H = 880.f;
@@ -363,6 +400,7 @@ void drawVSScreen(const GameSnapshot& snap, int myId) {
 
 void unloadTextures() {
     if (!texturesLoaded) return;
+    unloadIcons();
     for (int i = 0; i < N_TRAINERS; i++) {
         if (trainerTextures[i].id != 0) UnloadTexture(trainerTextures[i]);
     }
@@ -1113,151 +1151,121 @@ void drawShop(const GameSnapshot& snap, const PlayerInput& p1, const PlayerInput
 {
     float sw = (float)GetScreenWidth();
     float sh = (float)GetScreenHeight();
+    loadIcons();
 
-    // Background
-    DrawRectangle(0, 0, (int)sw, (int)sh, {12, 12, 26, 255});
+    DrawRectangle(0, 0, (int)sw, (int)sh, {10, 10, 30, 240});
 
-    // Title
-    const char* title = "SHOP";
-    int titleW = MeasureText(title, 28);
-    DrawText(title, (int)(sw * 0.5f - titleW * 0.5f), 20, 28, GOLD);
+    static Color rarityColors[] = {
+        {180, 180, 180, 255}, {80, 180, 80, 255}, {80, 80, 255, 255}, {220, 80, 220, 255},
+    };
 
-    // ── Stock panel ──────────────────────────────────────────────────────
-    float stockX = sw * 0.5f - 280.f;
-    float stockY = 70.f;
-    float stockW = 560.f;
-    float stockH = 160.f;
-    DrawRectangleRounded({stockX, stockY, stockW, stockH}, 0.08f, 6, {20, 20, 40, 255});
-    DrawRectangleRoundedLines({stockX, stockY, stockW, stockH}, 0.08f, 6, {60, 60, 110, 180});
-    DrawText("STOCK", (int)stockX + 12, (int)stockY + 8, 14, GOLD);
+    for (int pid = 0; pid < 2; pid++) {
+        PlayerInput& inp = const_cast<PlayerInput&>((pid == 0) ? p1 : p2);
+        float sideX = (pid == 0) ? 0.f : sw * 0.5f;
+        float sideW = sw * 0.5f;
+        Color pCol = (pid == 0) ? (Color){80, 150, 255, 255} : (Color){255, 100, 80, 255};
+        const ShopSnapshot& ss = snap.shop;
+        float y = 8.f;
 
-    float itemSize = stockH - 32.f;
-    float itemGap = 8.f;
-    int nStock = snap.shop.stockCount;
-    float totalStockW = nStock * (itemSize + itemGap) - itemGap;
-    float stockStartX = stockX + (stockW - totalStockW) * 0.5f;
+        DrawLineEx({sideX + sideW, 0}, {sideX + sideW, sh}, 2, {80, 80, 120, 150});
 
-    for (int i = 0; i < nStock; i++) {
-        float ix = stockStartX + i * (itemSize + itemGap);
-        float iy = stockY + 28.f;
-        Rectangle r = {ix, iy, itemSize, itemSize};
-
-        // Item card background
-        Color bg = {30, 30, 50, 255};
-        if (p1.shopCursor == i || p2.shopCursor == i) bg = {50, 50, 80, 255};
-        DrawRectangleRounded(r, 0.12f, 4, bg);
-        DrawRectangleRoundedLines(r, 0.12f, 4, {80, 80, 130, 180});
-
-        const ShopItemInfo& item = snap.shop.stock[i];
-        // Item name (first few chars)
-        char label[32];
-        int nameLen = (int)strlen(item.name);
-        int drawLen = nameLen < 10 ? nameLen : 9;
-        strncpy(label, item.name, drawLen);
-        label[drawLen] = '\0';
-        DrawText(label, (int)(ix + 4), (int)(iy + 8), 8, WHITE);
-
-        // Price
-        char price[16];
-        snprintf(price, sizeof(price), "$%u", item.price);
-        int pw = MeasureText(price, 8);
-        DrawText(price, (int)(ix + itemSize * 0.5f - pw * 0.5f), (int)(iy + itemSize - 14), 8, GOLD);
-
-        if (p1.shopCursor == i) {
-            DrawRectangleRoundedLines(r, 0.12f, 4, {100, 200, 255, 220});
-        }
-        if (p2.shopCursor == i) {
-            DrawRectangleRoundedLines(r, 0.12f, 4, {200, 100, 255, 220});
-        }
-    }
-
-    // ── Player panels ──────────────────────────────────────────────────
-    for (int p = 0; p < 2; p++) {
-        const PlayerInput& inp = (p == 0) ? p1 : p2;
-        float panelX = (p == 0) ? 20.f : sw * 0.5f + 20.f;
-        float panelY = stockY + stockH + 20.f;
-        float panelW = sw * 0.5f - 40.f;
-        float panelH = sh - panelY - 20.f;
-
-        DrawRectangleRounded({panelX, panelY, panelW, panelH}, 0.08f, 6, {18, 18, 36, 255});
-        DrawRectangleRoundedLines({panelX, panelY, panelW, panelH}, 0.08f, 6, {40, 40, 80, 150});
-
-        // Gold display
+        // ── Header: gold ──
         char goldStr[32];
-        snprintf(goldStr, sizeof(goldStr), "P%d — GOLD: $%u", p + 1, snap.shop.players[p].gold);
-        DrawText(goldStr, (int)panelX + 12, (int)panelY + 8, 14, GOLD);
+        snprintf(goldStr, sizeof(goldStr), "P%d GOLD: %d", pid + 1, ss.players[pid].gold);
+        drawIcon(ICON_COIN, {sideX + 10, y, 22, 22}, GOLD);
+        DrawText(goldStr, (int)(sideX + 36), (int)(y + 2), 18, pCol);
+        if (ss.players[pid].confirmed)
+            DrawText("OK", (int)(sideX + sideW - 30), (int)(y + 2), 14, GREEN);
+        y += 26;
 
-        // Hero slots
-        int heroSlots = 0;
-        for (int h = 0; h < snap.heroCount; h++) {
-            if (snap.heroes[h].ownerId != (uint8_t)p) continue;
-            heroSlots++;
+        // Collect items by category
+        int stockShow = ss.stockCount < 6 ? ss.stockCount : 6;
+        int genIdxs[3] = {-1,-1,-1}, genCnt = 0;
+        int heroIdxs[3] = {-1,-1,-1}, heroCnt = 0;
+        for (int i = 0; i < stockShow; i++) {
+            if (ss.stock[i].category == ITEM_CATEGORY_GENERAL && genCnt < 3)
+                genIdxs[genCnt++] = i;
+            else if (ss.stock[i].category == ITEM_CATEGORY_HERO && heroCnt < 3)
+                heroIdxs[heroCnt++] = i;
         }
-        if (heroSlots == 0) {
-            DrawText("No heroes", (int)panelX + 12, (int)panelY + 36, 12, GRAY);
-            continue;
+
+        // Helper: draw an item card
+        float cardW = (sideW - 24 - 2 * 6) / 3;
+        float cardH = 60.f;
+        auto drawCard = [&](float cx, float cy, const ShopItemInfo& item, bool sel) {
+            Color bg = sel ? Color{38, 38, 68, 250} : Color{20, 20, 42, 240};
+            DrawRectangleRounded({cx, cy, cardW, cardH}, 0.06f, 5, bg);
+            if (item.rarity < 4)
+                DrawRectangleRoundedLines({cx, cy, cardW, cardH}, 0.06f, 5, rarityColors[item.rarity]);
+            int ic = itemIdToIcon(item.itemId);
+            if (ic >= 0) drawIcon(ic, {cx + 4, cy + 4, 18, 18}, WHITE);
+            DrawText(item.name, (int)(cx + 24), (int)(cy + 6), 10, WHITE);
+            char pStr[16]; snprintf(pStr, sizeof(pStr), "%dg", item.price);
+            DrawText(pStr, (int)(cx + 4), (int)(cy + cardH - 14), 10, GOLD);
+            if (sel) DrawRectangleLinesEx({cx - 1, cy - 1, cardW + 2, cardH + 2}, 2, pCol);
+        };
+
+        // ── Row 0: General items ──
+        DrawText("ITENS GERAIS", (int)(sideX + 6), (int)y, 11, GOLD);
+        y += 14;
+        for (int i = 0; i < genCnt; i++) {
+            float cx = sideX + 8 + i * (cardW + 6);
+            drawCard(cx, y, ss.stock[genIdxs[i]], inp.shopCursorY == 0 && inp.shopCursorX == i);
         }
+        y += cardH + 6;
 
-        float heroCardH = 90.f;
-        float heroCardGap = 8.f;
-        float heroCardY = panelY + 36.f;
+        // ── Rows 1-3: Heroes ──
+        int pHeroes[3] = {-1,-1,-1}, pHCnt = 0;
+        for (int i = 0; i < snap.heroCount && pHCnt < 3; i++)
+            if (snap.heroes[i].ownerId == (uint8_t)pid) pHeroes[pHCnt++] = i;
 
-        int heroLocal = 0;
-        for (int h = 0; h < snap.heroCount; h++) {
-            if (snap.heroes[h].ownerId != (uint8_t)p) continue;
+        for (int h = 0; h < pHCnt; h++) {
+            int hi = pHeroes[h];
+            const HeroNetState& hero = snap.heroes[hi];
 
-            float hx = panelX + 12.f;
-            float hy = heroCardY + heroLocal * (heroCardH + heroCardGap);
-            float hw = panelW - 24.f;
-            bool selected = (inp.shopHeroCursor == heroLocal);
+            // Hero label row
+            const char* hName = "???";
+            if (hero.heroDefIndex < N_HEROES) hName = HERO_DEFS[hero.heroDefIndex].name;
+            DrawText(hName, (int)(sideX + 6), (int)y, 10, WHITE);
 
-            // Hero card
-            Color cardBg = selected ? Color{35, 35, 65, 255} : Color{25, 25, 45, 255};
-            DrawRectangleRounded({hx, hy, hw, heroCardH}, 0.06f, 4, cardBg);
-            if (selected) {
-                DrawRectangleRoundedLines({hx, hy, hw, heroCardH}, 0.06f, 4,
-                    (p == 0) ? (Color){100, 200, 255, 200} : (Color){200, 100, 255, 200});
-            }
+            // HP mini bar
+            float hpPct = (hero.maxHp > 0) ? (float)hero.hp / hero.maxHp : 0;
+            Color hpCol = hpPct > 0.5f ? GREEN : (hpPct > 0.25f ? YELLOW : RED);
+            float hpX = sideX + MeasureText(hName, 10) + 16;
+            DrawRectangle((int)hpX, (int)(y + 2), 40, 5, DARKGRAY);
+            DrawRectangle((int)hpX, (int)(y + 2), (int)(40 * hpPct), 5, hpCol);
 
-            // Hero name
-            int globalIdx = heroSlotToGlobal(snap, p, heroLocal);
-            const char* heroName = "???";
-            if (globalIdx >= 0 && snap.heroes[globalIdx].heroDefIndex < N_HEROES)
-                heroName = HERO_DEFS[snap.heroes[globalIdx].heroDefIndex].name;
-            DrawText(heroName, (int)hx + 8, (int)hy + 6, 12, WHITE);
-
-            // HP
-            if (globalIdx >= 0) {
-                char hpStr[32];
-                snprintf(hpStr, sizeof(hpStr), "HP %u/%u", snap.heroes[globalIdx].hp, snap.heroes[globalIdx].maxHp);
-                DrawText(hpStr, (int)hx + 8, (int)hy + 22, 9, {150, 150, 200, 255});
-            }
-
-            // Item slots
-            float slotSize = 28.f;
-            float slotGap = 4.f;
-            float slotsY = hy + heroCardH - slotSize - 6.f;
+            // Equipped slots (display only — non-interactive)
+            float slotSz = 16, slotGap = 2;
+            float sx = hpX + 50;
             for (int s = 0; s < 4; s++) {
-                float sx = hx + 8.f + s * (slotSize + slotGap);
-                Rectangle sr = {sx, slotsY, slotSize, slotSize};
-                bool slotSelected = (selected && inp.shopSlotCursor == s);
-                Color slotBg = (snap.heroes[h].items[s] != 0xFF) ? Color{45, 45, 70, 255} : Color{22, 22, 38, 200};
-                if (slotSelected) slotBg = Color{60, 60, 100, 255};
-                DrawRectangleRounded(sr, 0.2f, 4, slotBg);
-                DrawRectangleRoundedLines(sr, 0.2f, 4, slotSelected ? (Color){255, 255, 200, 220} : (Color){60, 60, 100, 150});
-                if (snap.heroes[h].items[s] != 0xFF) {
-                    // Item indicator dot
-                    DrawCircle((int)(sx + slotSize - 5), (int)(slotsY + 5), 2, GOLD);
+                float ssx = sx + s * (slotSz + slotGap);
+                bool filled = (hero.items[s] != 0xFF);
+                Color sBg = filled ? Color{30, 55, 30, 255} : Color{22, 22, 38, 220};
+                DrawRectangleRounded({ssx, y, slotSz, slotSz}, 0.25f, 3, sBg);
+                DrawRectangleRoundedLines({ssx, y, slotSz, slotSz}, 0.25f, 3, {40, 40, 60, 180});
+                if (filled) {
+                    int ic = itemIdToIcon(hero.items[s]);
+                    if (ic >= 0) drawIcon(ic, {ssx + 1, y + 1, 14, 14}, WHITE);
                 }
             }
-            heroLocal++;
+            y += 16;
+
+            // Items for this hero
+            for (int i = 0; i < heroCnt; i++) {
+                float cx = sideX + 8 + i * (cardW + 6);
+                drawCard(cx, y, ss.stock[heroIdxs[i]], inp.shopCursorY == (h + 1) && inp.shopCursorX == i);
+            }
+            y += cardH + 4;
         }
 
-        // Confirm button hint
-        const char* confirmHint = (p == 0) ? "SPACE: Buy | F: Confirm" : "ENTER: Buy | .: Confirm";
-        int hintW = MeasureText(confirmHint, 10);
-        DrawText(confirmHint, (int)(panelX + panelW * 0.5f - hintW * 0.5f),
-                 (int)(panelY + panelH - 20), 10, GRAY);
+        // ── Controls ──
+        drawIcon(ICON_HELP, {sideX + 6, sh - 20, 14, 14}, Color{100, 100, 120, 200});
+        const char* ctrl = (pid == 0)
+            ? "WASD Navegar | Space Comprar | F Confirmar"
+            : "Setas Navegar | Enter Comprar | . Confirmar";
+        int cw = MeasureText(ctrl, 9);
+        DrawText(ctrl, (int)(sideX + 24 + (sideW - cw - 20) * 0.5f), (int)(sh - 20), 9, {120, 120, 140, 255});
     }
 }
 
@@ -1435,8 +1443,8 @@ void drawHeroCards(const GameSnapshot& snap, int myId) {
 }
 
 // ── drawSidePanels ───────────────────────────────────────────────────────────
-void drawSidePanels(const GameSnapshot& snap, int myId) {
-    (void)myId;
+void drawSidePanels(const GameSnapshot& snap, const PlayerInput& p1, const PlayerInput& p2) {
+    (void)p1; (void)p2;
     loadTextures();
     (void)snap;
 

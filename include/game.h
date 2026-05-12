@@ -20,6 +20,7 @@ public:
     void handleBuyItem(int pid, int stockIdx, int heroIdx, int slotIdx);
     void handleRefreshShop(int pid);
     void handleConfirmShop(int pid);
+    void handleUseGeneralItem(int pid, int slot);
     void initFromSelections();
 
     bool isInitialized() const { return initialized_; }

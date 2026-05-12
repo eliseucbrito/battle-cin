@@ -53,6 +53,10 @@ int main(int argc, char *argv[])
     srand((unsigned)time(nullptr));
 
     bool soloMode = (argc >= 2 && strcmp(argv[1], "--solo") == 0);
+    bool debugMode = (argc >= 2 && strcmp(argv[1], "--debug") == 0);
+    if (!debugMode && argc >= 3) debugMode = (strcmp(argv[2], "--debug") == 0);
+
+    if (debugMode) g_debug.enabled = true;
 
     InitWindow(1640, 1060, "Battle-CIn");
     SetTargetFPS(60);
@@ -111,30 +115,38 @@ int main(int argc, char *argv[])
         //  INPUT
         // ════════════════════════════════════════════════════════════════════
 
+        debugHandleInput();
+
         if (snap.phase == PHASE_SELECT) {
             if (snap.selectSubphase == 0) {
                 // ── Trainer Select ─────────────────────────────────────────
-                // P1 (esquerda): A/D + Space
-                if (IsKeyPressed(KEY_D))      inputs[0].trainerCursor = (inputs[0].trainerCursor + 1) % N_TRAINERS_LOCAL;
-                if (IsKeyPressed(KEY_A))      inputs[0].trainerCursor = (inputs[0].trainerCursor + N_TRAINERS_LOCAL - 1) % N_TRAINERS_LOCAL;
+                // P1 (esquerda): A/D coluna, W/S linha, Space confirma
+                if (IsKeyPressed(KEY_D))      inputs[0].trainerCursor = (inputs[0].trainerCursor % 3 + 1) % 3;
+                if (IsKeyPressed(KEY_A))      inputs[0].trainerCursor = (inputs[0].trainerCursor % 3 + 2) % 3;
+                if (IsKeyPressed(KEY_S))      inputs[0].trainerCursorRow = (inputs[0].trainerCursorRow + 1) % 2;
+                if (IsKeyPressed(KEY_W))      inputs[0].trainerCursorRow = (inputs[0].trainerCursorRow + 1) % 2;
                 if (IsKeyPressed(KEY_SPACE) && inputs[0].trainerLocked < 0) {
-                    inputs[0].trainerLocked = inputs[0].trainerCursor;
-                    game.handleLocalTrainerLock(0, (uint8_t)inputs[0].trainerLocked);
+                    int idx = inputs[0].trainerCursorRow * 3 + (inputs[0].trainerCursor % 3);
+                    inputs[0].trainerLocked = idx;
+                    game.handleLocalTrainerLock(0, (uint8_t)idx);
                 }
 
-                // P2 (direita): Arrow keys + Enter
-                if (IsKeyPressed(KEY_RIGHT)) inputs[1].trainerCursor = (inputs[1].trainerCursor + 1) % N_TRAINERS_LOCAL;
-                if (IsKeyPressed(KEY_LEFT))  inputs[1].trainerCursor = (inputs[1].trainerCursor + N_TRAINERS_LOCAL - 1) % N_TRAINERS_LOCAL;
+                // P2 (direita): Arrow keys coluna/linha + Enter
+                if (IsKeyPressed(KEY_RIGHT)) inputs[1].trainerCursor = (inputs[1].trainerCursor % 3 + 1) % 3;
+                if (IsKeyPressed(KEY_LEFT))  inputs[1].trainerCursor = (inputs[1].trainerCursor % 3 + 2) % 3;
+                if (IsKeyPressed(KEY_DOWN))  inputs[1].trainerCursorRow = (inputs[1].trainerCursorRow + 1) % 2;
+                if (IsKeyPressed(KEY_UP))    inputs[1].trainerCursorRow = (inputs[1].trainerCursorRow + 1) % 2;
                 if (IsKeyPressed(KEY_ENTER) && inputs[1].trainerLocked < 0) {
-                    inputs[1].trainerLocked = inputs[1].trainerCursor;
-                    game.handleLocalTrainerLock(1, (uint8_t)inputs[1].trainerLocked);
+                    int idx = inputs[1].trainerCursorRow * 3 + (inputs[1].trainerCursor % 3);
+                    inputs[1].trainerLocked = idx;
+                    game.handleLocalTrainerLock(1, (uint8_t)idx);
                 }
             } else {
                 // ── Hero Select ───────────────────────────────────────────
                 int nHerosPerTrainer = heroesForTrainer(snap.trainerChoice[0]);
 
                 // P1 (esquerda): A/D + Space
-                {
+                if (nHerosPerTrainer > 0) {
                     if (IsKeyPressed(KEY_D))      inputs[0].heroCursor = (inputs[0].heroCursor + 1) % nHerosPerTrainer;
                     if (IsKeyPressed(KEY_A))      inputs[0].heroCursor = (inputs[0].heroCursor + nHerosPerTrainer - 1) % nHerosPerTrainer;
                     if (IsKeyPressed(KEY_SPACE) && !inputs[0].herosLocked) {
@@ -149,7 +161,7 @@ int main(int argc, char *argv[])
                 }
 
                 // P2 (direita): Arrow keys + Enter
-                {
+                if (nHerosPerTrainer > 0) {
                     if (IsKeyPressed(KEY_RIGHT)) inputs[1].heroCursor = (inputs[1].heroCursor + 1) % nHerosPerTrainer;
                     if (IsKeyPressed(KEY_LEFT))  inputs[1].heroCursor = (inputs[1].heroCursor + nHerosPerTrainer - 1) % nHerosPerTrainer;
                     if (IsKeyPressed(KEY_ENTER) && !inputs[1].herosLocked) {
@@ -221,6 +233,18 @@ int main(int argc, char *argv[])
         else if (snap.phase == PHASE_BATTLE) {
             if (IsKeyPressed(KEY_Q)) game.handleUseAbility(0);
             if (IsKeyPressed(KEY_E)) game.handleUseAbility(1);
+
+            // ── General item usage ─────────────────────────────────
+            if (!inputs[0].targetingMode) {
+                if (IsKeyPressed(KEY_W)) inputs[0].generalItemCursor = (inputs[0].generalItemCursor + 2) % 3;
+                if (IsKeyPressed(KEY_S)) inputs[0].generalItemCursor = (inputs[0].generalItemCursor + 1) % 3;
+                if (IsKeyPressed(KEY_F)) game.handleUseGeneralItem(0, inputs[0].generalItemCursor);
+            }
+            if (!inputs[1].targetingMode) {
+                if (IsKeyPressed(KEY_UP))   inputs[1].generalItemCursor = (inputs[1].generalItemCursor + 2) % 3;
+                if (IsKeyPressed(KEY_DOWN)) inputs[1].generalItemCursor = (inputs[1].generalItemCursor + 1) % 3;
+                if (IsKeyPressed(KEY_KP_ENTER)) game.handleUseGeneralItem(1, inputs[1].generalItemCursor);
+            }
 
             // ── P1 Targeting ─────────────────────────────────────────
             if (IsKeyPressed(KEY_LEFT_SHIFT)) {
@@ -372,24 +396,72 @@ int main(int argc, char *argv[])
         }
 
         else if (snap.phase == PHASE_SHOP) {
-            // P1
-            if (IsKeyPressed(KEY_D))      inputs[0].shopCursor = (inputs[0].shopCursor + 1) % 6;
-            if (IsKeyPressed(KEY_A))      inputs[0].shopCursor = (inputs[0].shopCursor + 5) % 6;
-            if (IsKeyPressed(KEY_S))      inputs[0].shopHeroCursor = (inputs[0].shopHeroCursor + 1) % 3;
-            if (IsKeyPressed(KEY_W))      inputs[0].shopHeroCursor = (inputs[0].shopHeroCursor + 2) % 3;
-            if (IsKeyPressed(KEY_E))      inputs[0].shopSlotCursor = (inputs[0].shopSlotCursor + 1) % 4;
-            if (IsKeyPressed(KEY_Q))      inputs[0].shopSlotCursor = (inputs[0].shopSlotCursor + 3) % 4;
-            if (IsKeyPressed(KEY_SPACE))  game.handleBuyItem(0, inputs[0].shopCursor, inputs[0].shopHeroCursor, inputs[0].shopSlotCursor);
-            if (IsKeyPressed(KEY_F))      game.handleConfirmShop(0);
+            // ── P1 Shop (WASD) ──
+            int maxHeroes1 = 0;
+            for (int i = 0; i < snap.heroCount; i++)
+                if (snap.heroes[i].ownerId == 0) maxHeroes1++;
+            int maxRows1 = 1 + maxHeroes1;  // row 0 = general, rows 1..max = heroes
 
-            // P2
-            if (IsKeyPressed(KEY_RIGHT))  inputs[1].shopCursor = (inputs[1].shopCursor + 1) % 6;
-            if (IsKeyPressed(KEY_LEFT))   inputs[1].shopCursor = (inputs[1].shopCursor + 5) % 6;
-            if (IsKeyPressed(KEY_DOWN))   inputs[1].shopHeroCursor = (inputs[1].shopHeroCursor + 1) % 3;
-            if (IsKeyPressed(KEY_UP))     inputs[1].shopHeroCursor = (inputs[1].shopHeroCursor + 2) % 3;
-            if (IsKeyPressed(KEY_RIGHT_BRACKET))  inputs[1].shopSlotCursor = (inputs[1].shopSlotCursor + 1) % 4;
-            if (IsKeyPressed(KEY_LEFT_BRACKET))   inputs[1].shopSlotCursor = (inputs[1].shopSlotCursor + 3) % 4;
-            if (IsKeyPressed(KEY_ENTER))  game.handleBuyItem(1, inputs[1].shopCursor, inputs[1].shopHeroCursor, inputs[1].shopSlotCursor);
+            if (IsKeyPressed(KEY_D)) inputs[0].shopCursorX = (inputs[0].shopCursorX + 1) % 3;
+            if (IsKeyPressed(KEY_A)) inputs[0].shopCursorX = (inputs[0].shopCursorX + 2) % 3;
+            if (IsKeyPressed(KEY_S)) inputs[0].shopCursorY = (inputs[0].shopCursorY + 1) % maxRows1;
+            if (IsKeyPressed(KEY_W)) inputs[0].shopCursorY = (inputs[0].shopCursorY + maxRows1 - 1) % maxRows1;
+
+            if (IsKeyPressed(KEY_SPACE)) {
+                if (inputs[0].shopCursorY == 0) {
+                    int idx = -1, cnt = 0;
+                    for (int i = 0; i < snap.shop.stockCount; i++) {
+                        if (snap.shop.stock[i].category == ITEM_CATEGORY_GENERAL) {
+                            if (cnt == inputs[0].shopCursorX) { idx = i; break; }
+                            cnt++;
+                        }
+                    }
+                    if (idx >= 0) game.handleBuyItem(0, idx, 0, 0);
+                } else {
+                    int idx = -1, cnt = 0;
+                    for (int i = 0; i < snap.shop.stockCount; i++) {
+                        if (snap.shop.stock[i].category == ITEM_CATEGORY_HERO) {
+                            if (cnt == inputs[0].shopCursorX) { idx = i; break; }
+                            cnt++;
+                        }
+                    }
+                    if (idx >= 0) game.handleBuyItem(0, idx, inputs[0].shopCursorY - 1, -1);
+                }
+            }
+            if (IsKeyPressed(KEY_F)) game.handleConfirmShop(0);
+
+            // ── P2 Shop (arrows) ──
+            int maxHeroes2 = 0;
+            for (int i = 0; i < snap.heroCount; i++)
+                if (snap.heroes[i].ownerId == 1) maxHeroes2++;
+            int maxRows2 = 1 + maxHeroes2;
+
+            if (IsKeyPressed(KEY_RIGHT))  inputs[1].shopCursorX = (inputs[1].shopCursorX + 1) % 3;
+            if (IsKeyPressed(KEY_LEFT))   inputs[1].shopCursorX = (inputs[1].shopCursorX + 2) % 3;
+            if (IsKeyPressed(KEY_DOWN))   inputs[1].shopCursorY = (inputs[1].shopCursorY + 1) % maxRows2;
+            if (IsKeyPressed(KEY_UP))     inputs[1].shopCursorY = (inputs[1].shopCursorY + maxRows2 - 1) % maxRows2;
+
+            if (IsKeyPressed(KEY_ENTER)) {
+                if (inputs[1].shopCursorY == 0) {
+                    int idx = -1, cnt = 0;
+                    for (int i = 0; i < snap.shop.stockCount; i++) {
+                        if (snap.shop.stock[i].category == ITEM_CATEGORY_GENERAL) {
+                            if (cnt == inputs[1].shopCursorX) { idx = i; break; }
+                            cnt++;
+                        }
+                    }
+                    if (idx >= 0) game.handleBuyItem(1, idx, 0, 0);
+                } else {
+                    int idx = -1, cnt = 0;
+                    for (int i = 0; i < snap.shop.stockCount; i++) {
+                        if (snap.shop.stock[i].category == ITEM_CATEGORY_HERO) {
+                            if (cnt == inputs[1].shopCursorX) { idx = i; break; }
+                            cnt++;
+                        }
+                    }
+                    if (idx >= 0) game.handleBuyItem(1, idx, inputs[1].shopCursorY - 1, -1);
+                }
+            }
             if (IsKeyPressed(KEY_PERIOD)) game.handleConfirmShop(1);
         }
 
@@ -559,6 +631,7 @@ int main(int argc, char *argv[])
             drawHeroCards(snap, 0);
         }
 
+        debugDrawHUD();
         EndDrawing();
     }
 
