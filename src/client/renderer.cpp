@@ -1,6 +1,7 @@
 #include "renderer.h"
 #include "../../include/game_defs.h"
 #include <stdio.h>
+#include <string.h>
 #include <algorithm>
 #include <math.h>
 
@@ -51,7 +52,7 @@ Layout computeLayout() {
     float minCardW = 100.f;
     float maxCardW = 218.f;
     l.cardW = fminf(maxCardW, fmaxf(minCardW, halfScreen / 3.f));
-    l.cardH = fminf(96.f, l.bottomCardsH - 20.f);
+    l.cardH = fminf(130.f, l.bottomCardsH - 20.f);
 
     l.topBarH = l.gridY;
     l.trainerAbilityBtnY = l.screenH - 24.f;
@@ -1037,6 +1038,44 @@ static void drawModernBar(float x, float y, float w, float h, float fillPct,
     }
 }
 
+// ── Helper: draw text with word-wrap ──────────────────────────────────────────
+static void drawWrappedText(const char* text, float x, float y, float maxWidth,
+                            int fontSize, Color color, int* outHeight)
+{
+    int totalLen = (int)strlen(text);
+    int lineStart = 0;
+    float cy = y;
+    int lineH = fontSize + 2;
+
+    while (lineStart < totalLen) {
+        int lineEnd = totalLen;
+        for (int i = lineStart; i < totalLen; i++) {
+            if (text[i] == ' ') {
+                int segLen = i - lineStart;
+                if (segLen > 0 && segLen < 256) {
+                    char buf[256];
+                    memcpy(buf, text + lineStart, segLen);
+                    buf[segLen] = '\0';
+                    if (MeasureText(buf, fontSize) > maxWidth) {
+                        lineEnd = i;
+                        break;
+                    }
+                }
+            }
+        }
+        int segLen = lineEnd - lineStart;
+        if (segLen > 255) segLen = 255;
+        char buf[256];
+        memcpy(buf, text + lineStart, segLen);
+        buf[segLen] = '\0';
+        DrawText(buf, (int)x, (int)cy, fontSize, color);
+        cy += lineH;
+        lineStart = (lineEnd < totalLen) ? lineEnd : totalLen;
+        if (lineStart < totalLen && text[lineStart] == ' ') lineStart++;
+    }
+    if (outHeight) *outHeight = (int)(cy - y);
+}
+
 // ── drawHeroCards ────────────────────────────────────────────────────────────
 void drawHeroCards(const GameSnapshot& snap, int myId) {
     (void)myId;
@@ -1127,12 +1166,14 @@ void drawHeroCards(const GameSnapshot& snap, int myId) {
             float infoY = py2;
             float infoW = cardW - (infoX - cx) - 8.f;
 
-            // Hero name
+            // Hero name (with word-wrap)
             const char* heroName = "???";
             if (hs.heroDefIndex < N_HEROES)
                 heroName = HERO_DEFS[hs.heroDefIndex].name;
-            DrawText(heroName, (int)infoX, (int)infoY, 13, alive ? WHITE : (Color){150,150,150,180});
-            infoY += 17.f;
+            int nameH = 0;
+            drawWrappedText(heroName, infoX, infoY, infoW, 12,
+                            alive ? WHITE : (Color){150,150,150,180}, &nameH);
+            infoY += nameH + 4.f;
 
             // Class badge
             const char* archName = (hs.archetype < 5) ? archNames[hs.archetype] : "???";
