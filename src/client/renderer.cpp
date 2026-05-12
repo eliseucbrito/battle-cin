@@ -1143,7 +1143,7 @@ void drawHeroCards(const GameSnapshot& snap, int myId) {
             DrawRectangle((int)cx + 8, (int)cy, (int)(cardW - 16), 2, pCol);
 
             // Portrait (left side, fixed size, vertically centered)
-            float portraitSize = 40.f;
+            float portraitSize = 60.f;
             float px2 = cx + 8.f;
             float py2 = cy + (cardH - portraitSize) * 0.5f;
 
