@@ -105,6 +105,7 @@ int main(int argc, char *argv[])
         bool active;
         bool prevAlive;
         bool prevUltActive;
+        uint8_t prevItems[4];
     };
     HeroVis heroVis[MAX_HEROES_TOTAL];
     for (int i = 0; i < MAX_HEROES_TOTAL; i++) {
@@ -113,6 +114,7 @@ int main(int argc, char *argv[])
         heroVis[i].prevPos = {0, 0};
         heroVis[i].prevAlive = false;
         heroVis[i].prevUltActive = false;
+        for (int s = 0; s < 4; s++) heroVis[i].prevItems[s] = 0xFF;
     }
 
     initSelectionAssets(g_localTrainerDefs.data(), (int)g_localTrainerDefs.size(),
@@ -121,9 +123,12 @@ int main(int argc, char *argv[])
 
     float accumulator = 0.f;
     uint8_t prevPhase = PHASE_SELECT;
+    GameSnapshot prevSnap{};
+    memset(&prevSnap, 0, sizeof(prevSnap));
 
     while (!WindowShouldClose()) {
         float dt = GetFrameTime();
+        updateCombatLogs(dt);
 
         // ════════════════════════════════════════════════════════════════════
         //  INPUT
@@ -489,6 +494,7 @@ int main(int argc, char *argv[])
         }
 
         // ── Build snapshot for rendering ───────────────────────────────────
+        memcpy(&prevSnap, &snap, sizeof(snap));
         game.buildSnapshot(snap);
 
         // Detect phase transition to POSITIONING — reset cursors & hero selection
@@ -497,6 +503,7 @@ int main(int argc, char *argv[])
             inputs[1].moveHeroIdx = 0;
             inputs[0].cursorX = 1; inputs[0].cursorY = 3;
             inputs[1].cursorX = 6; inputs[1].cursorY = 3;
+            clearCombatLogs();
         }
         prevPhase = snap.phase;
 
@@ -524,6 +531,7 @@ int main(int argc, char *argv[])
                 heroVis[i].prevHp = snap.heroes[i].hp;
                 heroVis[i].prevAlive = snap.heroes[i].alive;
                 heroVis[i].prevUltActive = snap.heroes[i].ultActive;
+                for (int s = 0; s < 4; s++) heroVis[i].prevItems[s] = snap.heroes[i].items[s];
                 heroVis[i].active = true;
             } else {
                 heroVis[i].prevPos = heroVis[i].pos;
@@ -554,8 +562,75 @@ int main(int argc, char *argv[])
                     spawnFloatingText(heroVis[i].pos, delta, GREEN);
                 }
             }
+
+            // --- Detect Item Usage ---
+            if (heroVis[i].active && snap.phase == PHASE_BATTLE) {
+                for (int s = 0; s < 4; s++) {
+                    uint8_t prevItem = heroVis[i].prevItems[s];
+                    uint8_t currItem = snap.heroes[i].items[s];
+                    if (prevItem != 0xFF && currItem == 0xFF) {
+                        const char* heroName = "???";
+                        if (snap.heroes[i].heroDefIndex < (int)g_localHeroDefs.size())
+                            heroName = g_localHeroDefs[snap.heroes[i].heroDefIndex].name;
+                        
+                        char logMsg[64];
+                        snprintf(logMsg, sizeof(logMsg), "%s usou %s", heroName, itemIdToName(prevItem));
+                        // Team specific log
+                        addCombatLog(snap.heroes[i].ownerId, logMsg, GOLD);
+                    }
+                    heroVis[i].prevItems[s] = currItem;
+                }
+            } else if (snap.phase != PHASE_BATTLE) {
+                // Keep prevItems synced outside battle (like after buying in shop)
+                for (int s = 0; s < 4; s++) heroVis[i].prevItems[s] = snap.heroes[i].items[s];
+            }
+
             if (heroVis[i].active && heroVis[i].prevAlive && !snap.heroes[i].alive) {
                 spawnDeathEffect(heroVis[i].pos);
+
+                // Find killer
+                const char* victimName = "???";
+                if (snap.heroes[i].heroDefIndex < (int)g_localHeroDefs.size())
+                    victimName = g_localHeroDefs[snap.heroes[i].heroDefIndex].name;
+
+                int killerG = -1;
+                // Check who was targeting this hero in prevSnap
+                for (int j = 0; j < prevSnap.heroCount; j++) {
+                    if (prevSnap.heroes[j].ownerId != snap.heroes[i].ownerId) {
+                        if (prevSnap.heroes[j].targetFocus == i) {
+                            killerG = j;
+                            break;
+                        }
+                    }
+                }
+
+                // If no specific target focus found, check proximity in prevSnap
+                if (killerG == -1) {
+                    for (int j = 0; j < prevSnap.heroCount; j++) {
+                        if (prevSnap.heroes[j].ownerId != snap.heroes[i].ownerId && prevSnap.heroes[j].alive) {
+                            int dx = abs((int)prevSnap.heroes[j].x - (int)prevSnap.heroes[i].x);
+                            int dy = abs((int)prevSnap.heroes[j].y - (int)prevSnap.heroes[i].y);
+                            if (dx <= 1 && dy <= 1) {
+                                killerG = j;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                const char* killerName = "???";
+                if (killerG != -1 && prevSnap.heroes[killerG].heroDefIndex < (int)g_localHeroDefs.size())
+                    killerName = g_localHeroDefs[prevSnap.heroes[killerG].heroDefIndex].name;
+
+                char logMsg[64];
+                snprintf(logMsg, sizeof(logMsg), "%s ELIMINOU %s", killerName, victimName);
+                // Add to both logs? Or only the killer's side? 
+                // The user said "Log de cada lado, mostrando as informações de cada lado".
+                // Let's add it to the victim's side to show they lost someone, and to the killer's side to show they killed someone.
+                // Or maybe only to the side of the event.
+                // Usually, "P1 eliminou P2" is an event for both.
+                addCombatLog(0, logMsg, snap.heroes[i].ownerId == 0 ? RED : GREEN);
+                addCombatLog(1, logMsg, snap.heroes[i].ownerId == 1 ? RED : GREEN);
             }
             if (heroVis[i].active && !heroVis[i].prevUltActive && snap.heroes[i].ultActive) {
                 spawnUltimateEffect(heroVis[i].pos);

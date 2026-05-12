@@ -25,7 +25,7 @@ class Item {
 public:
     virtual ~Item() = default;
 
-    bool use(Hero& hero, int currentRound) {
+    bool use(Hero& hero, int currentRound) const {
         if (!canApply(hero)) return false;
         apply(hero, currentRound);
         onApplied(hero, currentRound);
@@ -50,7 +50,7 @@ public:
 
 private:
     virtual bool canApply(const Hero& hero) const { (void)hero; return true; }
-    virtual void onApplied(Hero& hero, int) { (void)hero; }
+    virtual void onApplied(Hero& hero, int) const { (void)hero; }
 };
 
 class GenericItem : public Item {

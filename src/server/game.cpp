@@ -73,7 +73,10 @@ void Game::loadDefs()
         e.ad = h.ad;
         e.arm = h.arm;
         e.assetPath = h.asset_path;
-        e.ultimateName = h.ultimate_name;
+        e.ultimateNames.push_back(h.ultimate_name_1);
+        e.ultimateNames.push_back(h.ultimate_name_2);
+        e.ultimateNames.push_back(h.ultimate_name_3);
+        e.dyingPhrase = h.dying_phrase;
         g_heroDefs.push_back(std::move(e));
     }
     printf("[Game] %zu treinadores e %zu herois carregados do banco.\n",
@@ -289,6 +292,29 @@ void Game::update(float dt)
         case PHASE_BATTLE:
             phaseTimer_ -= dt;
             autoBattleMove();
+            
+            // --- Auto-use Health Potions ---
+            for (int i = 0; i < 2; i++) {
+                for (int h = 0; h < trainers_[i].heroCount(); h++) {
+                    Hero& hero = trainers_[i].heroAt(h);
+                    if (!hero.alive()) continue;
+                    if ((float)hero.hp() / hero.maxHp() < 0.5f) {
+                        for (int s = 0; s < MAX_HERO_ITEMS; s++) {
+                            uint8_t itemId = hero.itemInSlot(s);
+                            // itemId % 5 == 0 is Health Potion according to database.cpp seed
+                            if (itemId != 0xFF && (itemId % 5 == 0)) {
+                                const Item* proto = shop_.getPrototype(itemId);
+                                if (proto && proto->use(hero, roundNumber_)) {
+                                    hero.unequipItem(s);
+                                    printf("[AutoUse] P%d hero %d usou %s\n", i, h, proto->name().c_str());
+                                    break; 
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             runCombat();
             tickUltimates(dt);
             
@@ -374,6 +400,7 @@ void Game::buildSnapshot(GameSnapshot& snap) const
                         if (pct < 0.f) pct = 0.f;
                         return (uint8_t)(pct * 100.f);
                     }(),
+                    hero.ultPhraseIdx(),
                     (uint8_t)i,
                     hero.targetFocus(),
                     hero.itemCount(),
