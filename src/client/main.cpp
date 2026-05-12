@@ -9,41 +9,57 @@
 
 #include "../../include/protocol.h"
 #include "../../include/game.h"
+#include "../../include/game_defs.h"
 #include "renderer.h"
 
-// ─── Client-side Trainer display data ────────────────────────────────────────
-static const int N_TRAINERS_LOCAL = 6;
-static const TrainerDef TRAINERS[] = {
-    { "Abel Guilhermino",  "Estrutura de Dados",   {80, 160, 230, 255}, ABILITY_RALLY,       "Rally (+AD)",       "assets/trainers/presentation/Abel_Guilhermino_presentation.png", "assets/trainers/card/Abel_Guilhermino_card.png" },
-    { "Alex Sandro",       "Orient. a Objetos",    {230, 80, 130, 255}, ABILITY_SHIELD_WALL, "Shield (+ARM)",     "assets/trainers/presentation/Alex_Sandro_presentation.png",  "assets/trainers/card/Alex_Sandro_card.png" },
-    { "David Junior",      "Algoritmos",           {80, 230, 160, 255}, ABILITY_BATTLE_HEAL, "Heal (+HP)",        "assets/trainers/presentation/David_presentation.png",        "assets/trainers/card/David_Junior_card.png" },
-    { "Francisco Paulo",   "Banco de Dados",       {230, 180, 80, 255}, ABILITY_FRENZY,      "Frenzy (+AS)",      "assets/trainers/presentation/Francisco_Paulo_presentation.png", "assets/trainers/card/Francisco_Paulo_card.png" },
-    { "Juliano Lyoda",     "Redes de Computadores",{160, 80, 230, 255}, ABILITY_RALLY,       "Rally (+AD)",       "assets/trainers/presentation/Juliano_lyoda_presentation.png", "assets/trainers/card/Juliano_lyoda_card.png" },
-    { "Valeria Cesario",   "Engenharia de Software",{230, 80, 230, 255}, ABILITY_SHIELD_WALL, "Shield (+ARM)",     "assets/trainers/presentation/Valeria_Cesario_presentation.png",  "assets/trainers/card/Valeria_Cesario_card.png" },
-};
+// ─── Local Trainer/Hero defs built from global DB vectors ────────────────────
+static std::vector<TrainerDef> g_localTrainerDefs;
+static std::vector<HeroDef>    g_localHeroDefs;
 
-static const int N_HEROES_LOCAL = 10;
-static const HeroDef HEROES[] = {
-    { "O Construto de Busca",     ARCHETYPE_TANK,     0, "Tank",     350, 15, 18, "assets/heroes/O_Construto_de_Busca.png"    },
-    { "O Guardiao dos Discos",    ARCHETYPE_FIGHTER,  0, "Fighter",  280, 22, 10, "assets/heroes/O_Guardiao_dos_Discos.png"   },
-    { "O Mestre Parser",          ARCHETYPE_MAGE,     0, "Mage",     200, 35,  5, "assets/heroes/O_Mestre_Parser.png"         },
-    { "O Cientista Polarizado",   ARCHETYPE_ASSASSIN, 0, "Assassin", 220, 32,  3, "assets/heroes/O_Cientista_Polarizado.png"  },
-    { "O Chip-Mestre",            ARCHETYPE_SUPPORT,  0, "Support",  240, 12, 10, "assets/heroes/O_Chip-Mestre.png"           },
-    { "A Burocrata do UML",       ARCHETYPE_TANK,     1, "Tank",     360, 13, 20, "assets/heroes/A_Burocrata_do_UML.png"      },
-    { "O Filosofo do Dilema",     ARCHETYPE_FIGHTER,  1, "Fighter",  270, 24, 12, "assets/heroes/O_Filosofo_do_Dilema.png"    },
-    { "O Artista Vectorial",      ARCHETYPE_MAGE,     1, "Mage",     190, 38,  4, "assets/heroes/O_Artista_Vectorial.png"     },
-    { "O Inspetor Flaky",         ARCHETYPE_ASSASSIN, 1, "Assassin", 215, 30,  2, "assets/heroes/O_Inspetor_Flaky.png"        },
-    { "O Treinador Python",       ARCHETYPE_SUPPORT,  1, "Support",  250, 14,  8, "assets/heroes/O_Treinador_Python.png"      },
-};
+static void buildLocalDefs() {
+    g_localTrainerDefs.resize(g_trainerDefs.size());
+    for (size_t i = 0; i < g_trainerDefs.size(); i++) {
+        g_localTrainerDefs[i] = {
+            g_trainerDefs[i].name.c_str(),
+            g_trainerDefs[i].discipline.c_str(),
+            { (unsigned char)g_trainerDefs[i].colorR,
+              (unsigned char)g_trainerDefs[i].colorG,
+              (unsigned char)g_trainerDefs[i].colorB, 255 },
+            g_trainerDefs[i].abilityType,
+            g_trainerDefs[i].abilityName.c_str(),
+            g_trainerDefs[i].portraitPath.c_str(),
+            g_trainerDefs[i].cardPath.c_str()
+        };
+    }
+    g_localHeroDefs.resize(g_heroDefs.size());
+    for (size_t i = 0; i < g_heroDefs.size(); i++) {
+        g_localHeroDefs[i] = {
+            g_heroDefs[i].name.c_str(),
+            g_heroDefs[i].archetype,
+            (uint8_t)(g_heroDefs[i].trainerId - 1),
+            g_heroDefs[i].className.c_str(),
+            g_heroDefs[i].hp,
+            g_heroDefs[i].ad,
+            g_heroDefs[i].arm,
+            g_heroDefs[i].assetPath.c_str()
+        };
+    }
+}
 
 static int heroFilteredToGlobal(int trainerIdx, int cursor) {
-    return trainerIdx * 5 + cursor;
+    int count = 0;
+    for (int i = 0; i < (int)g_heroDefs.size(); i++)
+        if (g_heroDefs[i].trainerId == (uint8_t)(trainerIdx + 1)) {
+            if (count == cursor) return i;
+            count++;
+        }
+    return cursor;
 }
 
 static int heroesForTrainer(int trainerIdx) {
     int count = 0;
-    for (int i = 0; i < N_HEROES_LOCAL; i++)
-        if (HEROES[i].trainerIndex == (uint8_t)trainerIdx) count++;
+    for (int i = 0; i < (int)g_heroDefs.size(); i++)
+        if (g_heroDefs[i].trainerId == (uint8_t)(trainerIdx + 1)) count++;
     return count;
 }
 
@@ -53,14 +69,6 @@ int main(int argc, char *argv[])
     srand((unsigned)time(nullptr));
 
     bool soloMode = (argc >= 2 && strcmp(argv[1], "--solo") == 0);
-    bool debugMode = (argc >= 2 && strcmp(argv[1], "--debug") == 0);
-    if (!debugMode && argc >= 3) debugMode = (strcmp(argv[2], "--debug") == 0);
-
-    if (debugMode) {
-        g_debug.enabled = true;
-        debugInitParams();
-        debugLoadConfig();
-    }
 
     InitWindow(1640, 1060, "Battle-CIn");
     SetTargetFPS(60);
@@ -68,7 +76,7 @@ int main(int argc, char *argv[])
     Game game;
     game.registerPlayerLocal(0);
     game.registerPlayerLocal(1);
-    if (debugMode) game.setDebugMode(true);
+    buildLocalDefs();
 
     PlayerInput inputs[2];
 
@@ -107,7 +115,8 @@ int main(int argc, char *argv[])
         heroVis[i].prevUltActive = false;
     }
 
-    initSelectionAssets(TRAINERS, N_TRAINERS_LOCAL, HEROES, N_HEROES_LOCAL);
+    initSelectionAssets(g_localTrainerDefs.data(), (int)g_localTrainerDefs.size(),
+                        g_localHeroDefs.data(), (int)g_localHeroDefs.size());
     initFxSystem();
 
     float accumulator = 0.f;
@@ -117,14 +126,8 @@ int main(int argc, char *argv[])
         float dt = GetFrameTime();
 
         // ════════════════════════════════════════════════════════════════════
-        //  INPUT
+//  INPUT
         // ════════════════════════════════════════════════════════════════════
-
-        debugHandleInput();
-
-        if (g_debug.enabled && IsKeyPressed(KEY_N)) {
-            game.debugAdvancePhase();
-        }
 
         if (snap.phase == PHASE_SELECT) {
             if (snap.selectSubphase == 0) {
@@ -566,16 +569,15 @@ int main(int argc, char *argv[])
         applyLayout(computeLayout());
         BeginDrawing();
         ClearBackground({12, 12, 26, 255});
-        debugBeginFrame();
 
         if (snap.phase == PHASE_SELECT) {
             DrawTexturePro(arena,
                 {0, 0, (float)arena.width, (float)arena.height},
                 {0, 0, (float)GetScreenWidth(), (float)GetScreenHeight()}, {}, 0.f, WHITE);
             if (snap.selectSubphase == 0) {
-                drawTrainerSelectMK(snap, TRAINERS, N_TRAINERS_LOCAL, inputs[0], inputs[1]);
+                drawTrainerSelectMK(snap, g_localTrainerDefs.data(), (int)g_localTrainerDefs.size(), inputs[0], inputs[1]);
             } else {
-                drawHeroSelectMK(snap, TRAINERS, HEROES, N_HEROES_LOCAL, inputs[0], inputs[1]);
+                drawHeroSelectMK(snap, g_localTrainerDefs.data(), g_localHeroDefs.data(), (int)g_localHeroDefs.size(), inputs[0], inputs[1]);
             }
         }
         else if (snap.phase == PHASE_SHOP) {
@@ -594,10 +596,10 @@ int main(int argc, char *argv[])
         {
             float sw = (float)GetScreenWidth();
             float sh = (float)GetScreenHeight();
-            float arenaX = g_debug.enabled ? g_debug.arenaX : 220.f;
-            float arenaY = g_debug.enabled ? g_debug.arenaY : 0.f;
-            float arenaW = g_debug.enabled ? g_debug.arenaW : 1201.f;
-            float arenaH = g_debug.enabled ? g_debug.arenaH : 880.f;
+            float arenaX = 220.f;
+            float arenaY = 0.f;
+            float arenaW = 1201.f;
+            float arenaH = 880.f;
 
             // Black background for areas outside the arena
             DrawRectangle(0, 0, (int)sw, (int)sh, BLACK);
@@ -641,12 +643,10 @@ int main(int argc, char *argv[])
             drawHeroCards(snap, 0);
         }
 
-        debugDrawOverlay();
-        debugDrawHUD();
         EndDrawing();
     }
 
-    freeSelectionAssets(N_TRAINERS_LOCAL, N_HEROES_LOCAL);
+    freeSelectionAssets((int)g_localTrainerDefs.size(), (int)g_localHeroDefs.size());
     unloadTextures();
     UnloadTexture(arena);
     CloseWindow();
