@@ -185,13 +185,27 @@ void drawHeroCards(const GameSnapshot& snap, int myId);
 void drawSidePanels(const GameSnapshot& snap, const PlayerInput& p1, const PlayerInput& p2);
 void drawShop(const GameSnapshot& snap, const PlayerInput& p1, const PlayerInput& p2);
 
+enum LogEventType {
+    LOG_GENERIC,
+    LOG_ELIMINATION,
+    LOG_ITEM_USE
+};
+
 struct LogEntry {
-    char  text[64];
-    Color color;
+    LogEventType type;
+    char  text[64];      // For LOG_GENERIC
+    Color color;         // For LOG_GENERIC
+    char subject[32];    // For Elim/Item
+    uint8_t subjectTeam;
+    char object[32];     // For Elim
+    uint8_t objectTeam;
+    uint8_t itemId;      // For Item
     float timer;
 };
 
 void addCombatLog(int side, const char* text, Color color);
+void addCombatLogElimination(int side, const char* killer, uint8_t killerTeam, const char* victim, uint8_t victimTeam);
+void addCombatLogItemUse(int side, const char* hero, uint8_t heroTeam, uint8_t itemId);
 void updateCombatLogs(float dt);
 void drawCombatLogs(int side, float x, float y, float w);
 void clearCombatLogs();
