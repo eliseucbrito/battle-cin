@@ -52,6 +52,13 @@ struct PlayerInput {
     uint8_t cursorX     = 0;
     uint8_t cursorY     = 0;
     bool  abilityReady  = true;
+    int   shopCursor     = 0;
+    int   shopHeroCursor = 0;
+    int   shopSlotCursor = 0;
+    bool  targetingMode   = false;
+    int   targetingHeroIdx = -1;
+    uint8_t targetCursorX = 0;
+    uint8_t targetCursorY = 0;
 };
 
 void initSelectionAssets(const TrainerDef* trainers, int nTrainers,
@@ -137,5 +144,21 @@ void drawTargetArrow(Vector2 from, Vector2 to);
 void drawTargetHighlight(Vector2 pos, float radius, Color color);
 void drawAdjacentEnemyHighlights(const GameSnapshot& snap, int myId, int heroIdx);
 
+// ── Targeting ────────────────────────────────────────────────────────────────
+void drawTargetingVisuals(const GameSnapshot& snap, const PlayerInput& p1, const PlayerInput& p2);
+
+// Convenience helper: returns global snapshot index for player's Nth hero slot
+static inline int heroSlotToGlobal(const GameSnapshot& snap, int pid, int slot) {
+    int count = 0;
+    for (int i = 0; i < snap.heroCount; i++) {
+        if (snap.heroes[i].ownerId == (uint8_t)pid) {
+            if (count == slot) return i;
+            count++;
+        }
+    }
+    return -1;
+}
+
 void drawHeroCards(const GameSnapshot& snap, int myId);
 void drawSidePanels(const GameSnapshot& snap, int myId);
+void drawShop(const GameSnapshot& snap, const PlayerInput& p1, const PlayerInput& p2);

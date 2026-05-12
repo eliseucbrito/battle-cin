@@ -5,6 +5,7 @@
 #include "database.h"
 #include "graph.h"
 #include "tournament_tree.h"
+#include "shop.h"
 
 class Game {
 public:
@@ -16,6 +17,9 @@ public:
     void handleTarget(int pid, int heroIdx, int targetIdx);
     void handleLocalTrainerLock(int pid, uint8_t trainerIdx);
     void handleLocalHeroPick(int pid, const uint8_t heroIndices[3]);
+    void handleBuyItem(int pid, int stockIdx, int heroIdx, int slotIdx);
+    void handleRefreshShop(int pid);
+    void handleConfirmShop(int pid);
     void initFromSelections();
 
     bool isInitialized() const { return initialized_; }
@@ -38,6 +42,7 @@ private:
     void generateBuffZones();
     void tickUltimates(float dt);
     void autoPickHeroes(int pid);
+    void enterShopPhase();
 
     Trainer trainers_[2];
     int     connectedCount_;
@@ -62,6 +67,8 @@ private:
     Graph graph_;
 
     TournamentTree tournament_;
+
+    Shop shop_;
 
     // PHASE_SELECT state
     uint8_t  selectSubphase_;

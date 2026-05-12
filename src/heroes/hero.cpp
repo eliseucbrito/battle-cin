@@ -19,7 +19,9 @@ Hero::Hero(uint8_t ownerId)
       ultActive_(false), attackCount_(0),
       hasCustomStats_(false), customHp_(0), customAd_(0), customArm_(0),
       ownerId_(ownerId), heroDefIndex_(0xFF),
-      targetFocus_(-1)
+      targetFocus_(-1),
+      items_{0xFF, 0xFF, 0xFF, 0xFF}, itemCount_(0),
+      tempItemTimers_{0.f, 0.f, 0.f, 0.f}
 {}
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -169,6 +171,36 @@ void Hero::healHp(int amount)
 {
     hp_ += amount;
     if (hp_ > maxHp_) hp_ = maxHp_;
+}
+
+bool Hero::equipItem(int slot, uint8_t itemId)
+{
+    if (slot < 0 || slot >= MAX_HERO_ITEMS) return false;
+    if (items_[slot] != 0xFF) return false;
+    items_[slot] = itemId;
+    itemCount_++;
+    return true;
+}
+
+void Hero::unequipItem(int slot)
+{
+    if (slot < 0 || slot >= MAX_HERO_ITEMS) return;
+    if (items_[slot] == 0xFF) return;
+    items_[slot] = 0xFF;
+    if (itemCount_ > 0) itemCount_--;
+}
+
+void Hero::tickTempItems(int currentRound)
+{
+    (void)currentRound;
+    for (int i = 0; i < MAX_HERO_ITEMS; i++) {
+        if (items_[i] == 0xFF) continue;
+        if (tempItemTimers_[i] > 0.f) {
+            items_[i] = 0xFF;
+            tempItemTimers_[i] = 0.f;
+            if (itemCount_ > 0) itemCount_--;
+        }
+    }
 }
 
 bool Hero::chooseMove(int enemyX, int enemyY, int& outX, int& outY) const

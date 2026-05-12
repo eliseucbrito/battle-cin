@@ -59,6 +59,11 @@ protected:
     // ── Target focus ──────────────────────────────────────────────────────
     int8_t targetFocus_;       // enemy index to focus attack, -1 = no focus
 
+    // ── Shop items ────────────────────────────────────────────────────────
+    uint8_t items_[MAX_HERO_ITEMS];
+    uint8_t itemCount_;
+    float   tempItemTimers_[MAX_HERO_ITEMS];
+
 public:
     explicit Hero(uint8_t ownerId);
     virtual ~Hero() = default;
@@ -179,4 +184,11 @@ public:
     int8_t targetFocus() const { return targetFocus_; }
     void setTargetFocus(int8_t idx) { targetFocus_ = idx; }
     void clearTargetFocus() { targetFocus_ = -1; }
+
+    // ── Item inventory ────────────────────────────────────────────────────
+    uint8_t itemCount()              const { return itemCount_; }
+    uint8_t itemInSlot(int slot)     const { return (slot >= 0 && slot < MAX_HERO_ITEMS) ? items_[slot] : (uint8_t)0xFF; }
+    bool    equipItem(int slot, uint8_t itemId);
+    void    unequipItem(int slot);
+    void    tickTempItems(int currentRound);
 };

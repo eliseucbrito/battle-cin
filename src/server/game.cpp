@@ -143,6 +143,10 @@ void Game::updateBot(float dt)
                 trainers_[pid].useAbility();
             }
         }
+
+        if (phase_ == PHASE_SHOP) {
+            shop_.botShop(pid, trainers_[pid], dt);
+        }
     }
 }
 
@@ -251,7 +255,15 @@ void Game::update(float dt)
 
         case PHASE_ROUND_END:
             phaseTimer_ -= dt;
-            if (phaseTimer_ <= 0.f) startPositioning();
+            if (phaseTimer_ <= 0.f) {
+                if (matchWinner_ == 0xFF) {
+                    enterShopPhase();
+                }
+            }
+            break;
+
+        case PHASE_SHOP:
+            updateBot(dt);
             break;
 
         case PHASE_VS_INTRO:
@@ -295,7 +307,8 @@ void Game::buildSnapshot(GameSnapshot& snap) const
     for (int i = 0; i < 2; i++) {
         const Trainer& t = trainers_[i];
         snap.trainers[i] = {
-            t.trainerId(), t.score(), (uint8_t)t.heroCount(), (uint8_t)t.canUseAbility(), 0
+            t.trainerId(), t.score(), (uint8_t)t.heroCount(), (uint8_t)t.canUseAbility(),
+            (uint16_t)(shop_.isOpen() ? shop_.gold(i) : 0)
         };
 
         for (int h = 0; h < t.heroCount(); h++) {
@@ -316,13 +329,17 @@ void Game::buildSnapshot(GameSnapshot& snap) const
                         return (uint8_t)(pct * 100.f);
                     }(),
                     (uint8_t)i,
-                    hero.targetFocus(), 0,
-                    {0xFF, 0xFF, 0xFF, 0xFF}
+                    hero.targetFocus(),
+                    hero.itemCount(),
+                    { hero.itemInSlot(0), hero.itemInSlot(1),
+                      hero.itemInSlot(2), hero.itemInSlot(3) }
                 };
             }
         }
     }
     snap.heroCount = (uint8_t)totalHeroes;
+
+    shop_.buildShopSnapshot(snap.shop);
 
     for (int i = 0; i < 4; i++) {
         snap.buffZones[i] = (i < buffZoneCount_) ? buffZones_[i] : BuffZoneInfo{0xFF, 0xFF, BUFF_NONE};
@@ -339,10 +356,13 @@ void Game::startPositioning()
     for (int i = 0; i < 2; i++) {
         trainers_[i].resetForRound();
         for (int h = 0; h < trainers_[i].heroCount(); h++) {
-            trainers_[i].heroAt(h).setPosition(i == 0 ? 1 : 6, 2 + h);
+            Hero& hero = trainers_[i].heroAt(h);
+            hero.tickTempItems(roundNumber_);
+            hero.setPosition(i == 0 ? 1 : 6, 2 + h);
         }
     }
     generateBuffZones();
+    botPlaced_ = false;
 }
 
 void Game::startBattle()
@@ -397,6 +417,30 @@ void Game::endRound(uint8_t winner)
     }
     phase_ = PHASE_ROUND_END;
     phaseTimer_ = ROUND_END_TIME;
+}
+
+void Game::enterShopPhase() {
+    phase_ = PHASE_SHOP;
+    phaseTimer_ = 9999.f;
+    shop_.enterShopPhase(roundNumber_ + 1, trainers_[0], trainers_[1]);
+    botPlaced_ = false;
+}
+
+void Game::handleBuyItem(int pid, int stockIdx, int heroIdx, int slotIdx) {
+    if (phase_ != PHASE_SHOP) return;
+    shop_.buy(pid, stockIdx, trainers_[pid], heroIdx, slotIdx);
+}
+
+void Game::handleRefreshShop(int pid) {
+    if (phase_ != PHASE_SHOP) return;
+    shop_.refreshStock(pid);
+}
+
+void Game::handleConfirmShop(int pid) {
+    if (!shop_.isOpen()) return;
+    if (shop_.confirm(pid)) {
+        startPositioning();
+    }
 }
 
 void Game::autoBattleMove()

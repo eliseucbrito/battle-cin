@@ -26,6 +26,7 @@ add_executable(meu_projeto
     src/client/renderer.cpp
     src/server/game.cpp
     src/database.cpp
+    src/shop.cpp
     ${SHARED_SOURCES}
 )
 target_link_libraries(meu_projeto
