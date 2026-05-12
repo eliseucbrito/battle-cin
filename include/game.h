@@ -21,6 +21,7 @@ public:
     void handleRefreshShop(int pid);
     void handleConfirmShop(int pid);
     void handleUseGeneralItem(int pid, int slot);
+    void handleDebugReduceHP(int pid);
     void initFromSelections();
 
     bool isInitialized() const { return initialized_; }

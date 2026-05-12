@@ -6,7 +6,7 @@
 int HeroMage::calculateDamage(const Hero& target) const
 {
     int reducedArm = target.arm() / 2;
-    int dmg = ad_ * 100 / (100 + reducedArm);
+    int dmg = (ad_ * 100 / (100 + reducedArm)) / DAMAGE_REDUCTION_FACTOR;
     return dmg < 1 ? 1 : dmg;
 }
 
@@ -23,7 +23,7 @@ void HeroMage::activateUltimate(Hero** /*allies*/, int /*allyCount*/,
 
         if (dist <= 2.0f) {
             // AoE hit: reduced damage, ignores armor completely
-            int dmg = ad_ / 2;
+            int dmg = (ad_ / 2) / DAMAGE_REDUCTION_FACTOR;
             if (dmg < 1) dmg = 1;
             // We can't call attackTarget here (resets our timer), apply directly via hero method
             enemies[i]->healHp(-dmg);   // negative heal = damage

@@ -126,8 +126,9 @@ int main(int argc, char *argv[])
         float dt = GetFrameTime();
 
         // ════════════════════════════════════════════════════════════════════
-//  INPUT
+        //  INPUT
         // ════════════════════════════════════════════════════════════════════
+        if (IsKeyPressed(KEY_F10)) game.handleDebugReduceHP(0);
 
         if (snap.phase == PHASE_SELECT) {
             if (snap.selectSubphase == 0) {

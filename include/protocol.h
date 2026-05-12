@@ -48,7 +48,8 @@
 
 #define WIN_SCORE         5
 #define POSITIONING_TIME  20
-#define BATTLE_MAX_TIME   120
+#define BATTLE_MAX_TIME   3600
+#define DAMAGE_REDUCTION_FACTOR 6
 #define ROUND_END_TIME    3
 #define VS_INTRO_TIME     3
 #define MAX_HEROES_SIDE   3

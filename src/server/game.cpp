@@ -701,3 +701,14 @@ void Game::generateBuffZones() {
         buffZones_[buffZoneCount_++] = { bx, by, type };
     }
 }
+
+void Game::handleDebugReduceHP(int pid) {
+    if (pid < 0 || pid > 1) return;
+    for (int h = 0; h < trainers_[pid].heroCount(); h++) {
+        Hero& hero = trainers_[pid].heroAt(h);
+        if (hero.alive()) {
+            hero.healHp(-(hero.hp() - 1));
+        }
+    }
+    printf("[DEBUG] Reduzida vida dos herois do P%d para 1\n", pid + 1);
+}
