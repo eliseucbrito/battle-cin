@@ -42,12 +42,12 @@ Layout computeLayout() {
     l.sidePanelW = PANEL_W;
 
     // Cards below the arena image
-    l.cardsY = arenaY + ARENA_H + 8.f;
+    l.cardsY = arenaY + ARENA_H + 12.f;
     l.bottomCardsH = l.screenH - l.cardsY;
-    if (l.bottomCardsH < 80.f) l.bottomCardsH = 80.f;
+    if (l.bottomCardsH < 100.f) l.bottomCardsH = 100.f;
     float cardGap = 6.f;
-    l.cardW = fminf(170.f, (l.screenW * 0.5f - 4.f * cardGap) / 3.f);
-    l.cardH = fminf(90.f, l.bottomCardsH - 16.f);
+    l.cardW = fminf(200.f, (l.screenW * 0.5f - 4.f * cardGap) / 3.f);
+    l.cardH = fminf(130.f, l.bottomCardsH - 20.f);
 
     l.topBarH = l.gridY;
     l.trainerAbilityBtnY = l.screenH - 24.f;
@@ -1017,6 +1017,22 @@ bool isValidDeployCell(int col, int row, uint8_t archetype, bool isLeft)
     }
 }
 
+// ── Helper: modern rounded bar ────────────────────────────────────────────────
+static void drawModernBar(float x, float y, float w, float h, float fillPct,
+                          Color bgColor, Color fillColor, const char* label,
+                          Color labelColor, int fontSize)
+{
+    float r = h * 0.5f;
+    DrawRectangleRounded({x, y, w, h}, 1.f, 8, bgColor);
+    if (fillPct > 0.01f) {
+        DrawRectangleRounded({x, y, w * fillPct, h}, 1.f, 8, fillColor);
+    }
+    DrawRectangleRoundedLines({x, y, w, h}, 1.f, 8, {255,255,255,30});
+    if (label) {
+        DrawText(label, (int)(x + 6), (int)(y + (h - fontSize) * 0.5f), fontSize, labelColor);
+    }
+}
+
 // ── drawHeroCards ────────────────────────────────────────────────────────────
 void drawHeroCards(const GameSnapshot& snap, int myId) {
     (void)myId;
@@ -1025,17 +1041,16 @@ void drawHeroCards(const GameSnapshot& snap, int myId) {
     float sw = g_layout.screenW, sh = g_layout.screenH;
     float cardW = g_layout.cardW, cardH = g_layout.cardH;
     float cardsY = g_layout.cardsY;
-    float gap = 10.f;
+    float gap = 12.f;
 
     static const char* archNames[]  = {"Tank", "Fighter", "Mage", "Assassin", "Support"};
     static Color archColors[] = {
         {80,130,220,255}, {220,80,80,255}, {150,80,220,255},
         {70,70,70,255},   {80,200,130,255}
     };
-    static Color kTint[2] = { {80,160,230,255}, {230,80,80,255} };
 
-    // Bottom strip background (opaque, below arena)
-    DrawRectangle(0, (int)cardsY - 4, (int)sw, (int)(sh - cardsY + 4), {8, 8, 18, 255});
+    // Bottom strip: subtle dark panel
+    DrawRectangle(0, (int)cardsY - 8, (int)sw, (int)(sh - cardsY + 8), {6, 6, 14, 255});
 
     for (int player = 0; player < 2; player++) {
         float halfW = (sw - 2.f * g_layout.sidePanelW) * 0.5f;
@@ -1044,13 +1059,8 @@ void drawHeroCards(const GameSnapshot& snap, int myId) {
         if (player == 1)
             areaStartX = sw - g_layout.sidePanelW - halfW + (halfW - areaW) * 0.5f;
 
-        const char* playerLabel = player == 0 ? "P1" : "P2";
         Color pCol = player == 0 ? Color{80,150,255,255} : Color{255,100,80,255};
-
-        char goldStr[32];
-        snprintf(goldStr, sizeof(goldStr), "%s  Gold: %d", playerLabel, snap.trainers[player].gold);
-        int gw = MeasureText(goldStr, 16);
-        DrawText(goldStr, (int)(areaStartX + (areaW - gw) * 0.5f), (int)(cardsY - 20), 16, pCol);
+        Color dimCol = player == 0 ? Color{80,150,255,120} : Color{255,100,80,120};
 
         int localHeroes[3] = {-1, -1, -1};
         int localCount = 0;
@@ -1064,17 +1074,28 @@ void drawHeroCards(const GameSnapshot& snap, int myId) {
             float cx = areaStartX + h * (cardW + gap);
             float cy = cardsY;
 
-            if (localHeroes[h] < 0) continue;
+            if (localHeroes[h] < 0) {
+                // Empty slot placeholder
+                DrawRectangleRounded({cx + 4, cy + 4, cardW - 8, cardH - 8}, 0.08f, 8, {16, 16, 30, 180});
+                DrawRectangleRoundedLines({cx + 4, cy + 4, cardW - 8, cardH - 8}, 0.08f, 8, {40, 40, 60, 120});
+                continue;
+            }
+
             const HeroNetState& hs = snap.heroes[localHeroes[h]];
+            bool alive = hs.alive;
 
-            Color cardBg = {22, 22, 40, 255};
-            if (!hs.alive) cardBg = {16, 16, 30, 255};
-            DrawRectangleRounded({cx, cy, cardW, cardH}, 0.06f, 6, cardBg);
-            DrawRectangleRoundedLines({cx, cy, cardW, cardH}, 0.06f, 6, pCol);
+            // Card background with player-tinted border
+            Color cardBg = alive ? (Color){18, 18, 34, 255} : (Color){12, 12, 22, 255};
+            DrawRectangleRounded({cx, cy, cardW, cardH}, 0.08f, 10, cardBg);
+            Color borderCol = alive ? dimCol : (Color){60, 60, 70, 100};
+            DrawRectangleRoundedLines({cx, cy, cardW, cardH}, 0.08f, 10, borderCol);
+            // Top accent line
+            DrawRectangle((int)cx + 8, (int)cy, (int)(cardW - 16), 2, pCol);
 
-            float portraitSize = cardH * 0.38f;
-            float px2 = cx + 6.f;
-            float py2 = cy + 6.f;
+            // Portrait (left side, larger)
+            float portraitSize = cardH - 16.f;
+            float px2 = cx + 8.f;
+            float py2 = cy + 8.f;
 
             uint8_t texIdx = (hs.heroDefIndex < N_HEROES) ? hs.heroDefIndex : hs.archetype;
             Texture2D& tex = heroTextures[texIdx];
@@ -1083,94 +1104,93 @@ void drawHeroCards(const GameSnapshot& snap, int myId) {
                 float sw2 = tex.width * scale;
                 DrawTexturePro(tex,
                     {0, 0, (float)tex.width, (float)tex.height},
-                    {px2, py2, sw2, portraitSize}, {0, 0}, 0.f, WHITE);
+                    {px2, py2, sw2, portraitSize}, {0, 0}, 0.f, alive ? WHITE : (Color){120,120,120,180});
             } else {
-                DrawRectangle((int)px2, (int)py2, (int)portraitSize, (int)portraitSize, archColors[hs.archetype]);
+                DrawRectangleRounded({px2, py2, portraitSize, portraitSize}, 0.1f, 6, archColors[hs.archetype]);
             }
+            // Portrait border
+            DrawRectangleRoundedLines({px2, py2, portraitSize, portraitSize}, 0.1f, 6, {255,255,255,40});
 
-            float textX = px2 + portraitSize + 8.f;
-            float textY = cy + 8.f;
+            // Right side info area
+            float infoX = px2 + portraitSize + 10.f;
+            float infoY = py2;
+            float infoW = cardW - (infoX - cx) - 8.f;
 
+            // Hero name
             const char* heroName = "???";
             if (hs.heroDefIndex < N_HEROES)
                 heroName = HERO_DEFS[hs.heroDefIndex].name;
-            DrawText(heroName, (int)textX, (int)textY, 12, WHITE);
-            textY += 14.f;
+            DrawText(heroName, (int)infoX, (int)infoY, 13, alive ? WHITE : (Color){150,150,150,180});
+            infoY += 17.f;
 
+            // Class badge
             const char* archName = (hs.archetype < 5) ? archNames[hs.archetype] : "???";
-            int aw = MeasureText(archName, 10);
-            DrawRectangleRounded({textX, textY, (float)(aw + 8), 14.f}, 0.3f, 3, archColors[hs.archetype]);
-            DrawText(archName, (int)(textX + 4), (int)(textY + 1), 10, WHITE);
-            textY = cy + 8.f + portraitSize + 4.f;
+            int aw = MeasureText(archName, 9);
+            float badgeW = aw + 10.f;
+            DrawRectangleRounded({infoX, infoY, badgeW, 15.f}, 0.4f, 4, archColors[hs.archetype]);
+            DrawText(archName, (int)(infoX + 5), (int)(infoY + 2), 9, WHITE);
+            infoY += 21.f;
 
             // HP bar
             {
-                float bw = cardW - 14.f, bh = 8.f;
-                float bx = cx + 7.f, by = textY;
+                float bw = infoW, bh = 12.f;
                 float hpPct = (hs.maxHp > 0) ? (float)hs.hp / hs.maxHp : 0.f;
-                Color hpColor = hpPct > 0.5f ? GREEN : (hpPct > 0.25f ? YELLOW : RED);
-                DrawRectangle((int)bx, (int)by, (int)bw, (int)bh, DARKGRAY);
-                DrawRectangle((int)bx, (int)by, (int)(bw * hpPct), (int)bh, hpColor);
-                DrawRectangleLinesEx({bx, by, bw, bh}, 1, {255, 255, 255, 60});
-
-                char hpText[32];
-                snprintf(hpText, sizeof(hpText), "HP %d/%d", hs.hp, hs.maxHp);
-                DrawText(hpText, (int)bx, (int)(by - 12), 10, LIGHTGRAY);
-                textY = by + bh + 6.f;
+                Color hpFill = hpPct > 0.5f ? (Color){60, 200, 80, 255}
+                             : (hpPct > 0.25f ? (Color){220, 180, 40, 255} : (Color){220, 60, 60, 255});
+                char hpLabel[32];
+                snprintf(hpLabel, sizeof(hpLabel), "%d/%d", hs.hp, hs.maxHp);
+                drawModernBar(infoX, infoY, bw, bh, hpPct, {35,35,45,255}, hpFill, hpLabel, WHITE, 8);
+                infoY += bh + 6.f;
             }
 
-            // Ultimate power bar
+            // Ultimate bar
             {
-                float bw = cardW - 14.f, bh = 6.f;
-                float bx = cx + 7.f, by = textY;
+                float bw = infoW, bh = 10.f;
                 uint8_t pct = hs.ultPct;
-
-                DrawRectangle((int)bx, (int)by, (int)bw, (int)bh, DARKGRAY);
-
                 if (pct == 255) {
                     float t = (float)GetTime();
-                    unsigned char alpha = (unsigned char)(180 + 75 * sinf(t * 6.f));
-                    DrawRectangle((int)bx, (int)by, (int)bw, (int)bh, (Color){255, 215, 0, alpha});
-                    DrawText("ATIVO!", (int)(bx + 2), (int)(by - 12), 10, GOLD);
+                    unsigned char a = (unsigned char)(160 + 95 * sinf(t * 6.f));
+                    Color glow = GOLD; glow.a = a;
+                    drawModernBar(infoX, infoY, bw, bh, 1.f, {40,35,20,255}, glow, "ULTIMATE", BLACK, 8);
                 } else {
                     float fillPct = pct / 100.f;
-                    Color pwrColor = (pct >= 100) ? GOLD : (Color){60, 100, 200, 255};
+                    Color pwrColor = (pct >= 100) ? (Color){255, 200, 60, 255} : (Color){60, 100, 200, 255};
                     if (pct >= 100) {
                         float t = (float)GetTime();
-                        unsigned char alpha = (unsigned char)(200 + 55 * sinf(t * 4.f));
-                        pwrColor = GOLD; pwrColor.a = alpha;
+                        unsigned char a = (unsigned char)(180 + 75 * sinf(t * 4.f));
+                        pwrColor = GOLD; pwrColor.a = a;
                     }
-                    DrawRectangle((int)bx, (int)by, (int)(bw * fillPct), (int)bh, pwrColor);
-                    DrawRectangleLinesEx({bx, by, bw, bh}, 1, {255, 255, 255, 40});
-
-                    char pwrText[16];
-                    snprintf(pwrText, sizeof(pwrText), "PWR %u%%", pct);
-                    DrawText(pwrText, (int)bx, (int)(by - 12), 10, (pct >= 100) ? GOLD : LIGHTGRAY);
+                    char ultLabel[32];
+                    snprintf(ultLabel, sizeof(ultLabel), "ULT %u%%", pct);
+                    drawModernBar(infoX, infoY, bw, bh, fillPct, {35,35,45,255}, pwrColor, ultLabel, WHITE, 8);
                 }
-                textY = by + bh + 6.f;
+                infoY += bh + 8.f;
             }
 
-            // Stats line
+            // Stats row
             {
                 float as = hs.asRate_x10 / 10.f;
                 char stats[64];
-                snprintf(stats, sizeof(stats), "AD:%d  ARM:%d  AS:%.2f", hs.ad, hs.arm, as);
-                DrawText(stats, (int)(cx + 7), (int)textY, 10, {180, 180, 200, 255});
-                textY += 14.f;
+                snprintf(stats, sizeof(stats), "AD %d   ARM %d   AS %.1f", hs.ad, hs.arm, as);
+                DrawText(stats, (int)infoX, (int)infoY, 9, {160, 160, 190, 255});
             }
 
-            // Item slots
+            // Item slots at bottom of card
             {
-                float slotSize = 18.f;
+                float slotSize = 20.f;
                 float slotGap = 4.f;
-                float sx = cx + 7.f;
+                float sx = infoX;
                 float sy = cy + cardH - slotSize - 8.f;
                 for (int s = 0; s < 4; s++) {
                     float ssx = sx + s * (slotSize + slotGap);
                     uint8_t itemId = (s < 4) ? hs.items[s] : (uint8_t)0xFF;
-                    Color slotColor = (itemId != 0xFF) ? Color{60, 60, 80, 255} : Color{35, 35, 50, 200};
-                    DrawRectangleRounded({ssx, sy, slotSize, slotSize}, 0.2f, 3, slotColor);
-                    DrawRectangleRoundedLines({ssx, sy, slotSize, slotSize}, 0.2f, 3, Color{60, 60, 90, 200});
+                    Color slotBg = (itemId != 0xFF) ? Color{55, 55, 80, 255} : Color{28, 28, 42, 200};
+                    DrawRectangleRounded({ssx, sy, slotSize, slotSize}, 0.25f, 4, slotBg);
+                    DrawRectangleRoundedLines({ssx, sy, slotSize, slotSize}, 0.25f, 4, {80, 80, 110, 180});
+                    if (itemId != 0xFF) {
+                        // Small dot indicator for equipped item
+                        DrawCircle((int)(ssx + slotSize - 4), (int)(sy + 4), 2, GOLD);
+                    }
                 }
             }
         }
@@ -1192,110 +1212,167 @@ void drawSidePanels(const GameSnapshot& snap, int myId) {
         float px = player == 0 ? g_layout.leftPanelX : g_layout.rightPanelX;
         float panelW = player == 0 ? g_layout.leftPanelW : g_layout.rightPanelW;
         Color pCol = player == 0 ? Color{80,150,255,255} : Color{255,100,80,255};
-        Color bg = {8, 8, 18, 255};
+        Color pColDim = player == 0 ? Color{80,150,255,80} : Color{255,100,80,80};
+        Color bgDark = {10, 10, 22, 255};
+        Color bgMid  = {14, 14, 28, 255};
 
-        DrawRectangle((int)px, (int)topY, (int)panelW, (int)panelH, bg);
-        DrawRectangleLinesEx({px, topY, panelW, panelH}, 2, pCol);
+        // Panel background with subtle gradient
+        DrawRectangle((int)px, (int)topY, (int)panelW, (int)panelH, bgDark);
+        // Top accent bar
+        DrawRectangle((int)px, (int)topY, (int)panelW, 3, pCol);
+        // Bottom fade
+        DrawRectangle((int)px, (int)(panelH - 40), (int)panelW, 40, {10,10,22,200});
 
-        float cy = topY + 8.f;
+        float cy = topY + 14.f;
+        float pad = 10.f;
 
-        const char* label = player == 0 ? "P1" : "P2";
-        DrawText(label, (int)(px + (panelW - MeasureText(label, 18)) * 0.5f), (int)cy, 18, pCol);
-        cy += 22.f;
+        // Player header badge
+        {
+            const char* label = player == 0 ? "JOGADOR 1" : "JOGADOR 2";
+            int lw = MeasureText(label, 10);
+            float badgeW = lw + 16.f;
+            float badgeX = px + (panelW - badgeW) * 0.5f;
+            DrawRectangleRounded({badgeX, cy, badgeW, 18.f}, 0.5f, 6, pCol);
+            DrawText(label, (int)(badgeX + 8), (int)(cy + 3), 10, {0,0,0,255});
+            cy += 26.f;
+        }
 
+        // Trainer portrait with glow ring
         uint8_t tId = snap.trainers[player].trainerId;
+        float ps = fminf(panelW - 2.f * pad, 150.f);
+        float psX = px + (panelW - ps) * 0.5f;
         if (tId < N_TRAINERS && trainerTextures[tId].id != 0) {
-            float ps = fminf(panelW - 16.f, 120.f);
-            float psX = px + (panelW - ps) * 0.5f;
+            // Glow ring behind portrait
+            DrawCircle((int)(psX + ps * 0.5f), (int)(cy + ps * 0.5f), ps * 0.55f, pColDim);
+            DrawCircle((int)(psX + ps * 0.5f), (int)(cy + ps * 0.5f), ps * 0.52f, bgDark);
             DrawTexturePro(trainerTextures[tId],
                 {0, 0, (float)trainerTextures[tId].width, (float)trainerTextures[tId].height},
                 {psX, cy, ps, ps}, {0, 0}, 0.f, WHITE);
-            cy += ps + 6.f;
+        } else {
+            DrawCircle((int)(psX + ps * 0.5f), (int)(cy + ps * 0.5f), ps * 0.5f, {30,30,45,255});
         }
+        cy += ps + 10.f;
 
+        // Trainer name
         const char* tName = (tId < N_TRAINERS) ? TRAINER_DEFS[tId].name : "???";
-        int nw = MeasureText(tName, 12);
-        DrawText(tName, (int)(px + (panelW - nw) * 0.5f), (int)cy, 12, WHITE);
-        cy += 16.f;
-
-        char scoreStr[32];
-        snprintf(scoreStr, sizeof(scoreStr), "Score: %d", snap.trainers[player].score);
-        int sw2 = MeasureText(scoreStr, 11);
-        DrawText(scoreStr, (int)(px + (panelW - sw2) * 0.5f), (int)cy, 11, {180, 180, 200, 255});
-        cy += 18.f;
-
-        char goldStr[32];
-        snprintf(goldStr, sizeof(goldStr), "Gold: %d", snap.trainers[player].gold);
-        DrawText(goldStr, (int)(px + 6), (int)cy, 12, GOLD);
+        int nw = MeasureText(tName, 13);
+        DrawText(tName, (int)(px + (panelW - nw) * 0.5f), (int)cy, 13, WHITE);
         cy += 20.f;
 
-        // Divider
-        DrawLineEx({px + 6, cy}, {px + panelW - 6, cy}, 1, {60, 60, 90, 200});
-        cy += 8.f;
+        // Score & Gold as stat badges
+        {
+            float badgeH = 22.f;
+            float gap2 = 6.f;
+            float badgeW = (panelW - 2.f * pad - gap2) * 0.5f;
 
-        DrawText("ITENS", (int)(px + 6), (int)cy, 11, {160, 160, 190, 255});
+            // Score badge
+            char scoreStr[32];
+            snprintf(scoreStr, sizeof(scoreStr), "%d", snap.trainers[player].score);
+            DrawRectangleRounded({px + pad, cy, badgeW, badgeH}, 0.4f, 4, {20,20,40,255});
+            DrawRectangleRoundedLines({px + pad, cy, badgeW, badgeH}, 0.4f, 4, pColDim);
+            DrawText("SCORE", (int)(px + pad + 6), (int)(cy + 2), 8, {120,120,150,255});
+            int sw2 = MeasureText(scoreStr, 11);
+            DrawText(scoreStr, (int)(px + pad + badgeW - sw2 - 6), (int)(cy + 2), 11, WHITE);
+
+            // Gold badge
+            char goldStr[32];
+            snprintf(goldStr, sizeof(goldStr), "%d", snap.trainers[player].gold);
+            DrawRectangleRounded({px + pad + badgeW + gap2, cy, badgeW, badgeH}, 0.4f, 4, {20,20,40,255});
+            DrawRectangleRoundedLines({px + pad + badgeW + gap2, cy, badgeW, badgeH}, 0.4f, 4, {180,150,40,120});
+            DrawText("GOLD", (int)(px + pad + badgeW + gap2 + 6), (int)(cy + 2), 8, {180,150,40,200});
+            int gw = MeasureText(goldStr, 11);
+            DrawText(goldStr, (int)(px + pad + badgeW + gap2 + badgeW - gw - 6), (int)(cy + 2), 11, GOLD);
+
+            cy += badgeH + 12.f;
+        }
+
+        // Divider
+        DrawLineEx({px + pad, cy}, {px + panelW - pad, cy}, 1, {40, 40, 60, 180});
+        cy += 10.f;
+
+        // Items section
+        DrawText("ITENS", (int)(px + pad), (int)cy, 10, {130, 130, 160, 255});
         cy += 16.f;
 
-        float slotSize = fminf(32.f, (panelW - 12.f - 3.f * 4.f) / 4.f), slotGap = 4.f;
-        int anyItems = 0;
+        float slotSize = fminf(36.f, (panelW - 2.f * pad - 3.f * 4.f) / 4.f);
+        float slotGap = 4.f;
+        int itemCount = 0;
         for (int i = 0; i < snap.heroCount; i++) {
             if (snap.heroes[i].ownerId != (uint8_t)player) continue;
             for (int s = 0; s < 4; s++) {
-                if (snap.heroes[i].items[s] != 0xFF) {
-                    anyItems = 1;
-                    break;
-                }
+                if (snap.heroes[i].items[s] != 0xFF) itemCount++;
             }
-            if (anyItems) break;
         }
 
-        if (!anyItems) {
-            DrawText("Nenhum item", (int)(px + 6), (int)cy, 10, {100, 100, 120, 255});
-            cy += 16.f;
-
-            for (int s = 0; s < 4; s++) {
-                float ssx = px + 6.f + s * (slotSize + slotGap);
-                DrawRectangleRounded({ssx, cy, slotSize, slotSize}, 0.2f, 3, {25, 25, 40, 200});
-                DrawRectangleRoundedLines({ssx, cy, slotSize, slotSize}, 0.2f, 3, {50, 50, 70, 200});
+        float slotRowY = cy;
+        for (int s = 0; s < 4; s++) {
+            float ssx = px + pad + s * (slotSize + slotGap);
+            DrawRectangleRounded({ssx, slotRowY, slotSize, slotSize}, 0.2f, 4, {22, 22, 38, 255});
+            DrawRectangleRoundedLines({ssx, slotRowY, slotSize, slotSize}, 0.2f, 4, {50, 50, 75, 200});
+            if (itemCount > s) {
+                // Filled slot indicator
+                DrawCircle((int)(ssx + slotSize * 0.5f), (int)(slotRowY + slotSize * 0.5f), slotSize * 0.25f, GOLD);
             }
-            cy += slotSize + 8.f;
         }
+        cy = slotRowY + slotSize + 10.f;
 
-        DrawLineEx({px + 6, cy}, {px + panelW - 6, cy}, 1, {60, 60, 90, 200});
-        cy += 8.f;
+        // Divider
+        DrawLineEx({px + pad, cy}, {px + panelW - pad, cy}, 1, {40, 40, 60, 180});
+        cy += 10.f;
 
-        DrawText("PODER", (int)(px + 6), (int)cy, 11, {160, 160, 190, 255});
+        // Power section
+        DrawText("HABILIDADE", (int)(px + pad), (int)cy, 10, {130, 130, 160, 255});
         cy += 16.f;
 
         uint8_t abType = TRAINER_DEFS[tId].abilityType;
         const char* abName = (abType < 2) ? abilityNames[abType] : "???";
-        DrawText(abName, (int)(px + 6), (int)cy, 11, WHITE);
-        cy += 14.f;
+        int abW = MeasureText(abName, 11);
+        DrawText(abName, (int)(px + pad), (int)cy, 11, WHITE);
+        cy += 18.f;
 
-        if (snap.trainers[player].abilityReady) {
-            float t = (float)GetTime();
-            unsigned char alpha = (unsigned char)(180 + 75 * sinf(t * 5.f));
-            Color readyColor = GREEN; readyColor.a = alpha;
-            DrawText("READY", (int)(px + 6), (int)cy, 11, readyColor);
-        } else {
-            DrawText("Wait...", (int)(px + 6), (int)cy, 11, RED);
+        // Ability status button
+        {
+            float btnW = panelW - 2.f * pad;
+            float btnH = 24.f;
+            float btnX = px + pad;
+            if (snap.trainers[player].abilityReady) {
+                float t = (float)GetTime();
+                unsigned char alpha = (unsigned char)(180 + 75 * sinf(t * 5.f));
+                Color glow = pCol; glow.a = alpha;
+                DrawRectangleRounded({btnX, cy, btnW, btnH}, 0.5f, 6, glow);
+                DrawRectangleRounded({btnX + 2, cy + 2, btnW - 4, btnH - 4}, 0.4f, 6, {10,10,22,255});
+                const char* readyTxt = "PRONTO";
+                int rw = MeasureText(readyTxt, 11);
+                DrawText(readyTxt, (int)(btnX + (btnW - rw) * 0.5f), (int)(cy + 5), 11, GREEN);
+            } else {
+                DrawRectangleRounded({btnX, cy, btnW, btnH}, 0.5f, 6, {25, 25, 40, 255});
+                DrawRectangleRoundedLines({btnX, cy, btnW, btnH}, 0.5f, 6, {50, 50, 70, 200});
+                const char* waitTxt = "RECARGA";
+                int ww = MeasureText(waitTxt, 11);
+                DrawText(waitTxt, (int)(btnX + (btnW - ww) * 0.5f), (int)(cy + 5), 11, {120, 120, 140, 255});
+            }
+            cy += btnH + 10.f;
         }
-        cy += 16.f;
 
         // Controls hint
-        const char* ctrl = player == 0
-            ? "Q = Poder"
-            : "E = Poder";
-        DrawText(ctrl, (int)(px + 6), (int)cy, 9, {120, 120, 140, 255});
+        const char* ctrl = player == 0 ? "[Q] ATIVAR" : "[E] ATIVAR";
+        int cw = MeasureText(ctrl, 9);
+        DrawText(ctrl, (int)(px + (panelW - cw) * 0.5f), (int)cy, 9, {100, 100, 130, 255});
     }
 
-    // Trainer ability bar in side panels
+    // Floating ability indicator near the grid
     for (int player = 0; player < 2; player++) {
         float px = player == 0 ? g_layout.leftPanelX : g_layout.rightPanelX;
-        float by = g_layout.gridY + g_layout.gridH + 8.f;
+        float pw = player == 0 ? g_layout.leftPanelW : g_layout.rightPanelW;
+        float by = g_layout.gridY + g_layout.gridH + 12.f;
 
         if (snap.trainers[player].abilityReady) {
-            DrawText(player == 0 ? "P1: [Q]" : "P2: [E]", (int)(px + 6), (int)by, 11, YELLOW);
+            const char* txt = player == 0 ? "[Q] PRONTO" : "[E] PRONTO";
+            int tw = MeasureText(txt, 10);
+            float tx = px + (pw - tw) * 0.5f;
+            Color pCol = player == 0 ? Color{80,150,255,255} : Color{255,100,80,255};
+            DrawRectangleRounded({tx - 4, by - 2, (float)(tw + 8), 16.f}, 0.5f, 4, pCol);
+            DrawText(txt, (int)tx, (int)by, 10, {0,0,0,255});
         }
     }
 }
