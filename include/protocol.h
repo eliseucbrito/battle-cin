@@ -84,20 +84,25 @@ struct HeroNetState {
     uint16_t maxHp;
     uint8_t  ad;
     uint8_t  arm;
+    uint8_t  asRate_x10;
     uint8_t  archetype;
     uint8_t  heroDefIndex;
     uint8_t  buff;
     uint8_t  alive;
     uint8_t  ultActive;
+    uint8_t  ultPct;
     uint8_t  ownerId;
     int8_t   targetFocus;
+    uint8_t  itemCount;
+    uint8_t  items[4];
 };
 
 struct TrainerNetState {
-    uint8_t trainerId;
-    uint8_t score;
-    uint8_t heroCount;
-    uint8_t abilityReady;
+    uint8_t  trainerId;
+    uint8_t  score;
+    uint8_t  heroCount;
+    uint8_t  abilityReady;
+    uint16_t gold;
 };
 
 #pragma pack(push, 1)
