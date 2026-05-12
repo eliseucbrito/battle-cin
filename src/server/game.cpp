@@ -284,7 +284,7 @@ void Game::buildSnapshot(GameSnapshot& snap) const
     if (!initialized_) {
         snap.heroCount = 0;
         for (int i = 0; i < 2; i++)
-            snap.trainers[i] = {0, 0, 0, 0};
+            snap.trainers[i] = {0, 0, 0, 0, 0};
         snap.buffZoneCount = 0;
         for (int i = 0; i < 4; i++)
             snap.buffZones[i] = {0xFF, 0xFF, BUFF_NONE};
@@ -295,7 +295,7 @@ void Game::buildSnapshot(GameSnapshot& snap) const
     for (int i = 0; i < 2; i++) {
         const Trainer& t = trainers_[i];
         snap.trainers[i] = {
-            t.trainerId(), t.score(), (uint8_t)t.heroCount(), (uint8_t)t.canUseAbility()
+            t.trainerId(), t.score(), (uint8_t)t.heroCount(), (uint8_t)t.canUseAbility(), 0
         };
 
         for (int h = 0; h < t.heroCount(); h++) {
@@ -305,9 +305,19 @@ void Game::buildSnapshot(GameSnapshot& snap) const
                     hero.x(), hero.y(),
                     (uint16_t)hero.hp(), (uint16_t)hero.maxHp(),
                     (uint8_t)hero.ad(), (uint8_t)hero.arm(),
+                    (uint8_t)(hero.asRate() * 10.f + 0.5f),
                     hero.archetype(), hero.heroDefIndex(), hero.buff(),
-                    (uint8_t)hero.alive(), (uint8_t)hero.ultActive(), (uint8_t)i,
-                    hero.targetFocus()
+                    (uint8_t)hero.alive(), (uint8_t)hero.ultActive(),
+                    [&]() -> uint8_t {
+                        if (hero.ultActive()) return 255;
+                        if (hero.ultReady())  return 100;
+                        float pct = 1.0f - hero.ultCooldownTimer() / hero.ultimateCooldown();
+                        if (pct < 0.f) pct = 0.f;
+                        return (uint8_t)(pct * 100.f);
+                    }(),
+                    (uint8_t)i,
+                    hero.targetFocus(), 0,
+                    {0xFF, 0xFF, 0xFF, 0xFF}
                 };
             }
         }

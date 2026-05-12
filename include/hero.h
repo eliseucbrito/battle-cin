@@ -157,6 +157,7 @@ public:
     float   attackTimer() const { return attackTimer_; }
     int     attackCount() const { return attackCount_; }
     bool    ultReady()   const { return ultCooldownTimer_ <= 0.f && !ultActive_; }
+    float   ultCooldownTimer() const { return ultCooldownTimer_; }
 
     // ── Setters (used by Game and abilities) ──────────────────────────────
     void setPosition(uint8_t x, uint8_t y) { x_ = x; y_ = y; }
