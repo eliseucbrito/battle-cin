@@ -12,10 +12,14 @@
 #include "renderer.h"
 
 // ─── Client-side Trainer display data ────────────────────────────────────────
-static const int N_TRAINERS_LOCAL = 2;
+static const int N_TRAINERS_LOCAL = 6;
 static const TrainerDef TRAINERS[] = {
-    { "Prof. Paulo",   "Estrutura de Dados",  {80, 160, 230, 255}, ABILITY_RALLY,       "Rally (+AD)",   "assets/trainer0.png" },
-    { "Prof. Eliseu",  "Orient. a Objetos",   {230, 80, 130, 255}, ABILITY_SHIELD_WALL, "Shield (+ARM)", "assets/trainer1.png" },
+    { "Abel Guilhermino",  "Estrutura de Dados",   {80, 160, 230, 255}, ABILITY_RALLY,       "Rally (+AD)",       "assets/trainers/presentation/Abel_Guilhermino_presentation.png", "assets/trainers/card/Abel_Guilhermino_card.png" },
+    { "Alex Sandro",       "Orient. a Objetos",    {230, 80, 130, 255}, ABILITY_SHIELD_WALL, "Shield (+ARM)",     "assets/trainers/presentation/Alex_Sandro_presentation.png",  "assets/trainers/card/Alex_Sandro_card.png" },
+    { "David Junior",      "Algoritmos",           {80, 230, 160, 255}, ABILITY_BATTLE_HEAL, "Heal (+HP)",        "assets/trainers/presentation/David_presentation.png",        "assets/trainers/card/David_Junior_card.png" },
+    { "Francisco Paulo",   "Banco de Dados",       {230, 180, 80, 255}, ABILITY_FRENZY,      "Frenzy (+AS)",      "assets/trainers/presentation/Francisco_Paulo_presentation.png", "assets/trainers/card/Francisco_Paulo_card.png" },
+    { "Juliano Lyoda",     "Redes de Computadores",{160, 80, 230, 255}, ABILITY_RALLY,       "Rally (+AD)",       "assets/trainers/presentation/Juliano_lyoda_presentation.png", "assets/trainers/card/Juliano_lyoda_card.png" },
+    { "Valeria Cesario",   "Engenharia de Software",{230, 80, 230, 255}, ABILITY_SHIELD_WALL, "Shield (+ARM)",     "assets/trainers/presentation/Valeria_Cesario_presentation.png",  "assets/trainers/card/Valeria_Cesario_card.png" },
 };
 
 static const int N_HEROES_LOCAL = 10;
@@ -219,7 +223,7 @@ int main(int argc, char *argv[])
             if (IsKeyPressed(KEY_E)) game.handleUseAbility(1);
 
             // ── P1 Targeting ─────────────────────────────────────────
-            if (IsKeyPressed(KEY_T)) {
+            if (IsKeyPressed(KEY_LEFT_SHIFT)) {
                 if (inputs[0].targetingMode) {
                     inputs[0].targetingMode = false;
                 } else {
@@ -266,7 +270,7 @@ int main(int argc, char *argv[])
                 if (IsKeyPressed(KEY_A)) inputs[0].targetCursorX = (uint8_t)((int)inputs[0].targetCursorX > 0 ? inputs[0].targetCursorX - 1 : 0);
                 if (IsKeyPressed(KEY_D)) inputs[0].targetCursorX = (uint8_t)((int)inputs[0].targetCursorX < GRID_COLS - 1 ? inputs[0].targetCursorX + 1 : GRID_COLS - 1);
 
-                if (IsKeyPressed(KEY_R)) {
+                if (IsKeyPressed(KEY_SPACE)) {
                     int heroG = heroSlotToGlobal(snap, 0, inputs[0].targetingHeroIdx);
                     int targetLocal = -1;
                     if (heroG >= 0) {
@@ -293,7 +297,7 @@ int main(int argc, char *argv[])
             }
 
             // ── P2 Targeting ─────────────────────────────────────────
-            if (IsKeyPressed(KEY_U)) {
+            if (IsKeyPressed(KEY_RIGHT_SHIFT)) {
                 if (inputs[1].targetingMode) {
                     inputs[1].targetingMode = false;
                 } else {
@@ -340,7 +344,7 @@ int main(int argc, char *argv[])
                 if (IsKeyPressed(KEY_LEFT))  inputs[1].targetCursorX = (uint8_t)((int)inputs[1].targetCursorX > 0 ? inputs[1].targetCursorX - 1 : 0);
                 if (IsKeyPressed(KEY_RIGHT)) inputs[1].targetCursorX = (uint8_t)((int)inputs[1].targetCursorX < GRID_COLS - 1 ? inputs[1].targetCursorX + 1 : GRID_COLS - 1);
 
-                if (IsKeyPressed(KEY_P)) {
+                if (IsKeyPressed(KEY_ENTER)) {
                     int heroG = heroSlotToGlobal(snap, 1, inputs[1].targetingHeroIdx);
                     int targetLocal = -1;
                     if (heroG >= 0) {
@@ -551,7 +555,7 @@ int main(int argc, char *argv[])
 
             drawHUD(snap, 0);
             drawOverlays(snap, 0);
-            drawSidePanels(snap, 0);
+            drawSidePanels(snap, inputs[0], inputs[1]);
             drawHeroCards(snap, 0);
         }
 
