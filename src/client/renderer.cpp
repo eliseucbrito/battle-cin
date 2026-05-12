@@ -101,6 +101,7 @@ static const Color kPlayerColor[2] = { BLUE, RED };
 static const Color kP1Color = {80, 150, 255, 255};
 static const Color kP2Color = {255, 100, 80, 255};
 static std::vector<Texture2D> trainerTextures;
+static std::vector<Texture2D> trainerCardTextures;
 static std::vector<Texture2D> heroTextures;
 static bool texturesLoaded = false;
 
@@ -128,9 +129,12 @@ void loadTextures() {
     if (texturesLoaded) return;
 
     trainerTextures.resize(g_trainerDefs.size());
+    trainerCardTextures.resize(g_trainerDefs.size());
     for (int i = 0; i < (int)g_trainerDefs.size(); i++) {
         if (!g_trainerDefs[i].portraitPath.empty())
             trainerTextures[i] = LoadTexture(g_trainerDefs[i].portraitPath.c_str());
+        if (!g_trainerDefs[i].cardPath.empty())
+            trainerCardTextures[i] = LoadTexture(g_trainerDefs[i].cardPath.c_str());
     }
 
     heroTextures.resize(g_heroDefs.size());
@@ -399,8 +403,10 @@ void unloadTextures() {
     if (!texturesLoaded) return;
     unloadIcons();
     for (auto& t : trainerTextures) if (t.id != 0) UnloadTexture(t);
+    for (auto& t : trainerCardTextures) if (t.id != 0) UnloadTexture(t);
     for (auto& t : heroTextures)    if (t.id != 0) UnloadTexture(t);
     trainerTextures.clear();
+    trainerCardTextures.clear();
     heroTextures.clear();
     shutdownFxSystem();
     texturesLoaded = false;
@@ -875,15 +881,18 @@ void drawTrainerSelectMK(const GameSnapshot& snap,
         DrawRectangleRounded({x, y, CW, CH}, 0.08f, 6, bg);
         DrawRectangleRoundedLines({x, y, CW, CH}, 0.08f, 6, {60,60,90,255});
 
-        float ps = 100.f;
         float psH = 100.f;
+        float ps = 100.f;
+        if (selTrainerTex && selTrainerTex[i].id) {
+            ps = psH * ((float)selTrainerTex[i].width / selTrainerTex[i].height);
+        }
         float px2 = x + (CW-ps)/2.f, py2 = y + 14.f;
         if (selTrainerTex && selTrainerTex[i].id) {
             DrawTexturePro(selTrainerTex[i],
                 {0,0,(float)selTrainerTex[i].width,(float)selTrainerTex[i].height},
                 {px2, py2, ps, psH}, {}, 0.f, WHITE);
         } else {
-            DrawRectangleRounded({px2,py2,ps,ps}, 0.2f, 6, trainers[i].color);
+            DrawRectangleRounded({px2,py2,ps,psH}, 0.2f, 6, trainers[i].color);
         }
 
         int nw = MeasureText(trainers[i].name, 14);
@@ -1033,12 +1042,17 @@ void drawHeroSelectMK(const GameSnapshot& snap,
             DrawRectangleRounded({x, y, CARD_W, CARD_H}, 0.08f, 6, bg);
 
             // Hero portrait
-            float imgW = CARD_W - 6;
             float imgH = CARD_H * 0.50f;
+            float imgW = CARD_W - 6;
+            if (selHeroTex && selHeroTex[i].id) {
+                imgW = imgH * ((float)selHeroTex[i].width / selHeroTex[i].height);
+            }
+            float hx = x + (CARD_W - imgW) / 2.f;
+
             if (selHeroTex && selHeroTex[i].id) {
                 DrawTexturePro(selHeroTex[i],
                     {0,0,(float)selHeroTex[i].width,(float)selHeroTex[i].height},
-                    {x+3, y+4, imgW, imgH}, {}, 0.f, WHITE);
+                    {hx, y+4, imgW, imgH}, {}, 0.f, WHITE);
             } else {
                 DrawRectangleRounded({x+3, y+4, CARD_W-6, imgH}, 0.1f, 4, ARCH_COLORS[heroes[i].archetype]);
             }
@@ -1498,17 +1512,27 @@ void drawSidePanels(const GameSnapshot& snap, const PlayerInput& p1, const Playe
         float maxPs = 226.f;
         float ps = fminf(panelW - 2.f * pad, maxPs);
         float psX = px + (panelW - ps) * 0.5f;
-        if (tId < (int)g_trainerDefs.size() && trainerTextures[tId].id != 0) {
-            // Glow ring behind portrait
+        if (tId < (int)g_trainerDefs.size() && trainerCardTextures[tId].id != 0) {
+            float cAspect = (float)trainerCardTextures[tId].width / trainerCardTextures[tId].height;
+            float cH = ps;
+            float cW = cH * cAspect;
+            float cX = px + (panelW - cW) * 0.5f;
+            DrawTexturePro(trainerCardTextures[tId],
+                {0, 0, (float)trainerCardTextures[tId].width, (float)trainerCardTextures[tId].height},
+                {cX, cy, cW, cH}, {0, 0}, 0.f, WHITE);
+            DrawRectangleLinesEx({cX, cy, cW, cH}, 3, pColDim);
+            cy += cH + 10.f;
+        } else if (tId < (int)g_trainerDefs.size() && trainerTextures[tId].id != 0) {
             DrawCircle((int)(psX + ps * 0.5f), (int)(cy + ps * 0.5f), ps * 0.55f, pColDim);
             DrawCircle((int)(psX + ps * 0.5f), (int)(cy + ps * 0.5f), ps * 0.52f, bgDark);
             DrawTexturePro(trainerTextures[tId],
                 {0, 0, (float)trainerTextures[tId].width, (float)trainerTextures[tId].height},
                 {psX, cy, ps, ps}, {0, 0}, 0.f, WHITE);
+            cy += ps + 10.f;
         } else {
             DrawCircle((int)(psX + ps * 0.5f), (int)(cy + ps * 0.5f), ps * 0.5f, {30,30,45,255});
+            cy += ps + 10.f;
         }
-        cy += ps + 10.f;
 
         // Trainer name
         const char* tName = (tId < (int)g_trainerDefs.size()) ? g_trainerDefs[tId].name.c_str() : "???";
@@ -1581,7 +1605,7 @@ void drawSidePanels(const GameSnapshot& snap, const PlayerInput& p1, const Playe
         DrawText("HABILIDADE", (int)(px + pad), (int)cy, 10, {130, 130, 160, 255});
         cy += 16.f;
 
-        uint8_t abType = g_trainerDefs[tId].abilityType;
+        uint8_t abType = (tId < (int)g_trainerDefs.size()) ? g_trainerDefs[tId].abilityType : 0xFF;
         const char* abName = (abType < 2) ? abilityNames[abType] : "???";
         int abW = MeasureText(abName, 11);
         DrawText(abName, (int)(px + pad), (int)cy, 11, WHITE);
