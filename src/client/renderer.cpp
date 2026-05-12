@@ -1060,21 +1060,22 @@ void drawHeroCards(const GameSnapshot& snap, int myId) {
     DrawRectangle(0, (int)cardsY - 8, (int)sw, (int)(sh - cardsY + 8), {6, 6, 14, 255});
 
     for (int player = 0; player < 2; player++) {
-        // Full half-screen container for each player
+        // Each player's container is exactly half the screen width.
         float containerX = player == 0 ? 0.f : sw * 0.5f;
         float containerW = sw * 0.5f;
 
-        // Effective area excludes the adjacent side panel
-        float effX = player == 0 ? g_layout.leftPanelW : containerX;
-        float effW = player == 0
-            ? (containerW - g_layout.leftPanelW)
-            : (containerW - g_layout.rightPanelW);
-
-        // space-between: 3 cards distributed across the effective area
+        // Cards are placed inside the half-screen container,
+        // respecting the adjacent side panel.
         float cardX[3];
-        cardX[0] = effX;                                          // left edge
-        cardX[1] = effX + (effW - cardW) * 0.5f;                  // center
-        cardX[2] = effX + effW - cardW;                           // right edge
+        float leftBound  = player == 0 ? g_layout.leftPanelW : containerX;
+        float rightBound = player == 0
+            ? (containerX + containerW)
+            : (sw - g_layout.rightPanelW);
+        float usableW = rightBound - leftBound;
+
+        cardX[0] = leftBound;                                      // left edge
+        cardX[1] = leftBound + (usableW - cardW) * 0.5f;           // center
+        cardX[2] = rightBound - cardW;                             // right edge
 
         Color pCol = player == 0 ? Color{80,150,255,255} : Color{255,100,80,255};
         Color dimCol = player == 0 ? Color{80,150,255,120} : Color{255,100,80,120};
