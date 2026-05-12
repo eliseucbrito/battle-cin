@@ -103,7 +103,7 @@ struct ShopItemInfo {
     uint8_t price;
     uint8_t category;
     char    name[32];
-    char    desc[64];
+    char    desc[256];
 };
 
 struct ShopPlayerInfo {

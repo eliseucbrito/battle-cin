@@ -56,32 +56,61 @@ void ItemCatalog::registerPrototype(std::unique_ptr<Item> item) {
     prototypes_.push_back(std::move(item));
 }
 
-std::unique_ptr<Item> ItemCatalog::createRandom(uint8_t maxRarity) const {
+std::unique_ptr<Item> ItemCatalog::createRandom(uint8_t maxRarity, const std::vector<int>& tIds, const std::vector<int>& hIds) const {
     if (prototypes_.empty()) return nullptr;
-    int eligible[ITEM_ID_COUNT];
-    int eligibleCount = 0;
+    std::vector<int> eligible;
     for (int i = 0; i < (int)prototypes_.size(); i++) {
         if (prototypes_[i]->rarity() <= maxRarity) {
-            eligible[eligibleCount++] = i;
+            // Filter by trainer or hero
+            int tId = prototypes_[i]->trainerId();
+            int hId = prototypes_[i]->heroId();
+
+            bool ok = false;
+            if (tId == -1 && hId == -1) {
+                ok = true; // Global item
+            } else if (tId != -1) {
+                for (int tid : tIds) if (tid == tId) { ok = true; break; }
+            } else if (hId != -1) {
+                for (int hid : hIds) if (hid == hId) { ok = true; break; }
+            }
+
+            if (ok) eligible.push_back(i);
         }
     }
-    if (eligibleCount == 0) return nullptr;
-    int idx = eligible[rand() % eligibleCount];
+    if (eligible.empty()) return nullptr;
+    int idx = eligible[rand() % eligible.size()];
     return prototypes_[idx]->clone();
 }
 
 std::vector<std::unique_ptr<Item>> ItemCatalog::generateStock(
-    int count, uint8_t maxRarity, int roundNumber) const
+    int count, uint8_t maxRarity, int roundNumber, const std::vector<int>& tIds, const std::vector<int>& hIds) const
 {
     (void)roundNumber;
-    std::vector<std::unique_ptr<Item>> stock;
-    while ((int)stock.size() < count) {
-        auto item = createRandom(maxRarity);
-        if (item) stock.push_back(std::move(item));
+    std::vector<int> eligible;
+    for (int i = 0; i < (int)prototypes_.size(); i++) {
+        if (prototypes_[i]->rarity() <= maxRarity) {
+            int tId = prototypes_[i]->trainerId();
+            int hId = prototypes_[i]->heroId();
+            bool ok = false;
+            if (tId == -1 && hId == -1) ok = true;
+            else if (tId != -1) { for (int tid : tIds) if (tid == tId) { ok = true; break; } }
+            else if (hId != -1) { for (int hid : hIds) if (hid == hId) { ok = true; break; } }
+            if (ok) eligible.push_back(i);
+        }
     }
-    for (int i = (int)stock.size() - 1; i > 0; i--) {
+
+    std::vector<std::unique_ptr<Item>> stock;
+    if (eligible.empty()) return stock;
+
+    // Shuffle eligible to pick without replacement
+    for (int i = (int)eligible.size() - 1; i > 0; i--) {
         int j = rand() % (i + 1);
-        if (i != j) std::swap(stock[i], stock[j]);
+        std::swap(eligible[i], eligible[j]);
+    }
+
+    int pickCount = std::min(count, (int)eligible.size());
+    for (int i = 0; i < pickCount; i++) {
+        stock.push_back(prototypes_[eligible[i]]->clone());
     }
     return stock;
 }
@@ -129,6 +158,15 @@ void Shop::enterShopPhase(int roundNumber, const Trainer& t0, const Trainer& t1)
     wins_[0] = t0.score();
     wins_[1] = t1.score();
 
+    // Coleta IDs permitidos
+    allowedTrainers_.clear();
+    allowedTrainers_.push_back(t0.trainerId());
+    allowedTrainers_.push_back(t1.trainerId());
+
+    allowedHeroes_.clear();
+    for (int i = 0; i < t0.heroCount(); i++) allowedHeroes_.push_back(t0.heroAt(i).heroDefIndex());
+    for (int i = 0; i < t1.heroCount(); i++) allowedHeroes_.push_back(t1.heroAt(i).heroDefIndex());
+
     gold_[0] = 60 + roundNumber * 10 + (t0.score() * 15);
     gold_[1] = 60 + roundNumber * 10 + (t1.score() * 15);
 
@@ -144,7 +182,7 @@ void Shop::generateStock(int count) {
     if (currentRound_ >= 6) maxRarity = ITEM_RARITY_RARE;
     if (currentRound_ >= 9) maxRarity = ITEM_RARITY_EPIC;
 
-    auto items = catalog_.generateStock(count, maxRarity, currentRound_);
+    auto items = catalog_.generateStock(count, maxRarity, currentRound_, allowedTrainers_, allowedHeroes_);
     for (auto& item : items)
         currentStock_.push_back(std::move(item));
 }

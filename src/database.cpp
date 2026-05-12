@@ -90,7 +90,9 @@ void Database::createTables()
             icon_path       TEXT    NOT NULL DEFAULT '',
             effect_type     TEXT    NOT NULL DEFAULT '',
             effect_value    REAL    NOT NULL DEFAULT 0,
-            effect_target   TEXT    NOT NULL DEFAULT 'self'
+            effect_target   TEXT    NOT NULL DEFAULT 'self',
+            trainer_id      INTEGER NOT NULL DEFAULT -1,
+            hero_id         INTEGER NOT NULL DEFAULT -1
         );
     )");
 
@@ -200,42 +202,71 @@ void Database::seedAll()
     printf("[Database] %zu herois inseridos.\n", sizeof(hdata)/sizeof(hdata[0]));
 
     // ── Itens da loja ──
-    struct ItemSeed { int id; const char* name; const char* desc; int price; int rarity;
-                      int type; int cat; int rounds; const char* effType; float effVal; const char* effTarg; };
-    ItemSeed idata[] = {
-        { 0,  "Pocao de Vida",     "Restaura 30%% da HP maxima",           25,  0, 0, 1, -1, "heal_pct",      0.30f, "self"       },
-        { 1,  "Gema de Forca",     "+15 AD permanente",                   45,  1, 1, 1, -1, "buff_ad_flat",  15.0f,  "self"       },
-        { 2,  "Armadura de Aco",   "+10 ARM permanente",                  50,  1, 1, 1, -1, "buff_arm_flat",  10.0f, "self"       },
-        { 3,  "Pergaminho Veloz",  "+30%% AS por 2 rodadas",              60,  2, 2, 1,  2, "buff_as_pct",    0.30f, "self"       },
-        { 4,  "Elixir Berserker",  "+50%% AD por 3 rodadas",              70,  2, 2, 1,  3, "buff_ad_pct",    0.50f, "self"       },
-        { 5,  "Orbe Arcano",       "+25%% de dano magico",                100, 3, 3, 1, -1, "buff_ad_pct",    0.25f, "self"       },
-        { 6,  "Pena da Fenix",     "Revive com 50%% HP se morto",         130, 3, 3, 1, -1, "revive",         0.50f, "self"       },
-        { 7,  "Escudo Espelhado",  "+20 ARM permanente",                  120, 3, 3, 1, -1, "buff_arm_flat",  20.0f, "self"       },
-        { 8,  "Rally Total",       "+10 AD para todos aliados (1 rodada)", 60,  1, 0, 0,  1, "buff_ad_flat",  10.0f, "all_allies" },
-        { 9,  "Onda Curativa",     "Cura 25%% HP maxima de todos aliados",  70, 1, 0, 0, -1, "heal_pct",     0.25f, "all_allies" },
-        { 10, "Corrida do Ouro",   "+50 gold bonus no proximo round",      40,  0, 0, 0, -1, "gold_bonus",    50.0f, "self"       },
-    };
+    // Definimos itens base e os replicamos para cada treinador/herói
+    int currentItemId = 0;
 
-    for (const auto& si : idata) {
-        const char* sql = "INSERT INTO shop_items (id,name,description,base_price,rarity,type,"
-                          "category,max_rounds,effect_type,effect_value,effect_target)"
-                          "VALUES (?,?,?,?,?,?,?,?,?,?,?);";
-        sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr);
-        sqlite3_bind_int (stmt, 1,  si.id);
-        sqlite3_bind_text(stmt, 2,  si.name,      -1, SQLITE_STATIC);
-        sqlite3_bind_text(stmt, 3,  si.desc,      -1, SQLITE_STATIC);
-        sqlite3_bind_int (stmt, 4,  si.price);
-        sqlite3_bind_int (stmt, 5,  si.rarity);
-        sqlite3_bind_int (stmt, 6,  si.type);
-        sqlite3_bind_int (stmt, 7,  si.cat);
-        sqlite3_bind_int (stmt, 8,  si.rounds);
-        sqlite3_bind_text(stmt, 9,  si.effType,   -1, SQLITE_STATIC);
-        sqlite3_bind_double(stmt, 10, si.effVal);
-        sqlite3_bind_text(stmt, 11, si.effTarg,   -1, SQLITE_STATIC);
-        sqlite3_step(stmt);
-        sqlite3_finalize(stmt);
+    auto trainers = getAllTrainers();
+    for (const auto& t : trainers) {
+        struct ItemData { std::string name; const char* desc; int price; int rarity; const char* eff; float val; int idOff; };
+        ItemData trainerItems[] = {
+            { "Cafe Energizante", "Um cafe forte que desperta o potencial do treinador, concedendo um bonus de 10 de Dano de Ataque (AD) para todos os herois durante o round atual.", 40, 0, "buff_ad_flat", 10.0f, 3 },
+            { "Lampada do Conhecimento",  "Uma lampada que ilumina a estrategia, aumentando a Armadura (ARM) de todos os herois em 15 pontos durante o round atual.",    45, 0, "buff_arm_flat", 15.0f, 4 }
+        };
+        for (auto& it : trainerItems) {
+            int finalId = (currentItemId / 5) * 5 + it.idOff;
+            if (finalId <= currentItemId) finalId += 5;
+            currentItemId = finalId;
+
+            const char* sql = "INSERT INTO shop_items (id,name,description,base_price,rarity,type,category,effect_type,effect_value,trainer_id)"
+                              "VALUES (?,?,?,?,?,?,?,?,?,?);";
+            sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr);
+            sqlite3_bind_int (stmt, 1, currentItemId);
+            sqlite3_bind_text(stmt, 2, it.name.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(stmt, 3, it.desc, -1, SQLITE_STATIC);
+            sqlite3_bind_int (stmt, 4, it.price);
+            sqlite3_bind_int (stmt, 5, it.rarity);
+            sqlite3_bind_int (stmt, 6, 0); // type
+            sqlite3_bind_int (stmt, 7, 0); // category: general
+            sqlite3_bind_text(stmt, 8, it.eff, -1, SQLITE_STATIC);
+            sqlite3_bind_double(stmt, 9, it.val);
+            sqlite3_bind_int (stmt, 10, t.id);
+            sqlite3_step(stmt);
+            sqlite3_finalize(stmt);
+        }
     }
-    printf("[Database] %zu itens inseridos.\n", sizeof(idata)/sizeof(idata[0]));
+
+    auto heroes = getAllHeroes();
+    for (const auto& h : heroes) {
+        struct ItemData { std::string name; const char* desc; int price; int rarity; const char* eff; float val; int idOff; };
+        ItemData heroItems[] = {
+            { "Pocao de Cura (25% HP)",   "Uma pocao magica que restaura instantaneamente 25% dos Pontos de Vida (HP) maximos do heroi que a consome.",            30, 0, "heal_pct", 0.25f, 0 },
+            { "Pocao de Vitalidade (+20 AD)", "Um elixir potente que fortalece os musculos do heroi, concedendo um bonus permanente de 20 de Dano de Ataque (AD).",    60, 0, "buff_ad_flat", 20.0f, 1 },
+            { "Pocao de Resiliencia (+15 ARM)",     "Uma pocao protetora que reforca a resistencia do heroi, concedendo um bonus permanente de 15 de Armadura (ARM).",    55, 0, "buff_arm_flat", 15.0f, 2 }
+        };
+        for (auto& it : heroItems) {
+            int finalId = (currentItemId / 5) * 5 + it.idOff;
+            if (finalId <= currentItemId) finalId += 5;
+            currentItemId = finalId;
+
+            const char* sql = "INSERT INTO shop_items (id,name,description,base_price,rarity,type,category,effect_type,effect_value,hero_id)"
+                              "VALUES (?,?,?,?,?,?,?,?,?,?);";
+            sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr);
+            sqlite3_bind_int (stmt, 1, currentItemId);
+            sqlite3_bind_text(stmt, 2, it.name.c_str(), -1, SQLITE_TRANSIENT);
+            sqlite3_bind_text(stmt, 3, it.desc, -1, SQLITE_STATIC);
+            sqlite3_bind_int (stmt, 4, it.price);
+            sqlite3_bind_int (stmt, 5, it.rarity);
+            sqlite3_bind_int (stmt, 6, 1); // type
+            sqlite3_bind_int (stmt, 7, 1); // category: hero
+            sqlite3_bind_text(stmt, 8, it.eff, -1, SQLITE_STATIC);
+            sqlite3_bind_double(stmt, 9, it.val);
+            sqlite3_bind_int (stmt, 10, h.id);
+            sqlite3_step(stmt);
+            sqlite3_finalize(stmt);
+        }
+    }
+
+    printf("[Database] Itens inseridos vinculados a treinadores e herois.\n");
 }
 
 bool Database::saveMatch(const std::string& winner_name,
@@ -399,7 +430,7 @@ std::vector<ShopItemRecord> Database::getAllShopItems()
     sqlite3_stmt* stmt = nullptr;
     sqlite3_prepare_v2(db_,
         "SELECT id,name,description,base_price,rarity,type,category,max_rounds,"
-        "icon_path,effect_type,effect_value,effect_target "
+        "icon_path,effect_type,effect_value,effect_target,trainer_id,hero_id "
         "FROM shop_items ORDER BY id;",
         -1, &stmt, nullptr);
 
@@ -417,6 +448,8 @@ std::vector<ShopItemRecord> Database::getAllShopItems()
         r.effect_type  = (const char*)sqlite3_column_text(stmt, 9);
         r.effect_value = (float)sqlite3_column_double(stmt, 10);
         r.effect_target = (const char*)sqlite3_column_text(stmt, 11);
+        r.trainer_id   = sqlite3_column_int (stmt, 12);
+        r.hero_id      = sqlite3_column_int (stmt, 13);
         results.push_back(r);
     }
     sqlite3_finalize(stmt);
@@ -488,7 +521,7 @@ ShopItemRecord Database::getShopItemById(int id)
     sqlite3_stmt* stmt = nullptr;
     sqlite3_prepare_v2(db_,
         "SELECT id,name,description,base_price,rarity,type,category,max_rounds,"
-        "icon_path,effect_type,effect_value,effect_target FROM shop_items WHERE id = ?;",
+        "icon_path,effect_type,effect_value,effect_target,trainer_id,hero_id FROM shop_items WHERE id = ?;",
         -1, &stmt, nullptr);
     sqlite3_bind_int(stmt, 1, id);
 
@@ -505,6 +538,8 @@ ShopItemRecord Database::getShopItemById(int id)
         r.effect_type  = (const char*)sqlite3_column_text(stmt, 9);
         r.effect_value = (float)sqlite3_column_double(stmt, 10);
         r.effect_target = (const char*)sqlite3_column_text(stmt, 11);
+        r.trainer_id   = sqlite3_column_int (stmt, 12);
+        r.hero_id      = sqlite3_column_int (stmt, 13);
     }
     sqlite3_finalize(stmt);
     return r;

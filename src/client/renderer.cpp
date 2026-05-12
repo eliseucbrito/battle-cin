@@ -1203,111 +1203,144 @@ void drawShop(const GameSnapshot& snap, const PlayerInput& p1, const PlayerInput
         float sideW = sw * 0.5f;
         Color pCol = (pid == 0) ? (Color){80, 150, 255, 255} : (Color){255, 100, 80, 255};
         const ShopSnapshot& ss = snap.shop;
-        float y = 8.f;
 
         DrawLineEx({sideX + sideW, 0}, {sideX + sideW, sh}, 2, {80, 80, 120, 150});
 
-        // ── Header: gold ──
-        char goldStr[32];
-        snprintf(goldStr, sizeof(goldStr), "P%d GOLD: %d", pid + 1, ss.players[pid].gold);
-        drawIcon(ICON_COIN, {sideX + 10, y, 22, 22}, GOLD);
-        DrawText(goldStr, (int)(sideX + 36), (int)(y + 2), 18, pCol);
-        if (ss.players[pid].confirmed)
-            DrawText("OK", (int)(sideX + sideW - 30), (int)(y + 2), 14, GREEN);
-        y += 26;
-
-        // Collect items by category
+        // ── Calculate total height for vertical centering ────────────────────
+        float cardW = (sideW - 30 - 2 * 8) / 3.f;
+        float cardH = 90.f;
         int stockShow = ss.stockCount < 6 ? ss.stockCount : 6;
-        int genIdxs[3] = {-1,-1,-1}, genCnt = 0;
-        int heroIdxs[3] = {-1,-1,-1}, heroCnt = 0;
+        int genCnt = 0;
+        int heroCnt = 0;
         for (int i = 0; i < stockShow; i++) {
-            if (ss.stock[i].category == ITEM_CATEGORY_GENERAL && genCnt < 3)
-                genIdxs[genCnt++] = i;
-            else if (ss.stock[i].category == ITEM_CATEGORY_HERO && heroCnt < 3)
-                heroIdxs[heroCnt++] = i;
+            if (ss.stock[i].category == ITEM_CATEGORY_GENERAL && genCnt < 3) genCnt++;
+            else if (ss.stock[i].category == ITEM_CATEGORY_HERO && heroCnt < 3) heroCnt++;
         }
-
-        // Helper: draw an item card
-        float cardW = (sideW - 24 - 2 * 6) / 3;
-        float cardH = 60.f;
-        auto drawCard = [&](float cx, float cy, const ShopItemInfo& item, bool sel) {
-            Color bg = sel ? Color{38, 38, 68, 250} : Color{20, 20, 42, 240};
-            DrawRectangleRounded({cx, cy, cardW, cardH}, 0.06f, 5, bg);
-            if (item.rarity < 4)
-                DrawRectangleRoundedLines({cx, cy, cardW, cardH}, 0.06f, 5, rarityColors[item.rarity]);
-            Texture2D* t = itemIdToTexture(item.itemId);
-            if (t && t->id != 0) {
-                DrawTexturePro(*t, {0, 0, (float)t->width, (float)t->height}, {cx + 4, cy + 4, 18, 18}, {0, 0}, 0, WHITE);
-            }
-            DrawText(item.name, (int)(cx + 24), (int)(cy + 6), 10, WHITE);
-            char pStr[16]; snprintf(pStr, sizeof(pStr), "%dg", item.price);
-            DrawText(pStr, (int)(cx + 4), (int)(cy + cardH - 14), 10, GOLD);
-            if (sel) DrawRectangleLinesEx({cx - 1, cy - 1, cardW + 2, cardH + 2}, 2, pCol);
-        };
-
-        // ── Row 0: General items ──
-        DrawText("ITENS GERAIS", (int)(sideX + 6), (int)y, 11, GOLD);
-        y += 14;
-        for (int i = 0; i < genCnt; i++) {
-            float cx = sideX + 8 + i * (cardW + 6);
-            drawCard(cx, y, ss.stock[genIdxs[i]], inp.shopCursorY == 0 && inp.shopCursorX == i);
-        }
-        y += cardH + 6;
-
-        // ── Rows 1-3: Heroes ──
         int pHeroes[3] = {-1,-1,-1}, pHCnt = 0;
         for (int i = 0; i < snap.heroCount && pHCnt < 3; i++)
             if (snap.heroes[i].ownerId == (uint8_t)pid) pHeroes[pHCnt++] = i;
 
+        float contentH = 40.f; // Header
+        contentH += 30.f; // General title + space
+        contentH += cardH + 20.f; // General cards + gap
+        for (int h = 0; h < pHCnt; h++) {
+            contentH += 25.f; // Hero title/stats
+            contentH += cardH + 15.f; // Hero cards + gap
+        }
+        contentH += 70.f; // Description box area
+
+        float y = (sh - contentH) * 0.5f;
+        if (y < 10.f) y = 10.f;
+
+        // Find selected item index for description
+        const ShopItemInfo* selItem = nullptr;
+        int stockShowActual = ss.stockCount < 6 ? ss.stockCount : 6;
+        int genIdxs[3] = {-1,-1,-1}, gCnt = 0;
+        int heroIdxs[3] = {-1,-1,-1}, hCnt = 0;
+        for (int i = 0; i < stockShowActual; i++) {
+            if (ss.stock[i].category == ITEM_CATEGORY_GENERAL && gCnt < 3) genIdxs[gCnt++] = i;
+            else if (ss.stock[i].category == ITEM_CATEGORY_HERO && hCnt < 3) heroIdxs[hCnt++] = i;
+        }
+        if (inp.shopCursorY == 0 && inp.shopCursorX < gCnt) selItem = &ss.stock[genIdxs[inp.shopCursorX]];
+        else if (inp.shopCursorY > 0 && inp.shopCursorY <= pHCnt && inp.shopCursorX < hCnt) selItem = &ss.stock[heroIdxs[inp.shopCursorX]];
+
+        // ── Header: gold ──
+        char goldStr[32];
+        snprintf(goldStr, sizeof(goldStr), "P%d OURO: %d", pid + 1, ss.players[pid].gold);
+        drawIcon(ICON_COIN, {sideX + 16, y, 28, 28}, GOLD);
+        DrawText(goldStr, (int)(sideX + 50), (int)(y + 2), 24, pCol);
+        if (ss.players[pid].confirmed)
+            DrawText("PRONTO", (int)(sideX + sideW - 80), (int)(y + 4), 18, GREEN);
+        y += 45;
+
+        // Helper: draw an item card
+        auto drawCard = [&](float cx, float cy, const ShopItemInfo& item, bool sel) {
+            Color bg = sel ? Color{45, 45, 80, 250} : Color{25, 25, 50, 240};
+            DrawRectangleRounded({cx, cy, cardW, cardH}, 0.08f, 6, bg);
+            if (item.rarity < 4)
+                DrawRectangleRoundedLines({cx, cy, cardW, cardH}, 0.08f, 6, rarityColors[item.rarity]);
+            
+            Texture2D* t = itemIdToTexture(item.itemId);
+            if (t && t->id != 0) {
+                float texSz = 32.f;
+                DrawTexturePro(*t, {0, 0, (float)t->width, (float)t->height}, {cx + 8, cy + 8, texSz, texSz}, {0, 0}, 0, WHITE);
+            }
+            
+            int nameSize = item.price > 0 ? 11 : 12;
+            DrawText(item.name, (int)(cx + 45), (int)(cy + 10), nameSize, WHITE);
+            
+            char pStr[16]; snprintf(pStr, sizeof(pStr), "%dg", item.price);
+            DrawText(pStr, (int)(cx + 8), (int)(cy + cardH - 22), 16, GOLD);
+
+            if (sel) {
+                DrawRectangleRoundedLines({cx, cy, cardW, cardH}, 0.08f, 6, pCol);
+                DrawRectangleRoundedLines({cx-1, cy-1, cardW+2, cardH+2}, 0.08f, 6, pCol);
+            }
+        };
+
+        // ── Row 0: General items ──
+        DrawText("ITENS GERAIS", (int)(sideX + 10), (int)y, 16, GOLD);
+        y += 24;
+        for (int i = 0; i < gCnt; i++) {
+            float cx = sideX + 10 + i * (cardW + 8);
+            drawCard(cx, y, ss.stock[genIdxs[i]], inp.shopCursorY == 0 && inp.shopCursorX == i);
+        }
+        y += cardH + 15;
+
+        // ── Rows 1-3: Heroes ──
         for (int h = 0; h < pHCnt; h++) {
             int hi = pHeroes[h];
             const HeroNetState& hero = snap.heroes[hi];
-
-            // Hero label row
             const char* hName = "???";
             if (hero.heroDefIndex < (int)g_heroDefs.size()) hName = g_heroDefs[hero.heroDefIndex].name.c_str();
-            DrawText(hName, (int)(sideX + 6), (int)y, 10, WHITE);
+            DrawText(hName, (int)(sideX + 10), (int)y, 14, WHITE);
 
-            // HP mini bar
             float hpPct = (hero.maxHp > 0) ? (float)hero.hp / hero.maxHp : 0;
             Color hpCol = hpPct > 0.5f ? GREEN : (hpPct > 0.25f ? YELLOW : RED);
-            float hpX = sideX + MeasureText(hName, 10) + 16;
-            DrawRectangle((int)hpX, (int)(y + 2), 40, 5, DARKGRAY);
-            DrawRectangle((int)hpX, (int)(y + 2), (int)(40 * hpPct), 5, hpCol);
+            float hpX = sideX + MeasureText(hName, 14) + 20;
+            DrawRectangle((int)hpX, (int)(y + 4), 60, 8, DARKGRAY);
+            DrawRectangle((int)hpX, (int)(y + 4), (int)(60 * hpPct), 8, hpCol);
 
-            // Equipped slots (display only — non-interactive)
-            float slotSz = 16, slotGap = 2;
-            float sx = hpX + 50;
+            float slotSz = 22, slotGap = 4;
+            float sx = hpX + 80;
             for (int s = 0; s < 4; s++) {
                 float ssx = sx + s * (slotSz + slotGap);
                 bool filled = (hero.items[s] != 0xFF);
-                Color sBg = filled ? Color{30, 55, 30, 255} : Color{22, 22, 38, 220};
-                DrawRectangleRounded({ssx, y, slotSz, slotSz}, 0.25f, 3, sBg);
-                DrawRectangleRoundedLines({ssx, y, slotSz, slotSz}, 0.25f, 3, {40, 40, 60, 180});
+                Color sBg = filled ? Color{40, 70, 40, 255} : Color{25, 25, 45, 220};
+                DrawRectangleRounded({ssx, y, slotSz, slotSz}, 0.25f, 4, sBg);
+                DrawRectangleRoundedLines({ssx, y, slotSz, slotSz}, 0.25f, 4, {60, 60, 100, 180});
                 if (filled) {
                     Texture2D* t = itemIdToTexture(hero.items[s]);
                     if (t && t->id != 0) {
-                        DrawTexturePro(*t, {0, 0, (float)t->width, (float)t->height}, {ssx + 1, y + 1, 14, 14}, {0, 0}, 0, WHITE);
+                        DrawTexturePro(*t, {0, 0, (float)t->width, (float)t->height}, {ssx + 2, y + 2, slotSz - 4, slotSz - 4}, {0, 0}, 0, WHITE);
                     }
                 }
             }
-            y += 16;
+            y += 25;
 
-            // Items for this hero
-            for (int i = 0; i < heroCnt; i++) {
-                float cx = sideX + 8 + i * (cardW + 6);
+            for (int i = 0; i < hCnt; i++) {
+                float cx = sideX + 10 + i * (cardW + 8);
                 drawCard(cx, y, ss.stock[heroIdxs[i]], inp.shopCursorY == (h + 1) && inp.shopCursorX == i);
             }
-            y += cardH + 4;
+            y += cardH + 10;
         }
 
+        // ── Description Box ──
+        if (selItem) {
+            DrawRectangleRounded({sideX + 10, y, sideW - 20, 60}, 0.1f, 5, {20, 20, 40, 180});
+            DrawRectangleRoundedLines({sideX + 10, y, sideW - 20, 60}, 0.1f, 5, pCol);
+            DrawText("DESCRICAO:", (int)(sideX + 18), (int)(y + 8), 11, GOLD);
+            DrawTextEx(GetFontDefault(), selItem->desc, {sideX + 18, y + 24}, 12, 1, LIGHTGRAY);
+        }
+        y += 70;
+
         // ── Controls ──
-        drawIcon(ICON_HELP, {sideX + 6, sh - 20, 14, 14}, Color{100, 100, 120, 200});
         const char* ctrl = (pid == 0)
-            ? "WASD Navegar | Space Comprar | F Confirmar"
-            : "Setas Navegar | Enter Comprar | . Confirmar";
-        int cw = MeasureText(ctrl, 9);
-        DrawText(ctrl, (int)(sideX + 24 + (sideW - cw - 20) * 0.5f), (int)(sh - 20), 9, {120, 120, 140, 255});
+            ? "WASD: Navegar | Espaco: Comprar | F: Confirmar"
+            : "Setas: Navegar | Enter: Comprar | . : Confirmar";
+        int cw = MeasureText(ctrl, 11);
+        DrawRectangleRounded({sideX + (sideW - cw - 40) * 0.5f, sh - 35, (float)cw + 40, 25}, 0.5f, 6, {20, 20, 40, 150});
+        DrawText(ctrl, (int)(sideX + (sideW - cw) * 0.5f), (int)(sh - 28), 11, {160, 160, 180, 255});
     }
 }
 
