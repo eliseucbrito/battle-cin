@@ -391,11 +391,43 @@ void drawOverlays(const GameSnapshot& snap, int myId) {
         DrawText(msg, (int)(midX - MeasureText(msg, 40) * 0.5f), (int)(sh * 0.44f), 40, snap.roundWinner == 0 ? BLUE : RED);
     }
     if (snap.phase == PHASE_MATCH_END) {
-        DrawRectangle(0, 0, (int)sw, (int)sh, {0, 0, 0, 200});
-        const char* res = (snap.matchWinner == 0) ? "P1 VENCEU!" : "P2 VENCEU!";
-        DrawText(res, (int)(midX - MeasureText(res, 60) * 0.5f), (int)(sh * 0.44f), 60, GOLD);
+        DrawRectangle(0, 0, (int)sw, (int)sh, {0, 0, 0, 220});
+
+        // Título VITÓRIA / DERROTA
+        const char* res = (snap.matchWinner == (uint8_t)myId) ? "VITÓRIA!" : "DERROTA";
+        Color resColor = (snap.matchWinner == (uint8_t)myId) ? GOLD : RED;
+        DrawText(res, (int)(midX - MeasureText(res, 60) * 0.5f), (int)(sh * 0.25f), 60, resColor);
+
+        // Placar centralizado
+        uint8_t t0 = snap.trainers[0].trainerId;
+        uint8_t t1 = snap.trainers[1].trainerId;
+        const char* name0 = (t0 < (int)g_trainerDefs.size()) ? g_trainerDefs[t0].name.c_str() : "P1";
+        const char* name1 = (t1 < (int)g_trainerDefs.size()) ? g_trainerDefs[t1].name.c_str() : "P2";
+        char placar[100];
+        snprintf(placar, sizeof(placar), "%s  %d x %d  %s", name0, snap.trainers[0].score, snap.trainers[1].score, name1);
+        DrawText(placar, (int)(midX - MeasureText(placar, 26) * 0.5f), (int)(sh * 0.40f), 26, WHITE);
+
+        // RANKING
+        int sepY = (int)(sh * 0.48f);
+        DrawRectangle((int)(midX - 250), sepY, 500, 1, {255, 255, 255, 60});
+        DrawText("RANKING FINAL", (int)(midX - MeasureText("RANKING FINAL", 20) * 0.5f), sepY + 15, 20, GOLD);
+
+        int first  = (snap.trainers[0].score >= snap.trainers[1].score) ? 0 : 1;
+        int second = 1 - first;
+        uint8_t fId = snap.trainers[first].trainerId;
+        uint8_t sId = snap.trainers[second].trainerId;
+        const char* fName = (fId < (int)g_trainerDefs.size()) ? g_trainerDefs[fId].name.c_str() : "P1";
+        const char* sName = (sId < (int)g_trainerDefs.size()) ? g_trainerDefs[sId].name.c_str() : "P2";
+
+        char line1[100], line2[100];
+        snprintf(line1, sizeof(line1), "1º LUGAR: %s (%d pts)", fName, snap.trainers[first].score);
+        snprintf(line2, sizeof(line2), "2º LUGAR: %s (%d pts)", sName, snap.trainers[second].score);
+
+        DrawText(line1, (int)(midX - MeasureText(line1, 22) * 0.5f), (int)(sh * 0.56f), 22, YELLOW);
+        DrawText(line2, (int)(midX - MeasureText(line2, 22) * 0.5f), (int)(sh * 0.61f), 22, LIGHTGRAY);
+
         const char* restart = "Feche o jogo para reiniciar";
-        DrawText(restart, (int)(midX - MeasureText(restart, 20) * 0.5f), (int)(sh * 0.58f), 20, LIGHTGRAY);
+        DrawText(restart, (int)(midX - MeasureText(restart, 18) * 0.5f), (int)(sh * 0.72f), 18, GRAY);
     }
 }
 
