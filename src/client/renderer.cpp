@@ -1142,10 +1142,10 @@ void drawHeroCards(const GameSnapshot& snap, int myId) {
             // Top accent line
             DrawRectangle((int)cx + 8, (int)cy, (int)(cardW - 16), 2, pCol);
 
-            // Portrait (left side, larger)
-            float portraitSize = cardH - 16.f;
+            // Portrait (left side, fixed size, vertically centered)
+            float portraitSize = 40.f;
             float px2 = cx + 8.f;
-            float py2 = cy + 8.f;
+            float py2 = cy + (cardH - portraitSize) * 0.5f;
 
             uint8_t texIdx = (hs.heroDefIndex < N_HEROES) ? hs.heroDefIndex : hs.archetype;
             Texture2D& tex = heroTextures[texIdx];
@@ -1161,9 +1161,9 @@ void drawHeroCards(const GameSnapshot& snap, int myId) {
             // Portrait border
             DrawRectangleRoundedLines({px2, py2, portraitSize, portraitSize}, 0.1f, 6, {255,255,255,40});
 
-            // Right side info area
+            // Right side info area — starts at top of card for maximum text space
             float infoX = px2 + portraitSize + 10.f;
-            float infoY = py2;
+            float infoY = cy + 6.f;
             float infoW = cardW - (infoX - cx) - 8.f;
 
             // Hero name (with word-wrap)
