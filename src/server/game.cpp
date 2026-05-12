@@ -691,6 +691,7 @@ void Game::tickUltimates(float dt)
                     int enemyCount = 0;
                     for (int eh = 0; eh < trainers_[1 - i].heroCount(); eh++) enemies[enemyCount++] = &trainers_[1 - i].heroAt(eh);
 
+                    hero.setUltPhraseIdx((hero.ultPhraseIdx() + 1) % 3);
                     hero.activateUltimate(allies, allyCount, enemies, enemyCount);
                 }
             }
