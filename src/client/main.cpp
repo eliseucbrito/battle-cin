@@ -333,9 +333,41 @@ int main(int argc, char *argv[])
                  snap.phase == PHASE_ROUND_END ||
                  snap.phase == PHASE_MATCH_END)
         {
+            // Draw arena centered, preserving original aspect ratio (1201/880)
+            float arenaAspect = (float)arena.width / (float)arena.height;
+            float sw = (float)GetScreenWidth();
+            float sh = (float)GetScreenHeight();
+            float destW, destH, destX, destY;
+            float screenAspect = sw / sh;
+            if (screenAspect > arenaAspect) {
+                // Screen is wider: fit to height
+                destH = sh;
+                destW = destH * arenaAspect;
+            } else {
+                // Screen is taller: fit to width
+                destW = sw;
+                destH = destW / arenaAspect;
+            }
+            destX = (sw - destW) * 0.5f;
+            destY = (sh - destH) * 0.5f;
             DrawTexturePro(arena,
                 {0, 0, (float)arena.width, (float)arena.height},
-                {0, 0, (float)GetScreenWidth(), (float)GetScreenHeight()}, {}, 0.f, WHITE);
+                {destX, destY, destW, destH}, {}, 0.f, WHITE);
+
+            // Cover sides and bottom with dark background so arena doesn't show through panels
+            float gridRight = g_layout.gridX + g_layout.gridW;
+            float gridBottom = g_layout.gridY + g_layout.gridH;
+            Color bg = {8, 8, 18, 255};
+            // Left of grid
+            if (g_layout.gridX > 0)
+                DrawRectangle(0, 0, (int)g_layout.gridX, (int)sh, bg);
+            // Right of grid
+            if (gridRight < sw)
+                DrawRectangle((int)gridRight, 0, (int)(sw - gridRight), (int)sh, bg);
+            // Below grid (cards area)
+            if (gridBottom < g_layout.cardsY)
+                DrawRectangle((int)g_layout.gridX, (int)gridBottom,
+                              (int)g_layout.gridW, (int)(g_layout.cardsY - gridBottom), bg);
 
             drawBuffZones(snap);
             drawGrid();
