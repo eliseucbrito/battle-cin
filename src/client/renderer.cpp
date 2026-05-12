@@ -48,10 +48,10 @@ Layout computeLayout() {
 
     // Each player gets half the full screen width as their card container.
     float halfScreen = l.screenW * 0.5f;
-    float minCardW = 120.f;
-    float maxCardW = 280.f;
+    float minCardW = 100.f;
+    float maxCardW = 218.f;
     l.cardW = fminf(maxCardW, fmaxf(minCardW, halfScreen / 3.f));
-    l.cardH = fminf(120.f, l.bottomCardsH - 20.f);
+    l.cardH = fminf(96.f, l.bottomCardsH - 20.f);
 
     l.topBarH = l.gridY;
     l.trainerAbilityBtnY = l.screenH - 24.f;
