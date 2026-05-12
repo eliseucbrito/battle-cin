@@ -50,7 +50,7 @@ int main(int argc, char *argv[])
 
     bool soloMode = (argc >= 2 && strcmp(argv[1], "--solo") == 0);
 
-    InitWindow(936, 684, "Battle-CIn");
+    InitWindow(1640, 1060, "Battle-CIn");
     SetTargetFPS(60);
 
     Game game;
@@ -332,11 +332,18 @@ int main(int argc, char *argv[])
         {
             float sw = (float)GetScreenWidth();
             float sh = (float)GetScreenHeight();
+            float arenaX = 220.f;
+            float arenaY = 0.f;
+            float arenaW = 1201.f;
+            float arenaH = 880.f;
 
-            // Arena fills the entire window (stretched to align with fixed grid)
+            // Black background for areas outside the arena
+            DrawRectangle(0, 0, (int)sw, (int)sh, BLACK);
+
+            // Arena drawn at its actual size, centered between side panels
             DrawTexturePro(arena,
                 {0, 0, (float)arena.width, (float)arena.height},
-                {0, 0, sw, sh}, {}, 0.f, WHITE);
+                {arenaX, arenaY, arenaW, arenaH}, {}, 0.f, WHITE);
 
             drawBuffZones(snap);
             drawGrid();
