@@ -12,29 +12,47 @@ float CELLH = GH / GRID_ROWS;
 Layout g_layout = {};
 
 // ── Icon system ──────────────────────────────────────────────────────────────
-static Texture2D iconsTex = {0};
+static Texture2D texGold = {0};
+static Texture2D texTrophy = {0};
+static Texture2D texHelp = {0};
+static Texture2D texShop[5] = {0};
 
 void loadIcons() {
-    if (iconsTex.id != 0) return;
-    iconsTex = LoadTexture("assets/icons.png");
+    if (texGold.id != 0) return;
+    texGold = LoadTexture("assets/general/gold_coin.png");
+    texTrophy = LoadTexture("assets/general/trophy.png");
+    texHelp = LoadTexture("assets/general/help_icon.png");
+
+    texShop[0] = LoadTexture("assets/shop/potion_blue.png");
+    texShop[1] = LoadTexture("assets/shop/potion_orange.png");
+    texShop[2] = LoadTexture("assets/shop/potion_pink.png");
+    texShop[3] = LoadTexture("assets/shop/coffee_cup.png");
+    texShop[4] = LoadTexture("assets/shop/lamp.png");
 }
 
 void drawIcon(int iconId, Rectangle rect, Color tint) {
-    if (iconsTex.id == 0) return;
-    float iw = (float)iconsTex.width / ICON_COUNT;
-    Rectangle src = {iconId * iw, 0, iw, (float)iconsTex.height};
-    DrawTexturePro(iconsTex, src, rect, {0, 0}, 0, tint);
+    Texture2D* t = nullptr;
+    if (iconId == ICON_COIN) t = &texGold;
+    else if (iconId == ICON_HELP) t = &texHelp;
+    
+    if (t && t->id != 0) {
+        DrawTexturePro(*t, {0, 0, (float)t->width, (float)t->height}, rect, {0, 0}, 0, tint);
+    }
 }
 
-int itemIdToIcon(uint8_t itemId) {
-    (void)itemId;
-    return ICON_POTION;
+Texture2D* itemIdToTexture(uint8_t itemId) {
+    return &texShop[itemId % 5];
 }
 
 static void unloadIcons() {
-    if (iconsTex.id != 0) {
-        UnloadTexture(iconsTex);
-        iconsTex = {0};
+    if (texGold.id != 0) {
+        UnloadTexture(texGold); texGold = {0};
+        UnloadTexture(texTrophy); texTrophy = {0};
+        UnloadTexture(texHelp); texHelp = {0};
+        for(int i=0; i<5; i++) {
+            UnloadTexture(texShop[i]);
+            texShop[i] = {0};
+        }
     }
 }
 
@@ -1217,9 +1235,9 @@ void drawShop(const GameSnapshot& snap, const PlayerInput& p1, const PlayerInput
             DrawRectangleRounded({cx, cy, cardW, cardH}, 0.06f, 5, bg);
             if (item.rarity < 4)
                 DrawRectangleRoundedLines({cx, cy, cardW, cardH}, 0.06f, 5, rarityColors[item.rarity]);
-            int ic = itemIdToIcon(item.itemId);
-            if (ic >= 0) {
-                drawIcon(ic, {cx + 4, cy + 4, 18, 18}, WHITE);
+            Texture2D* t = itemIdToTexture(item.itemId);
+            if (t && t->id != 0) {
+                DrawTexturePro(*t, {0, 0, (float)t->width, (float)t->height}, {cx + 4, cy + 4, 18, 18}, {0, 0}, 0, WHITE);
             }
             DrawText(item.name, (int)(cx + 24), (int)(cy + 6), 10, WHITE);
             char pStr[16]; snprintf(pStr, sizeof(pStr), "%dg", item.price);
@@ -1267,9 +1285,9 @@ void drawShop(const GameSnapshot& snap, const PlayerInput& p1, const PlayerInput
                 DrawRectangleRounded({ssx, y, slotSz, slotSz}, 0.25f, 3, sBg);
                 DrawRectangleRoundedLines({ssx, y, slotSz, slotSz}, 0.25f, 3, {40, 40, 60, 180});
                 if (filled) {
-                    int ic = itemIdToIcon(hero.items[s]);
-                    if (ic >= 0) {
-                        drawIcon(ic, {ssx + 1, y + 1, 14, 14}, WHITE);
+                    Texture2D* t = itemIdToTexture(hero.items[s]);
+                    if (t && t->id != 0) {
+                        DrawTexturePro(*t, {0, 0, (float)t->width, (float)t->height}, {ssx + 1, y + 1, 14, 14}, {0, 0}, 0, WHITE);
                     }
                 }
             }
@@ -1551,18 +1569,28 @@ void drawSidePanels(const GameSnapshot& snap, const PlayerInput& p1, const Playe
             snprintf(scoreStr, sizeof(scoreStr), "%d", snap.trainers[player].score);
             DrawRectangleRounded({px + pad, cy, badgeW, badgeH}, 0.4f, 4, {20,20,40,255});
             DrawRectangleRoundedLines({px + pad, cy, badgeW, badgeH}, 0.4f, 4, pColDim);
-            DrawText("SCORE", (int)(px + pad + 6), (int)(cy + 2), 8, {120,120,150,255});
+            
+            if (texTrophy.id != 0) {
+                DrawTexturePro(texTrophy, {0, 0, (float)texTrophy.width, (float)texTrophy.height}, {px + pad + 4, cy + 3, 16, 16}, {0,0}, 0, WHITE);
+            }
+            DrawText("SCORE", (int)(px + pad + 24), (int)(cy + 7), 8, {120,120,150,255});
+            
             int sw2 = MeasureText(scoreStr, 11);
-            DrawText(scoreStr, (int)(px + pad + badgeW - sw2 - 6), (int)(cy + 2), 11, WHITE);
+            DrawText(scoreStr, (int)(px + pad + badgeW - sw2 - 6), (int)(cy + 6), 11, WHITE);
 
             // Gold badge
             char goldStr[32];
             snprintf(goldStr, sizeof(goldStr), "%d", snap.trainers[player].gold);
             DrawRectangleRounded({px + pad + badgeW + gap2, cy, badgeW, badgeH}, 0.4f, 4, {20,20,40,255});
             DrawRectangleRoundedLines({px + pad + badgeW + gap2, cy, badgeW, badgeH}, 0.4f, 4, {180,150,40,120});
-            DrawText("GOLD", (int)(px + pad + badgeW + gap2 + 6), (int)(cy + 2), 8, {180,150,40,200});
+            
+            if (texGold.id != 0) {
+                DrawTexturePro(texGold, {0, 0, (float)texGold.width, (float)texGold.height}, {px + pad + badgeW + gap2 + 4, cy + 3, 16, 16}, {0,0}, 0, WHITE);
+            }
+            DrawText("GOLD", (int)(px + pad + badgeW + gap2 + 24), (int)(cy + 7), 8, {180,150,40,200});
+            
             int gw = MeasureText(goldStr, 11);
-            DrawText(goldStr, (int)(px + pad + badgeW + gap2 + badgeW - gw - 6), (int)(cy + 2), 11, GOLD);
+            DrawText(goldStr, (int)(px + pad + badgeW + gap2 + badgeW - gw - 6), (int)(cy + 6), 11, GOLD);
 
             cy += badgeH + 12.f;
         }
