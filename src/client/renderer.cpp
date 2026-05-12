@@ -45,9 +45,14 @@ Layout computeLayout() {
     l.cardsY = arenaY + ARENA_H + 12.f;
     l.bottomCardsH = l.screenH - l.cardsY;
     if (l.bottomCardsH < 100.f) l.bottomCardsH = 100.f;
-    float cardGap = 6.f;
-    l.cardW = fminf(200.f, (l.screenW * 0.5f - 4.f * cardGap) / 3.f);
-    l.cardH = fminf(130.f, l.bottomCardsH - 20.f);
+
+    // Each player area = half of screen minus side panels
+    float playerAreaW = (l.screenW - 2.f * l.sidePanelW) * 0.5f;
+    float minCardW = 150.f;
+    float maxCardW = 280.f;
+    // 3 cards per player with space-between: cardW = areaW / 3, clamped
+    l.cardW = fminf(maxCardW, fmaxf(minCardW, playerAreaW / 3.f));
+    l.cardH = fminf(150.f, l.bottomCardsH - 24.f);
 
     l.topBarH = l.gridY;
     l.trainerAbilityBtnY = l.screenH - 24.f;
@@ -1041,7 +1046,6 @@ void drawHeroCards(const GameSnapshot& snap, int myId) {
     float sw = g_layout.screenW, sh = g_layout.screenH;
     float cardW = g_layout.cardW, cardH = g_layout.cardH;
     float cardsY = g_layout.cardsY;
-    float gap = 12.f;
 
     static const char* archNames[]  = {"Tank", "Fighter", "Mage", "Assassin", "Support"};
     static Color archColors[] = {
@@ -1053,11 +1057,14 @@ void drawHeroCards(const GameSnapshot& snap, int myId) {
     DrawRectangle(0, (int)cardsY - 8, (int)sw, (int)(sh - cardsY + 8), {6, 6, 14, 255});
 
     for (int player = 0; player < 2; player++) {
-        float halfW = (sw - 2.f * g_layout.sidePanelW) * 0.5f;
-        float areaW = 3.f * cardW + 2.f * gap;
-        float areaStartX = g_layout.sidePanelW + (halfW - areaW) * 0.5f;
-        if (player == 1)
-            areaStartX = sw - g_layout.sidePanelW - halfW + (halfW - areaW) * 0.5f;
+        float areaW = (sw - 2.f * g_layout.sidePanelW) * 0.5f;
+        float areaStartX = player == 0 ? g_layout.sidePanelW : (sw - g_layout.sidePanelW - areaW);
+
+        // space-between: 3 cards distributed across the area
+        float cardX[3];
+        cardX[0] = areaStartX;                                    // left edge
+        cardX[1] = areaStartX + (areaW - cardW) * 0.5f;           // center
+        cardX[2] = areaStartX + areaW - cardW;                    // right edge
 
         Color pCol = player == 0 ? Color{80,150,255,255} : Color{255,100,80,255};
         Color dimCol = player == 0 ? Color{80,150,255,120} : Color{255,100,80,120};
@@ -1071,7 +1078,7 @@ void drawHeroCards(const GameSnapshot& snap, int myId) {
         }
 
         for (int h = 0; h < 3; h++) {
-            float cx = areaStartX + h * (cardW + gap);
+            float cx = cardX[h];
             float cy = cardsY;
 
             if (localHeroes[h] < 0) {
