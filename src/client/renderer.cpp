@@ -46,13 +46,13 @@ Layout computeLayout() {
     l.bottomCardsH = l.screenH - l.cardsY;
     if (l.bottomCardsH < 100.f) l.bottomCardsH = 100.f;
 
-    // Each player area = half of the full screen width
-    float playerAreaW = l.screenW * 0.5f;
-    float minCardW = 150.f;
-    float maxCardW = 320.f;
-    // 3 cards per player with space-between: cardW = areaW / 3, clamped
+    // Player area = half of the central zone between side panels
+    float playerAreaW = (l.screenW - l.leftPanelW - l.rightPanelW) * 0.5f;
+    float minCardW = 120.f;
+    float maxCardW = 200.f;
+    // 3 cards with space-between: cardW = areaW / 3, clamped
     l.cardW = fminf(maxCardW, fmaxf(minCardW, playerAreaW / 3.f));
-    l.cardH = fminf(150.f, l.bottomCardsH - 24.f);
+    l.cardH = fminf(120.f, l.bottomCardsH - 20.f);
 
     l.topBarH = l.gridY;
     l.trainerAbilityBtnY = l.screenH - 24.f;
@@ -1057,10 +1057,12 @@ void drawHeroCards(const GameSnapshot& snap, int myId) {
     DrawRectangle(0, (int)cardsY - 8, (int)sw, (int)(sh - cardsY + 8), {6, 6, 14, 255});
 
     for (int player = 0; player < 2; player++) {
-        float areaW = sw * 0.5f;
-        float areaStartX = player == 0 ? 0.f : sw * 0.5f;
+        float areaW = (sw - g_layout.leftPanelW - g_layout.rightPanelW) * 0.5f;
+        float areaStartX = player == 0
+            ? g_layout.leftPanelW
+            : (sw - g_layout.rightPanelW - areaW);
 
-        // space-between: 3 cards distributed across the full half-screen area
+        // space-between: 3 cards distributed across the central area
         float cardX[3];
         float margin = 8.f;
         cardX[0] = areaStartX + margin;                           // left edge
