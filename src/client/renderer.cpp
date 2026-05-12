@@ -312,7 +312,7 @@ void drawHero(const HeroNetState& hs, Vector2 ctr, int myId, bool dragging,
         float boxH = (float)fs + 8.f;
         // Draw slightly higher to be more visible
         DrawRectangleRounded({ heroCtr.x - boxW * 0.5f, heroCtr.y - r - 45, boxW, boxH }, 0.3f, 4, { 255, 200, 0, 220 });
-        DrawRectangleRoundedLines({ heroCtr.x - boxW * 0.5f, heroCtr.y - r - 45, boxW, boxH }, 0.3f, 4, 2, BLACK);
+        DrawRectangleRoundedLines({ heroCtr.x - boxW * 0.5f, heroCtr.y - r - 45, boxW, boxH }, 0.3f, 4, BLACK);
         DrawText(ultTxt, (int)(heroCtr.x - tw / 2), (int)(heroCtr.y - r - 41), fs, BLACK);
     } else if (hs.alive && hs.hp > 0 && hs.hp <= (uint16_t)(hs.maxHp * 0.15f)) {
         // Dying phrase
@@ -326,7 +326,7 @@ void drawHero(const HeroNetState& hs, Vector2 ctr, int myId, bool dragging,
         float boxW = (float)tw + 16.f;
         float boxH = (float)fs + 6.f;
         DrawRectangleRounded({ heroCtr.x - boxW * 0.5f, heroCtr.y - r - 42, boxW, boxH }, 0.3f, 4, { 200, 40, 40, 230 });
-        DrawRectangleRoundedLines({ heroCtr.x - boxW * 0.5f, heroCtr.y - r - 42, boxW, boxH }, 0.3f, 4, 2, WHITE);
+        DrawRectangleRoundedLines({ heroCtr.x - boxW * 0.5f, heroCtr.y - r - 42, boxW, boxH }, 0.3f, 4, WHITE);
         DrawText(dieTxt, (int)(heroCtr.x - tw / 2), (int)(heroCtr.y - r - 39), fs, WHITE);
     }
 
@@ -1912,9 +1912,38 @@ static std::vector<LogEntry> g_logs[2];
 void addCombatLog(int side, const char* text, Color color) {
     if (side < 0 || side > 1) return;
     LogEntry e;
+    e.type = LOG_GENERIC;
     strncpy(e.text, text, sizeof(e.text) - 1);
     e.text[sizeof(e.text) - 1] = '\0';
     e.color = color;
+    e.timer = 8.0f;
+    g_logs[side].insert(g_logs[side].begin(), e);
+    if (g_logs[side].size() > 8) g_logs[side].pop_back();
+}
+
+void addCombatLogElimination(int side, const char* killer, uint8_t killerTeam, const char* victim, uint8_t victimTeam) {
+    if (side < 0 || side > 1) return;
+    LogEntry e;
+    e.type = LOG_ELIMINATION;
+    strncpy(e.subject, killer, sizeof(e.subject) - 1);
+    e.subject[sizeof(e.subject) - 1] = '\0';
+    e.subjectTeam = killerTeam;
+    strncpy(e.object, victim, sizeof(e.object) - 1);
+    e.object[sizeof(e.object) - 1] = '\0';
+    e.objectTeam = victimTeam;
+    e.timer = 8.0f;
+    g_logs[side].insert(g_logs[side].begin(), e);
+    if (g_logs[side].size() > 8) g_logs[side].pop_back();
+}
+
+void addCombatLogItemUse(int side, const char* hero, uint8_t heroTeam, uint8_t itemId) {
+    if (side < 0 || side > 1) return;
+    LogEntry e;
+    e.type = LOG_ITEM_USE;
+    strncpy(e.subject, hero, sizeof(e.subject) - 1);
+    e.subject[sizeof(e.subject) - 1] = '\0';
+    e.subjectTeam = heroTeam;
+    e.itemId = itemId;
     e.timer = 8.0f;
     g_logs[side].insert(g_logs[side].begin(), e);
     if (g_logs[side].size() > 8) g_logs[side].pop_back();
@@ -1937,17 +1966,69 @@ void updateCombatLogs(float dt) {
 }
 
 void drawCombatLogs(int side, float x, float y, float w) {
-    (void)w;
     float cy = y;
+    int fs = 10;
+    
     for (const auto& e : g_logs[side]) {
-        Color c = e.color;
+        unsigned char alpha = 255;
         if (e.timer < 1.0f && e.timer > 0) {
-            c.a = (unsigned char)(e.timer * 255);
+            alpha = (unsigned char)(e.timer * 255);
         } else if (e.timer <= 0) {
-            c.a = 50; // Very faded
+            alpha = 50;
         }
-        DrawText(e.text, (int)x, (int)cy, 10, c);
-        cy += 14;
+
+        float cx = x;
+
+        if (e.type == LOG_GENERIC) {
+            Color c = e.color;
+            c.a = alpha;
+            DrawText(e.text, (int)cx, (int)cy, fs, c);
+        } else {
+            Color t1Color = e.subjectTeam == 0 ? kP1Color : kP2Color;
+            t1Color.a = alpha;
+
+            int t1Width = MeasureText(e.subject, fs);
+
+            // Subject Badge
+            if (cx + t1Width + 6 > x + w) { cx = x; cy += 18; }
+            DrawRectangleRounded({cx, cy, (float)t1Width + 6, (float)fs + 4}, 0.5f, 4, ColorAlpha(t1Color, 0.4f * (alpha/255.f)));
+            DrawText(e.subject, (int)(cx + 3), (int)(cy + 2), fs, ColorAlpha(WHITE, alpha/255.f));
+            cx += t1Width + 10;
+
+            if (e.type == LOG_ELIMINATION) {
+                // Icon for elimination (Sword/Cross)
+                if (cx + 12 > x + w) { cx = x; cy += 18; }
+                DrawLineEx({cx, cy + 2}, {cx + 8, cy + 10}, 2.f, ColorAlpha(RED, alpha/255.f));
+                DrawLineEx({cx + 8, cy + 2}, {cx, cy + 10}, 2.f, ColorAlpha(RED, alpha/255.f));
+                cx += 12;
+
+                Color t2Color = e.objectTeam == 0 ? kP1Color : kP2Color;
+                t2Color.a = alpha;
+                int t2Width = MeasureText(e.object, fs);
+                
+                // Object Badge
+                if (cx + t2Width + 6 > x + w) { cx = x; cy += 18; }
+                DrawRectangleRounded({cx, cy, (float)t2Width + 6, (float)fs + 4}, 0.5f, 4, ColorAlpha(t2Color, 0.4f * (alpha/255.f)));
+                DrawText(e.object, (int)(cx + 3), (int)(cy + 2), fs, ColorAlpha(WHITE, alpha/255.f));
+            } else if (e.type == LOG_ITEM_USE) {
+                // Icon for item
+                if (cx + 16 > x + w) { cx = x; cy += 18; }
+                Texture2D* tex = itemIdToTexture(e.itemId);
+                if (tex && tex->id != 0) {
+                    DrawTexturePro(*tex, {0,0,(float)tex->width,(float)tex->height}, {cx, cy, 12, 12}, {0,0}, 0, ColorAlpha(WHITE, alpha/255.f));
+                } else {
+                    DrawCircle(cx + 6, cy + 6, 4, ColorAlpha(GOLD, alpha/255.f));
+                }
+                cx += 16;
+                
+                const char* itemName = itemIdToName(e.itemId);
+                int itemNameW = MeasureText(itemName, fs);
+                if (cx + itemNameW > x + w) { cx = x; cy += 18; }
+                DrawText(itemName, (int)cx, (int)(cy + 2), fs, ColorAlpha(LIGHTGRAY, alpha/255.f));
+            }
+        }
+
+        cy += 18; // More vertical spacing for next log entry
     }
 }
 

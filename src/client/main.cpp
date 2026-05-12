@@ -573,10 +573,8 @@ int main(int argc, char *argv[])
                         if (snap.heroes[i].heroDefIndex < (int)g_localHeroDefs.size())
                             heroName = g_localHeroDefs[snap.heroes[i].heroDefIndex].name;
                         
-                        char logMsg[64];
-                        snprintf(logMsg, sizeof(logMsg), "%s usou %s", heroName, itemIdToName(prevItem));
                         // Team specific log
-                        addCombatLog(snap.heroes[i].ownerId, logMsg, GOLD);
+                        addCombatLogItemUse(snap.heroes[i].ownerId, heroName, snap.heroes[i].ownerId, prevItem);
                     }
                     heroVis[i].prevItems[s] = currItem;
                 }
@@ -622,15 +620,10 @@ int main(int argc, char *argv[])
                 if (killerG != -1 && prevSnap.heroes[killerG].heroDefIndex < (int)g_localHeroDefs.size())
                     killerName = g_localHeroDefs[prevSnap.heroes[killerG].heroDefIndex].name;
 
-                char logMsg[64];
-                snprintf(logMsg, sizeof(logMsg), "%s ELIMINOU %s", killerName, victimName);
-                // Add to both logs? Or only the killer's side? 
-                // The user said "Log de cada lado, mostrando as informações de cada lado".
-                // Let's add it to the victim's side to show they lost someone, and to the killer's side to show they killed someone.
-                // Or maybe only to the side of the event.
-                // Usually, "P1 eliminou P2" is an event for both.
-                addCombatLog(0, logMsg, snap.heroes[i].ownerId == 0 ? RED : GREEN);
-                addCombatLog(1, logMsg, snap.heroes[i].ownerId == 1 ? RED : GREEN);
+                uint8_t killerTeam = killerG != -1 ? prevSnap.heroes[killerG].ownerId : !snap.heroes[i].ownerId;
+
+                addCombatLogElimination(0, killerName, killerTeam, victimName, snap.heroes[i].ownerId);
+                addCombatLogElimination(1, killerName, killerTeam, victimName, snap.heroes[i].ownerId);
             }
             if (heroVis[i].active && !heroVis[i].prevUltActive && snap.heroes[i].ultActive) {
                 spawnUltimateEffect(heroVis[i].pos);
