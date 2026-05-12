@@ -15,32 +15,61 @@ Layout computeLayout() {
     l.screenW = (float)GetScreenWidth();
     l.screenH = (float)GetScreenHeight();
 
-    float margin = 8.f;
-    float gridSize = fminf(l.screenW * 0.55f, l.screenH * 0.78f);
+    // Minimum screen size enforcement
+    if (l.screenW < 1200.f) l.screenW = 1200.f;
+    if (l.screenH < 675.f)  l.screenH = 675.f;
+
+    // Grid size: 60% of width or 70% of height, whichever is smaller
+    // This ensures the grid is large but leaves room for panels and cards
+    float gridW = l.screenW * 0.60f;
+    float gridH = l.screenH * 0.70f;
+    float gridSize = fminf(gridW, gridH);
+    if (gridSize < 480.f) gridSize = 480.f;
 
     l.gridW = gridSize;
     l.gridH = gridSize;
+
+    // Center horizontally
     l.gridX = (l.screenW - gridSize) * 0.5f;
-    l.gridY = (l.screenH - gridSize) * 0.5f;
+
+    // Vertical position: leave room for cards at bottom
+    float targetCardH = l.screenH * 0.18f;
+    if (targetCardH < 130.f) targetCardH = 130.f;
+    l.bottomCardsH = targetCardH;
+
+    float availTopH = l.screenH - gridSize - targetCardH;
+    if (availTopH < 30.f) availTopH = 30.f;
+    l.gridY = availTopH * 0.5f;
+    if (l.gridY < 20.f) l.gridY = 20.f;
+
+    // Safety check: ensure grid + cards fit
+    if (l.gridY + gridSize + targetCardH > l.screenH) {
+        l.gridY = l.screenH - gridSize - targetCardH - 5.f;
+    }
+
     l.cellW = l.gridW / GRID_COLS;
     l.cellH = l.gridH / GRID_ROWS;
 
-    l.topBarH = 72.f;
-    l.bottomCardsH = 148.f;
-    l.sidePanelW = 180.f;
+    // Side panels: fill the horizontal gaps, capped at 300px, centered in gap
+    float maxPanelW = 300.f;
+    l.sidePanelW = fminf(l.gridX, maxPanelW);
+    l.leftPanelX = (l.gridX - l.sidePanelW) * 0.5f;
+    l.leftPanelW = l.sidePanelW;
+    l.rightPanelX = l.gridX + gridSize + (l.gridX - l.sidePanelW) * 0.5f;
+    l.rightPanelW = l.sidePanelW;
 
-    float cardGap = 10.f;
-    l.cardW = fminf(195.f, (l.screenW * 0.5f - 4.f * margin - 2.f * cardGap) / 3.f);
-    l.cardH = fminf(130.f, l.bottomCardsH - 3.f * margin);
-    l.cardsY = l.screenH - l.bottomCardsH + margin;
+    // Top bar area
+    l.topBarH = l.gridY;
 
-    l.leftPanelX = margin;
-    l.leftPanelW = l.sidePanelW - 2.f * margin;
-    l.rightPanelX = l.screenW - l.sidePanelW + margin;
-    l.rightPanelW = l.leftPanelW;
+    // Cards area
+    l.cardsY = l.gridY + gridSize + 6.f;
+    float cardGap = 6.f;
+    l.cardW = fminf(170.f, (l.screenW * 0.5f - 4.f * cardGap) / 3.f);
+    l.cardH = fminf(110.f, l.bottomCardsH - 16.f);
 
-    l.trainerAbilityBtnY = l.screenH - 44.f;
-    l.controlsHintY = l.screenH - 38.f;
+    // Controls hints
+    l.trainerAbilityBtnY = l.screenH - 24.f;
+    l.controlsHintY = l.screenH - 20.f;
 
     return l;
 }
@@ -70,6 +99,13 @@ static constexpr int ARCHETYPE_FX_ROW[5] = {
     3,  // ASSASSIN → Verde
     4   // SUPPORT  → Dourado
 };
+
+// Offset de rotação baseado na orientação dos sprites no PNG.
+// Se os sprites no PNG apontam para CIMA (topo da imagem), use 90.0f.
+// Se apontam para a DIREITA, use 0.0f.
+// Se apontam para BAIXO, use -90.0f (ou 270.0f).
+// Ajuste conforme necessário para cada sprite sheet.
+static constexpr float FX_SPRITE_ROTATION_OFFSET = 90.0f;
 
 void loadTextures() {
     if (texturesLoaded) return;
@@ -405,7 +441,7 @@ static void spawnFx(Vector2 from, Vector2 to, uint8_t archetype, float travelDur
     // Calcula o ângulo de direção do ataque (em graus)
     float dx = to.x - from.x;
     float dy = to.y - from.y;
-    fx.rotation = atan2f(dy, dx) * RAD2DEG;
+    fx.rotation = atan2f(dy, dx) * RAD2DEG + FX_SPRITE_ROTATION_OFFSET;
 
     fxAnims.push_back(fx);
 }
@@ -1014,17 +1050,10 @@ void drawHeroCards(const GameSnapshot& snap, int myId) {
     };
     static Color kTint[2] = { {80,160,230,255}, {230,80,80,255} };
 
+    // Bottom strip background
+    DrawRectangle(0, (int)cardsY - 4, (int)sw, (int)(sh - cardsY + 4), {8, 8, 18, 255});
+
     for (int player = 0; player < 2; player++) {
-        float startX;
-        if (player == 0)
-            startX = g_layout.leftPanelW + g_layout.sidePanelW * 0.5f + 10.f;
-        else
-            startX = g_layout.rightPanelX - 10.f;
-
-        float px = player == 0
-            ? startX - 3.f * cardW - 2.f * gap - startX * 0.0f + g_layout.leftPanelW + g_layout.sidePanelW + 20.f
-            : startX - 3.f * cardW - 2.f * gap;
-
         float halfW = (sw - 2.f * g_layout.sidePanelW) * 0.5f;
         float areaW = 3.f * cardW + 2.f * gap;
         float areaStartX = g_layout.sidePanelW + (halfW - areaW) * 0.5f;
@@ -1054,8 +1083,8 @@ void drawHeroCards(const GameSnapshot& snap, int myId) {
             if (localHeroes[h] < 0) continue;
             const HeroNetState& hs = snap.heroes[localHeroes[h]];
 
-            Color cardBg = {25, 25, 45, 220};
-            if (!hs.alive) cardBg = {20, 20, 35, 160};
+            Color cardBg = {22, 22, 40, 255};
+            if (!hs.alive) cardBg = {16, 16, 30, 255};
             DrawRectangleRounded({cx, cy, cardW, cardH}, 0.06f, 6, cardBg);
             DrawRectangleRoundedLines({cx, cy, cardW, cardH}, 0.06f, 6, pCol);
 
@@ -1170,20 +1199,19 @@ void drawSidePanels(const GameSnapshot& snap, int myId) {
     loadTextures();
     (void)snap;
 
-    float sw = g_layout.screenW, sh = g_layout.screenH;
     float panelW = g_layout.leftPanelW;
-    float topY = g_layout.topBarH + 8.f;
-    float panelH = g_layout.gridY + g_layout.gridH - topY;
+    float topY = 0;
+    float panelH = g_layout.cardsY;
 
     static const char* abilityNames[] = { "Rally (+AD)", "Shield (+ARM)" };
 
     for (int player = 0; player < 2; player++) {
         float px = player == 0 ? g_layout.leftPanelX : g_layout.rightPanelX;
         Color pCol = player == 0 ? Color{80,150,255,255} : Color{255,100,80,255};
-        Color bg = {18, 18, 38, 220};
+        Color bg = {8, 8, 18, 255};
 
-        DrawRectangleRounded({px, topY, panelW, panelH}, 0.06f, 6, bg);
-        DrawRectangleRoundedLines({px, topY, panelW, panelH}, 0.06f, 6, pCol);
+        DrawRectangleRounded({px, topY, panelW, panelH}, 0.04f, 4, bg);
+        DrawRectangleRoundedLines({px, topY, panelW, panelH}, 0.04f, 4, pCol);
 
         float cy = topY + 8.f;
 
