@@ -115,7 +115,7 @@ void Hero::recalcStats()
 int Hero::calculateDamage(const Hero& target) const
 {
     // Default formula: physical damage reduced by armor
-    int dmg = ad_ * 100 / (100 + target.arm_);
+    int dmg = (ad_ * 100 / (100 + target.arm_)) / DAMAGE_REDUCTION_FACTOR;
     return dmg < 1 ? 1 : dmg;
 }
 
