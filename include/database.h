@@ -23,6 +23,7 @@ struct HeroRecord {
     int         ad;
     int         arm;
     std::string asset_path;
+    std::string ultimate_name;
 };
 
 struct TrainerRecord {

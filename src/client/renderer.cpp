@@ -40,6 +40,48 @@ void drawIcon(int iconId, Rectangle rect, Color tint) {
     }
 }
 
+// Helper to draw text with word wrap
+void DrawTextWrapped(Font font, const char* text, Vector2 pos, float fontSize, float maxWidth, Color tint) {
+    if (text == nullptr || text[0] == '\0') return;
+
+    std::string str = text;
+    std::string currentLine = "";
+    Vector2 currentPos = pos;
+    float spaceWidth = MeasureTextEx(font, " ", fontSize, 1).x;
+
+    size_t start = 0, end = 0;
+    while ((end = str.find(' ', start)) != std::string::npos) {
+        std::string word = str.substr(start, end - start);
+        float wordWidth = MeasureTextEx(font, word.c_str(), fontSize, 1).x;
+        float lineWidth = MeasureTextEx(font, currentLine.c_str(), fontSize, 1).x;
+
+        if (lineWidth + spaceWidth + wordWidth > maxWidth) {
+            DrawTextEx(font, currentLine.c_str(), currentPos, fontSize, 1, tint);
+            currentPos.y += fontSize + 2;
+            currentLine = word;
+        } else {
+            if (!currentLine.empty()) currentLine += " ";
+            currentLine += word;
+        }
+        start = end + 1;
+    }
+
+    // Last word
+    std::string lastWord = str.substr(start);
+    float wordWidth = MeasureTextEx(font, lastWord.c_str(), fontSize, 1).x;
+    float lineWidth = MeasureTextEx(font, currentLine.c_str(), fontSize, 1).x;
+
+    if (lineWidth + spaceWidth + wordWidth > maxWidth) {
+        DrawTextEx(font, currentLine.c_str(), currentPos, fontSize, 1, tint);
+        currentPos.y += fontSize + 2;
+        DrawTextEx(font, lastWord.c_str(), currentPos, fontSize, 1, tint);
+    } else {
+        if (!currentLine.empty()) currentLine += " ";
+        currentLine += lastWord;
+        DrawTextEx(font, currentLine.c_str(), currentPos, fontSize, 1, tint);
+    }
+}
+
 Texture2D* itemIdToTexture(uint8_t itemId) {
     return &texShop[itemId % 5];
 }
@@ -237,8 +279,24 @@ void drawHero(const HeroNetState& hs, Vector2 ctr, int myId, bool dragging,
     DrawCircleLinesV(heroCtr, r - 1, { pCol.r, pCol.g, pCol.b, 90 });
 
     if (hs.ultActive) {
-        DrawCircleLinesV(heroCtr, r + 3, GOLD);
-        DrawCircleLinesV(heroCtr, r + 6, { 255, 215, 0, 120 });
+        float t = (float)GetTime();
+        float pulse = (sinf(t * 12.0f) + 1.0f) * 0.5f;
+        
+        // Flashy rings
+        DrawCircleLinesV(heroCtr, r + 4 + pulse * 4, ColorAlpha(GOLD, 0.8f));
+        DrawCircleLinesV(heroCtr, r + 7 + pulse * 6, ColorAlpha(YELLOW, 0.5f * pulse));
+        
+        // Floating label with power name from DB
+        const char* ultTxt = "PODER ATIVO!";
+        if (hs.heroDefIndex < (uint8_t)g_heroDefs.size()) {
+            ultTxt = g_heroDefs[hs.heroDefIndex].ultimateName.c_str();
+        }
+
+        int fs = 11;
+        int tw = MeasureText(ultTxt, fs);
+        float boxW = (float)tw + 12.f;
+        DrawRectangleRounded({ heroCtr.x - boxW * 0.5f, heroCtr.y - r - 34, boxW, 16.f }, 0.5f, 4, { 255, 200, 0, 180 });
+        DrawText(ultTxt, (int)(heroCtr.x - tw / 2), (int)(heroCtr.y - r - 32), fs, BLACK);
     }
 
     float bw = CELLW * 0.85f, bh = 6.f;
@@ -1330,7 +1388,7 @@ void drawShop(const GameSnapshot& snap, const PlayerInput& p1, const PlayerInput
             DrawRectangleRounded({sideX + 10, y, sideW - 20, 60}, 0.1f, 5, {20, 20, 40, 180});
             DrawRectangleRoundedLines({sideX + 10, y, sideW - 20, 60}, 0.1f, 5, pCol);
             DrawText("DESCRICAO:", (int)(sideX + 18), (int)(y + 8), 11, GOLD);
-            DrawTextEx(GetFontDefault(), selItem->desc, {sideX + 18, y + 24}, 12, 1, LIGHTGRAY);
+            DrawTextWrapped(GetFontDefault(), selItem->desc, {sideX + 18, y + 24}, 12, sideW - 36, LIGHTGRAY);
         }
         y += 70;
 
