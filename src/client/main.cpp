@@ -132,26 +132,23 @@ int main(int argc, char *argv[])
         if (snap.phase == PHASE_SELECT) {
             if (snap.selectSubphase == 0) {
                 // ── Trainer Select ─────────────────────────────────────────
-                // P1 (esquerda): A/D coluna, W/S linha, Space confirma
-                if (IsKeyPressed(KEY_D))      inputs[0].trainerCursor = (inputs[0].trainerCursor % 3 + 1) % 3;
-                if (IsKeyPressed(KEY_A))      inputs[0].trainerCursor = (inputs[0].trainerCursor % 3 + 2) % 3;
-                if (IsKeyPressed(KEY_S))      inputs[0].trainerCursorRow = (inputs[0].trainerCursorRow + 1) % 2;
-                if (IsKeyPressed(KEY_W))      inputs[0].trainerCursorRow = (inputs[0].trainerCursorRow + 1) % 2;
+                int nTrainers = (int)g_localTrainerDefs.size();
+                if (nTrainers == 0) nTrainers = 1; // safeguard
+
+                // P1 (esquerda): A/D move cursor, Space confirma
+                if (IsKeyPressed(KEY_D))      inputs[0].trainerCursor = (inputs[0].trainerCursor + 1) % nTrainers;
+                if (IsKeyPressed(KEY_A))      inputs[0].trainerCursor = (inputs[0].trainerCursor + nTrainers - 1) % nTrainers;
                 if (IsKeyPressed(KEY_SPACE) && inputs[0].trainerLocked < 0) {
-                    int idx = inputs[0].trainerCursorRow * 3 + (inputs[0].trainerCursor % 3);
-                    inputs[0].trainerLocked = idx;
-                    game.handleLocalTrainerLock(0, (uint8_t)idx);
+                    inputs[0].trainerLocked = inputs[0].trainerCursor;
+                    game.handleLocalTrainerLock(0, (uint8_t)inputs[0].trainerCursor);
                 }
 
-                // P2 (direita): Arrow keys coluna/linha + Enter
-                if (IsKeyPressed(KEY_RIGHT)) inputs[1].trainerCursor = (inputs[1].trainerCursor % 3 + 1) % 3;
-                if (IsKeyPressed(KEY_LEFT))  inputs[1].trainerCursor = (inputs[1].trainerCursor % 3 + 2) % 3;
-                if (IsKeyPressed(KEY_DOWN))  inputs[1].trainerCursorRow = (inputs[1].trainerCursorRow + 1) % 2;
-                if (IsKeyPressed(KEY_UP))    inputs[1].trainerCursorRow = (inputs[1].trainerCursorRow + 1) % 2;
+                // P2 (direita): Arrow keys move cursor, Enter confirma
+                if (IsKeyPressed(KEY_RIGHT)) inputs[1].trainerCursor = (inputs[1].trainerCursor + 1) % nTrainers;
+                if (IsKeyPressed(KEY_LEFT))  inputs[1].trainerCursor = (inputs[1].trainerCursor + nTrainers - 1) % nTrainers;
                 if (IsKeyPressed(KEY_ENTER) && inputs[1].trainerLocked < 0) {
-                    int idx = inputs[1].trainerCursorRow * 3 + (inputs[1].trainerCursor % 3);
-                    inputs[1].trainerLocked = idx;
-                    game.handleLocalTrainerLock(1, (uint8_t)idx);
+                    inputs[1].trainerLocked = inputs[1].trainerCursor;
+                    game.handleLocalTrainerLock(1, (uint8_t)inputs[1].trainerCursor);
                 }
             } else {
                 // ── Hero Select ───────────────────────────────────────────

@@ -193,8 +193,9 @@ bool Shop::buy(int pid, int stockIndex, Trainer& buyer, int heroIndex, int slotI
     }
 
     spendGold(pid, price);
+    std::string itemName = item->name();
     removeFromStock(stockIndex);
-    printf("[Shop] P%d comprou %s por %d gold\n", pid, item->name().c_str(), price);
+    printf("[Shop] P%d comprou %s por %d gold\n", pid, itemName.c_str(), price);
     return true;
 }
 
