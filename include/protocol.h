@@ -131,6 +131,7 @@ struct HeroNetState {
     uint8_t  alive;
     uint8_t  ultActive;
     uint8_t  ultPct;
+    uint8_t  ultPhraseIdx;
     uint8_t  ownerId;
     int8_t   targetFocus;
     uint8_t  itemCount;

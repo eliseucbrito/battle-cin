@@ -72,8 +72,11 @@ void Database::createTables()
             hp            INTEGER NOT NULL,
             ad            INTEGER NOT NULL,
             arm           INTEGER NOT NULL,
-            asset_path    TEXT    NOT NULL DEFAULT '',
-            ultimate_name TEXT    DEFAULT 'Poder Ativo',
+            asset_path      TEXT    NOT NULL DEFAULT '',
+            ultimate_name_1 TEXT    DEFAULT 'Poder Ativo',
+            ultimate_name_2 TEXT    DEFAULT 'Poder Ativo',
+            ultimate_name_3 TEXT    DEFAULT 'Poder Ativo',
+            dying_phrase    TEXT    DEFAULT '...',
             FOREIGN KEY (trainer_id) REFERENCES trainers(id)
         );
     )");
@@ -170,23 +173,23 @@ void Database::seedAll()
 
     // ── Herois ──
     struct HeroSeed { const char* name; int arch; int trainId; const char* cls;
-                      int hp, ad, arm; const char* asset; const char* ultName; };
+                      int hp, ad, arm; const char* asset; const char* u1; const char* u2; const char* u3; const char* dying; };
     HeroSeed hdata[] = {
-        { "O Construto de Busca",    0, 1, "Tank",     350, 15, 18, "assets/heroes/O_Construto_de_Busca.png",   "Fortaleza de Ferro" },
-        { "O Guardiao dos Discos",   1, 1, "Fighter",  280, 22, 10, "assets/heroes/O_Guardiao_dos_Discos.png",  "Furia do Disco" },
-        { "O Mestre Parser",         2, 1, "Mage",     200, 35,  5, "assets/heroes/O_Mestre_Parser.png",        "Chuva de Tokens" },
-        { "O Cientista Polarizado",  3, 1, "Assassin", 220, 32,  3, "assets/heroes/O_Cientista_Polarizado.png", "Corte Magnetico" },
-        { "O Chip-Mestre",           4, 1, "Support",  240, 12, 10, "assets/heroes/O_Chip-Mestre.png",          "Overclock de Vida" },
-        { "A Burocrata do UML",      0, 2, "Tank",     360, 13, 20, "assets/heroes/A_Burocrata_do_UML.png",     "Diagrama de Defesa" },
-        { "O Filosofo do Dilema",    1, 2, "Fighter",  270, 24, 12, "assets/heroes/O_Filosofo_do_Dilema.png",   "Golpe do Absurdo" },
-        { "O Artista Vectorial",     2, 2, "Mage",     190, 38,  4, "assets/heroes/O_Artista_Vectorial.png",    "Pincelada Critica" },
-        { "O Inspetor Flaky",        3, 2, "Assassin", 215, 30,  2, "assets/heroes/O_Inspetor_Flaky.png",       "Bug Fatal" },
-        { "O Treinador Python",      4, 2, "Support",  250, 14,  8, "assets/heroes/O_Treinador_Python.png",     "Script de Cura" },
+        { "O Construto de Busca",    0, 1, "Tank",     350, 15, 18, "assets/heroes/O_Construto_de_Busca.png",   "Fortaleza de Ferro", "Busca Bloqueada!", "Escudo de Dados", "Timeout atingido..." },
+        { "O Guardiao dos Discos",   1, 1, "Fighter",  280, 22, 10, "assets/heroes/O_Guardiao_dos_Discos.png",  "Furia do Disco", "Setor Defeituoso!", "Giro de Leitura", "Estou Brickando..." },
+        { "O Mestre Parser",         2, 1, "Mage",     200, 35,  5, "assets/heroes/O_Mestre_Parser.png",        "Chuva de Tokens", "Erro de Sintaxe!", "Recursao Infinita", "Stack Overflow!" },
+        { "O Cientista Polarizado",  3, 1, "Assassin", 220, 32,  3, "assets/heroes/O_Cientista_Polarizado.png", "Corte Magnetico", "Curto-Circuito!", "Pulso de Faraday", "Polaridade invertida..." },
+        { "O Chip-Mestre",           4, 1, "Support",  240, 12, 10, "assets/heroes/O_Chip-Mestre.png",          "Overclock de Vida", "Cache Renovado!", "Sinal Estavel", "Sobreaquecimento!" },
+        { "A Burocrata do UML",      0, 2, "Tank",     360, 13, 20, "assets/heroes/A_Burocrata_do_UML.png",     "Diagrama de Defesa", "Heranca Pesada!", "Classe Abstrata", "Processo cancelado." },
+        { "O Filosofo do Dilema",    1, 2, "Fighter",  270, 24, 12, "assets/heroes/O_Filosofo_do_Dilema.png",   "Golpe do Absurdo", "Crise Existencial!", "Dúvida Metódica", "Isso e real?" },
+        { "O Artista Vectorial",     2, 2, "Mage",     190, 38,  4, "assets/heroes/O_Artista_Vectorial.png",    "Pincelada Critica", "Renderizacao!", "Malha de Pontos", "Corrompendo canvas..." },
+        { "O Inspetor Flaky",        3, 2, "Assassin", 215, 30,  2, "assets/heroes/O_Inspetor_Flaky.png",       "Bug Fatal", "Teste Falhou!", "Corrupcao de Pilha", "Falha intermitente..." },
+        { "O Treinador Python",      4, 2, "Support",  250, 14,  8, "assets/heroes/O_Treinador_Python.png",     "Script de Cura", "Import Vital!", "Thread Segura", "Indentacao errada!" },
     };
 
     for (const auto& h : hdata) {
-        const char* sql = "INSERT INTO heroes (name,monologue,archetype,class_name,trainer_id,hp,ad,arm,asset_path,ultimate_name)"
-                          "VALUES (?,?,?,?,?,?,?,?,?,?);";
+        const char* sql = "INSERT INTO heroes (name,monologue,archetype,class_name,trainer_id,hp,ad,arm,asset_path,ultimate_name_1,ultimate_name_2,ultimate_name_3,dying_phrase)"
+                          "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?);";
         sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr);
         sqlite3_bind_text(stmt, 1, h.name,  -1, SQLITE_STATIC);
         sqlite3_bind_text(stmt, 2, "",   -1, SQLITE_STATIC);
@@ -197,7 +200,10 @@ void Database::seedAll()
         sqlite3_bind_int (stmt, 7, h.ad);
         sqlite3_bind_int (stmt, 8, h.arm);
         sqlite3_bind_text(stmt, 9, h.asset, -1, SQLITE_STATIC);
-        sqlite3_bind_text(stmt, 10, h.ultName, -1, SQLITE_STATIC);
+        sqlite3_bind_text(stmt, 10, h.u1, -1, SQLITE_STATIC);
+        sqlite3_bind_text(stmt, 11, h.u2, -1, SQLITE_STATIC);
+        sqlite3_bind_text(stmt, 12, h.u3, -1, SQLITE_STATIC);
+        sqlite3_bind_text(stmt, 13, h.dying, -1, SQLITE_STATIC);
         sqlite3_step(stmt);
         sqlite3_finalize(stmt);
     }
@@ -372,7 +378,7 @@ std::vector<HeroRecord> Database::getAllHeroes()
 
     sqlite3_stmt* stmt = nullptr;
     sqlite3_prepare_v2(db_,
-        "SELECT id, name, monologue, archetype, class_name, trainer_id, hp, ad, arm, asset_path, ultimate_name "
+        "SELECT id, name, monologue, archetype, class_name, trainer_id, hp, ad, arm, asset_path, ultimate_name_1, ultimate_name_2, ultimate_name_3, dying_phrase "
         "FROM heroes ORDER BY id;",
         -1, &stmt, nullptr);
 
@@ -388,7 +394,10 @@ std::vector<HeroRecord> Database::getAllHeroes()
         h.ad          = sqlite3_column_int (stmt, 7);
         h.arm         = sqlite3_column_int (stmt, 8);
         h.asset_path  = (const char*)sqlite3_column_text(stmt, 9);
-        h.ultimate_name = (const char*)sqlite3_column_text(stmt, 10);
+        h.ultimate_name_1 = (const char*)sqlite3_column_text(stmt, 10);
+        h.ultimate_name_2 = (const char*)sqlite3_column_text(stmt, 11);
+        h.ultimate_name_3 = (const char*)sqlite3_column_text(stmt, 12);
+        h.dying_phrase    = (const char*)sqlite3_column_text(stmt, 13);
         results.push_back(h);
     }
     sqlite3_finalize(stmt);

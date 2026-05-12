@@ -20,6 +20,7 @@ enum IconId {
 void loadIcons();
 void drawIcon(int iconId, Rectangle rect, Color tint);
 int itemIdToIcon(uint8_t itemId);
+const char* itemIdToName(uint8_t itemId);
 
 struct Layout {
     float screenW, screenH;
@@ -183,3 +184,14 @@ static inline int heroSlotToGlobal(const GameSnapshot& snap, int pid, int slot) 
 void drawHeroCards(const GameSnapshot& snap, int myId);
 void drawSidePanels(const GameSnapshot& snap, const PlayerInput& p1, const PlayerInput& p2);
 void drawShop(const GameSnapshot& snap, const PlayerInput& p1, const PlayerInput& p2);
+
+struct LogEntry {
+    char  text[64];
+    Color color;
+    float timer;
+};
+
+void addCombatLog(int side, const char* text, Color color);
+void updateCombatLogs(float dt);
+void drawCombatLogs(int side, float x, float y, float w);
+void clearCombatLogs();

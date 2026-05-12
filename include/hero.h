@@ -42,6 +42,7 @@ protected:
     float ultCooldownTimer_;   // counts down; ult available when <= 0
     float ultActiveTimer_;     // counts down while ult effect is active
     bool  ultActive_;
+    uint8_t ultPhraseIdx_;     // current phrase index [0..2]
     int   attackCount_;        // total attacks performed (used by Mage)
 
     // ── Custom stats override (per-named-hero from HERO_DEFS) ─────────────
@@ -157,6 +158,7 @@ public:
     size_t  effectCount() const { return effects_.size(); }
     const LinkedList<ActiveEffect>& effects() const { return effects_; }
     bool    ultActive()  const { return ultActive_; }
+    uint8_t ultPhraseIdx() const { return ultPhraseIdx_; }
     uint8_t ownerId()  const { return ownerId_; }
     float   moveTimer()  const { return moveTimer_; }
     float   attackTimer() const { return attackTimer_; }
@@ -179,6 +181,7 @@ public:
     // ── Identity ──────────────────────────────────────────────────────────
     uint8_t heroDefIndex() const { return heroDefIndex_; }
     void setHeroDefIndex(uint8_t idx) { heroDefIndex_ = idx; }
+    void setUltPhraseIdx(uint8_t idx) { ultPhraseIdx_ = idx; }
 
     // ── Target focus ──────────────────────────────────────────────────────
     int8_t targetFocus() const { return targetFocus_; }

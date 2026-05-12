@@ -86,6 +86,17 @@ Texture2D* itemIdToTexture(uint8_t itemId) {
     return &texShop[itemId % 5];
 }
 
+const char* itemIdToName(uint8_t itemId) {
+    static const char* names[] = {
+        "Pocao de Cura",
+        "Pocao de Vitalidade",
+        "Pocao de Resiliencia",
+        "Cafe Energizante",
+        "Lampada do Conhecimento"
+    };
+    return names[itemId % 5];
+}
+
 static void unloadIcons() {
     if (texGold.id != 0) {
         UnloadTexture(texGold); texGold = {0};
@@ -286,10 +297,13 @@ void drawHero(const HeroNetState& hs, Vector2 ctr, int myId, bool dragging,
         DrawCircleLinesV(heroCtr, r + 4 + pulse * 4, ColorAlpha(GOLD, 0.8f));
         DrawCircleLinesV(heroCtr, r + 7 + pulse * 6, ColorAlpha(YELLOW, 0.5f * pulse));
         
-        // Floating label with power name from DB
+        // Floating label with power name from DB (randomized phrase)
         const char* ultTxt = "PODER ATIVO!";
         if (hs.heroDefIndex < (uint8_t)g_heroDefs.size()) {
-            ultTxt = g_heroDefs[hs.heroDefIndex].ultimateName.c_str();
+            const auto& phrases = g_heroDefs[hs.heroDefIndex].ultimateNames;
+            if (hs.ultPhraseIdx < phrases.size()) {
+                ultTxt = phrases[hs.ultPhraseIdx].c_str();
+            }
         }
 
         int fs = 11;
@@ -297,6 +311,18 @@ void drawHero(const HeroNetState& hs, Vector2 ctr, int myId, bool dragging,
         float boxW = (float)tw + 12.f;
         DrawRectangleRounded({ heroCtr.x - boxW * 0.5f, heroCtr.y - r - 34, boxW, 16.f }, 0.5f, 4, { 255, 200, 0, 180 });
         DrawText(ultTxt, (int)(heroCtr.x - tw / 2), (int)(heroCtr.y - r - 32), fs, BLACK);
+    } else if (hs.alive && hs.hp > 0 && hs.hp <= (uint16_t)(hs.maxHp * 0.15f)) {
+        // Dying phrase
+        const char* dieTxt = "...";
+        if (hs.heroDefIndex < (uint8_t)g_heroDefs.size()) {
+            dieTxt = g_heroDefs[hs.heroDefIndex].dyingPhrase.c_str();
+        }
+
+        int fs = 10;
+        int tw = MeasureText(dieTxt, fs);
+        float boxW = (float)tw + 12.f;
+        DrawRectangleRounded({ heroCtr.x - boxW * 0.5f, heroCtr.y - r - 30, boxW, 14.f }, 0.5f, 4, { 200, 40, 40, 200 });
+        DrawText(dieTxt, (int)(heroCtr.x - tw / 2), (int)(heroCtr.y - r - 28), fs, WHITE);
     }
 
     float bw = CELLW * 0.85f, bh = 6.f;
@@ -1758,6 +1784,16 @@ void drawSidePanels(const GameSnapshot& snap, const PlayerInput& p1, const Playe
         const char* ctrl = player == 0 ? "[Q] ATIVAR" : "[E] ATIVAR";
         int cw = MeasureText(ctrl, 9);
         DrawText(ctrl, (int)(px + (panelW - cw) * 0.5f), (int)cy, 9, {100, 100, 130, 255});
+        cy += 20.f;
+
+        // Divider
+        DrawLineEx({px + pad, cy}, {px + panelW - pad, cy}, 1, {40, 40, 60, 180});
+        cy += 10.f;
+
+        // Combat Log section
+        DrawText("LOG DE COMBATE", (int)(px + pad), (int)cy, 10, {130, 130, 160, 255});
+        cy += 16.f;
+        drawCombatLogs(player, px + pad, cy, panelW - 2 * pad);
     }
 
     // Floating ability indicator near the grid
@@ -1863,4 +1899,54 @@ void drawPlacementCursors(const GameSnapshot& snap,
     int w2 = MeasureText(lbl2, 18);
     DrawRectangle((int)(g_layout.screenW - w2 - 16), (int)(g_layout.screenH - 34), w2 + 16, 30, {0,0,0,200});
     DrawText(lbl2, (int)(g_layout.screenW - w2 - 8), (int)(g_layout.screenH - 30), 18, kP2Color);
+}
+
+// ── Combat Log Implementation ────────────────────────────────────────────────
+static std::vector<LogEntry> g_logs[2];
+
+void addCombatLog(int side, const char* text, Color color) {
+    if (side < 0 || side > 1) return;
+    LogEntry e;
+    strncpy(e.text, text, sizeof(e.text) - 1);
+    e.text[sizeof(e.text) - 1] = '\0';
+    e.color = color;
+    e.timer = 8.0f;
+    g_logs[side].insert(g_logs[side].begin(), e);
+    if (g_logs[side].size() > 8) g_logs[side].pop_back();
+}
+
+void updateCombatLogs(float dt) {
+    for (int i = 0; i < 2; i++) {
+        for (auto it = g_logs[i].begin(); it != g_logs[i].end(); ) {
+            it->timer -= dt;
+            if (it->timer <= 0) {
+                // it = g_logs[i].erase(it); // Or keep them until next round?
+                // The user didn't specify auto-clear, but it's good for long battles.
+                // Let's keep them for now, or just fade.
+                it++;
+            } else {
+                it++;
+            }
+        }
+    }
+}
+
+void drawCombatLogs(int side, float x, float y, float w) {
+    (void)w;
+    float cy = y;
+    for (const auto& e : g_logs[side]) {
+        Color c = e.color;
+        if (e.timer < 1.0f && e.timer > 0) {
+            c.a = (unsigned char)(e.timer * 255);
+        } else if (e.timer <= 0) {
+            c.a = 50; // Very faded
+        }
+        DrawText(e.text, (int)x, (int)cy, 10, c);
+        cy += 14;
+    }
+}
+
+void clearCombatLogs() {
+    g_logs[0].clear();
+    g_logs[1].clear();
 }

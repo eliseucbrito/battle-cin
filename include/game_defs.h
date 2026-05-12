@@ -24,7 +24,8 @@ struct HeroDefEntry {
     int         ad;
     int         arm;
     std::string assetPath;
-    std::string ultimateName;
+    std::vector<std::string> ultimateNames;
+    std::string dyingPhrase;
 };
 
 extern std::vector<TrainerDefEntry> g_trainerDefs;
