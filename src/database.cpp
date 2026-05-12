@@ -63,16 +63,17 @@ void Database::createTables()
 
     execute(R"(
         CREATE TABLE heroes (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
-            name        TEXT    NOT NULL,
-            monologue   TEXT    NOT NULL DEFAULT '',
-            archetype   INTEGER NOT NULL,
-            class_name  TEXT    NOT NULL DEFAULT '',
-            trainer_id  INTEGER NOT NULL,
-            hp          INTEGER NOT NULL,
-            ad          INTEGER NOT NULL,
-            arm         INTEGER NOT NULL,
-            asset_path  TEXT    NOT NULL DEFAULT '',
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            name          TEXT    NOT NULL,
+            monologue     TEXT    NOT NULL DEFAULT '',
+            archetype     INTEGER NOT NULL,
+            class_name    TEXT    NOT NULL DEFAULT '',
+            trainer_id    INTEGER NOT NULL,
+            hp            INTEGER NOT NULL,
+            ad            INTEGER NOT NULL,
+            arm           INTEGER NOT NULL,
+            asset_path    TEXT    NOT NULL DEFAULT '',
+            ultimate_name TEXT    DEFAULT 'Poder Ativo',
             FOREIGN KEY (trainer_id) REFERENCES trainers(id)
         );
     )");
@@ -169,23 +170,23 @@ void Database::seedAll()
 
     // ── Herois ──
     struct HeroSeed { const char* name; int arch; int trainId; const char* cls;
-                      int hp, ad, arm; const char* asset; };
+                      int hp, ad, arm; const char* asset; const char* ultName; };
     HeroSeed hdata[] = {
-        { "O Construto de Busca",    0, 1, "Tank",     350, 15, 18, "assets/heroes/O_Construto_de_Busca.png"    },
-        { "O Guardiao dos Discos",   1, 1, "Fighter",  280, 22, 10, "assets/heroes/O_Guardiao_dos_Discos.png"   },
-        { "O Mestre Parser",         2, 1, "Mage",     200, 35,  5, "assets/heroes/O_Mestre_Parser.png"         },
-        { "O Cientista Polarizado",  3, 1, "Assassin", 220, 32,  3, "assets/heroes/O_Cientista_Polarizado.png"  },
-        { "O Chip-Mestre",           4, 1, "Support",  240, 12, 10, "assets/heroes/O_Chip-Mestre.png"           },
-        { "A Burocrata do UML",      0, 2, "Tank",     360, 13, 20, "assets/heroes/A_Burocrata_do_UML.png"      },
-        { "O Filosofo do Dilema",    1, 2, "Fighter",  270, 24, 12, "assets/heroes/O_Filosofo_do_Dilema.png"    },
-        { "O Artista Vectorial",     2, 2, "Mage",     190, 38,  4, "assets/heroes/O_Artista_Vectorial.png"     },
-        { "O Inspetor Flaky",        3, 2, "Assassin", 215, 30,  2, "assets/heroes/O_Inspetor_Flaky.png"        },
-        { "O Treinador Python",      4, 2, "Support",  250, 14,  8, "assets/heroes/O_Treinador_Python.png"      },
+        { "O Construto de Busca",    0, 1, "Tank",     350, 15, 18, "assets/heroes/O_Construto_de_Busca.png",   "Fortaleza de Ferro" },
+        { "O Guardiao dos Discos",   1, 1, "Fighter",  280, 22, 10, "assets/heroes/O_Guardiao_dos_Discos.png",  "Furia do Disco" },
+        { "O Mestre Parser",         2, 1, "Mage",     200, 35,  5, "assets/heroes/O_Mestre_Parser.png",        "Chuva de Tokens" },
+        { "O Cientista Polarizado",  3, 1, "Assassin", 220, 32,  3, "assets/heroes/O_Cientista_Polarizado.png", "Corte Magnetico" },
+        { "O Chip-Mestre",           4, 1, "Support",  240, 12, 10, "assets/heroes/O_Chip-Mestre.png",          "Overclock de Vida" },
+        { "A Burocrata do UML",      0, 2, "Tank",     360, 13, 20, "assets/heroes/A_Burocrata_do_UML.png",     "Diagrama de Defesa" },
+        { "O Filosofo do Dilema",    1, 2, "Fighter",  270, 24, 12, "assets/heroes/O_Filosofo_do_Dilema.png",   "Golpe do Absurdo" },
+        { "O Artista Vectorial",     2, 2, "Mage",     190, 38,  4, "assets/heroes/O_Artista_Vectorial.png",    "Pincelada Critica" },
+        { "O Inspetor Flaky",        3, 2, "Assassin", 215, 30,  2, "assets/heroes/O_Inspetor_Flaky.png",       "Bug Fatal" },
+        { "O Treinador Python",      4, 2, "Support",  250, 14,  8, "assets/heroes/O_Treinador_Python.png",     "Script de Cura" },
     };
 
     for (const auto& h : hdata) {
-        const char* sql = "INSERT INTO heroes (name,monologue,archetype,class_name,trainer_id,hp,ad,arm,asset_path)"
-                          "VALUES (?,?,?,?,?,?,?,?,?);";
+        const char* sql = "INSERT INTO heroes (name,monologue,archetype,class_name,trainer_id,hp,ad,arm,asset_path,ultimate_name)"
+                          "VALUES (?,?,?,?,?,?,?,?,?,?);";
         sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr);
         sqlite3_bind_text(stmt, 1, h.name,  -1, SQLITE_STATIC);
         sqlite3_bind_text(stmt, 2, "",   -1, SQLITE_STATIC);
@@ -196,6 +197,7 @@ void Database::seedAll()
         sqlite3_bind_int (stmt, 7, h.ad);
         sqlite3_bind_int (stmt, 8, h.arm);
         sqlite3_bind_text(stmt, 9, h.asset, -1, SQLITE_STATIC);
+        sqlite3_bind_text(stmt, 10, h.ultName, -1, SQLITE_STATIC);
         sqlite3_step(stmt);
         sqlite3_finalize(stmt);
     }
@@ -370,7 +372,7 @@ std::vector<HeroRecord> Database::getAllHeroes()
 
     sqlite3_stmt* stmt = nullptr;
     sqlite3_prepare_v2(db_,
-        "SELECT id, name, monologue, archetype, class_name, trainer_id, hp, ad, arm, asset_path "
+        "SELECT id, name, monologue, archetype, class_name, trainer_id, hp, ad, arm, asset_path, ultimate_name "
         "FROM heroes ORDER BY id;",
         -1, &stmt, nullptr);
 
@@ -386,6 +388,7 @@ std::vector<HeroRecord> Database::getAllHeroes()
         h.ad          = sqlite3_column_int (stmt, 7);
         h.arm         = sqlite3_column_int (stmt, 8);
         h.asset_path  = (const char*)sqlite3_column_text(stmt, 9);
+        h.ultimate_name = (const char*)sqlite3_column_text(stmt, 10);
         results.push_back(h);
     }
     sqlite3_finalize(stmt);

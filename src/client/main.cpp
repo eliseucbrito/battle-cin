@@ -208,6 +208,10 @@ int main(int argc, char *argv[])
         }
 
         else if (snap.phase == PHASE_POSITIONING) {
+            // Initialize cursors to respective sides if they are out of bounds
+            if (inputs[0].cursorX >= 4) inputs[0].cursorX = 3;
+            if (inputs[1].cursorX < 4)  inputs[1].cursorX = 4;
+
             // P1 (esquerda): 1/2/3 select hero, WASD move, Space place
             if (IsKeyPressed(KEY_ONE))   inputs[0].moveHeroIdx = 0;
             if (IsKeyPressed(KEY_TWO))   inputs[0].moveHeroIdx = 1;
@@ -216,7 +220,7 @@ int main(int argc, char *argv[])
             if (IsKeyPressed(KEY_W))      inputs[0].cursorY = (uint8_t)((int)inputs[0].cursorY > 0 ? inputs[0].cursorY - 1 : 0);
             if (IsKeyPressed(KEY_S))      inputs[0].cursorY = (uint8_t)((int)inputs[0].cursorY < GRID_ROWS - 1 ? inputs[0].cursorY + 1 : GRID_ROWS - 1);
             if (IsKeyPressed(KEY_A))      inputs[0].cursorX = (uint8_t)((int)inputs[0].cursorX > 0 ? inputs[0].cursorX - 1 : 0);
-            if (IsKeyPressed(KEY_D))      inputs[0].cursorX = (uint8_t)((int)inputs[0].cursorX < GRID_COLS - 1 ? inputs[0].cursorX + 1 : GRID_COLS - 1);
+            if (IsKeyPressed(KEY_D))      inputs[0].cursorX = (uint8_t)((int)inputs[0].cursorX < 3 ? inputs[0].cursorX + 1 : 3);
 
             if (IsKeyPressed(KEY_SPACE)) {
                 bool ok = game.handlePlaceHero(0, inputs[0].moveHeroIdx,
@@ -231,7 +235,7 @@ int main(int argc, char *argv[])
 
             if (IsKeyPressed(KEY_UP))     inputs[1].cursorY = (uint8_t)((int)inputs[1].cursorY > 0 ? inputs[1].cursorY - 1 : 0);
             if (IsKeyPressed(KEY_DOWN))   inputs[1].cursorY = (uint8_t)((int)inputs[1].cursorY < GRID_ROWS - 1 ? inputs[1].cursorY + 1 : GRID_ROWS - 1);
-            if (IsKeyPressed(KEY_LEFT))   inputs[1].cursorX = (uint8_t)((int)inputs[1].cursorX > 0 ? inputs[1].cursorX - 1 : 0);
+            if (IsKeyPressed(KEY_LEFT))   inputs[1].cursorX = (uint8_t)((int)inputs[1].cursorX > 4 ? inputs[1].cursorX - 1 : 4);
             if (IsKeyPressed(KEY_RIGHT))  inputs[1].cursorX = (uint8_t)((int)inputs[1].cursorX < GRID_COLS - 1 ? inputs[1].cursorX + 1 : GRID_COLS - 1);
             if (IsKeyPressed(KEY_ENTER)) {
                 bool ok = game.handlePlaceHero(1, inputs[1].moveHeroIdx,

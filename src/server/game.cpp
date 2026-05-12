@@ -73,6 +73,7 @@ void Game::loadDefs()
         e.ad = h.ad;
         e.arm = h.arm;
         e.assetPath = h.asset_path;
+        e.ultimateName = h.ultimate_name;
         g_heroDefs.push_back(std::move(e));
     }
     printf("[Game] %zu treinadores e %zu herois carregados do banco.\n",
