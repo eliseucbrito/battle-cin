@@ -46,15 +46,11 @@ Layout computeLayout() {
     l.bottomCardsH = l.screenH - l.cardsY;
     if (l.bottomCardsH < 100.f) l.bottomCardsH = 100.f;
 
-    // Container spans half the screen for each player.
-    // Cards are placed inside the container but respect the side panel.
-    // Effective card area = half-screen minus adjacent panel width.
-    float effectiveP1 = l.screenW * 0.5f - l.leftPanelW;
-    float effectiveP2 = l.screenW * 0.5f - l.rightPanelW;
-    float effectiveW = fminf(effectiveP1, effectiveP2);
+    // Each player gets half the full screen width as their card container.
+    float halfScreen = l.screenW * 0.5f;
     float minCardW = 120.f;
-    float maxCardW = 200.f;
-    l.cardW = fminf(maxCardW, fmaxf(minCardW, effectiveW / 3.f));
+    float maxCardW = 280.f;
+    l.cardW = fminf(maxCardW, fmaxf(minCardW, halfScreen / 3.f));
     l.cardH = fminf(120.f, l.bottomCardsH - 20.f);
 
     l.topBarH = l.gridY;
@@ -1064,18 +1060,11 @@ void drawHeroCards(const GameSnapshot& snap, int myId) {
         float containerX = player == 0 ? 0.f : sw * 0.5f;
         float containerW = sw * 0.5f;
 
-        // Cards are placed inside the half-screen container,
-        // respecting the adjacent side panel.
+        // space-between: 3 cards distributed across the full half-screen container
         float cardX[3];
-        float leftBound  = player == 0 ? g_layout.leftPanelW : containerX;
-        float rightBound = player == 0
-            ? (containerX + containerW)
-            : (sw - g_layout.rightPanelW);
-        float usableW = rightBound - leftBound;
-
-        cardX[0] = leftBound;                                      // left edge
-        cardX[1] = leftBound + (usableW - cardW) * 0.5f;           // center
-        cardX[2] = rightBound - cardW;                             // right edge
+        cardX[0] = containerX;                                      // left edge
+        cardX[1] = containerX + (containerW - cardW) * 0.5f;        // center
+        cardX[2] = containerX + containerW - cardW;                 // right edge
 
         Color pCol = player == 0 ? Color{80,150,255,255} : Color{255,100,80,255};
         Color dimCol = player == 0 ? Color{80,150,255,120} : Color{255,100,80,120};
