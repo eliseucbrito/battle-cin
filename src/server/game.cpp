@@ -7,6 +7,9 @@
 #include <algorithm>
 #include <cmath>
 
+std::vector<TrainerDefEntry> g_trainerDefs;
+std::vector<HeroDefEntry>    g_heroDefs;
+
 struct Combatant {
     Hero* hero;
     int   team;
@@ -18,7 +21,8 @@ Game::Game()
     : connectedCount_(0), phase_(PHASE_SELECT), phaseTimer_(0.f),
       buffZoneCount_(0), roundWinner_(0xFF), matchWinner_(0xFF),
       roundNumber_(0), initialized_(false), tournament_(WIN_SCORE),
-      selectSubphase_(0), selectTimer_(SELECT_TRAINER_TIME)
+      selectSubphase_(0), selectTimer_(SELECT_TRAINER_TIME),
+      db_(), shop_(db_.getAllShopItems())
 {
     selected_[0] = false;
     selected_[1] = false;
@@ -34,6 +38,45 @@ Game::Game()
     for (int p = 0; p < 2; p++)
         for (int h = 0; h < 3; h++)
             heroChoices_[p][h] = 0;
+    loadDefs();
+}
+
+void Game::loadDefs()
+{
+    g_trainerDefs.clear();
+    auto trainers = db_.getAllTrainers();
+    for (const auto& t : trainers) {
+        TrainerDefEntry e;
+        e.name = t.name;
+        e.discipline = t.discipline;
+        e.abilityType = (uint8_t)t.ability_type;
+        e.abilityName = t.ability_name;
+        e.abilityDesc = t.ability_desc;
+        e.colorR = (uint8_t)t.color_r;
+        e.colorG = (uint8_t)t.color_g;
+        e.colorB = (uint8_t)t.color_b;
+        e.portraitPath = t.portrait_path;
+        e.cardPath = t.card_path;
+        g_trainerDefs.push_back(std::move(e));
+    }
+
+    g_heroDefs.clear();
+    auto heroes = db_.getAllHeroes();
+    for (const auto& h : heroes) {
+        HeroDefEntry e;
+        e.name = h.name;
+        e.monologue = h.monologue;
+        e.archetype = (uint8_t)h.archetype;
+        e.trainerId = (uint8_t)h.trainer_id;
+        e.className = h.class_name;
+        e.hp = h.hp;
+        e.ad = h.ad;
+        e.arm = h.arm;
+        e.assetPath = h.asset_path;
+        g_heroDefs.push_back(std::move(e));
+    }
+    printf("[Game] %zu treinadores e %zu herois carregados do banco.\n",
+           g_trainerDefs.size(), g_heroDefs.size());
 }
 
 void Game::registerPlayerLocal(int pid)
@@ -69,12 +112,12 @@ void Game::initFromSelections()
 {
     for (int i = 0; i < 2; i++) {
         uint8_t tIdx = trainerChoice_[i];
-        const TrainerDefEntry& tDef = TRAINER_DEFS[tIdx];
+        const TrainerDefEntry& tDef = g_trainerDefs[tIdx];
         trainers_[i] = Trainer(tDef.name, tDef.discipline, i, tIdx, tDef.abilityType);
 
         for (int h = 0; h < 3; h++) {
             uint8_t hIdx = heroChoices_[i][h];
-            const HeroDefEntry& hDef = HERO_DEFS[hIdx];
+            const HeroDefEntry& hDef = g_heroDefs[hIdx];
             trainers_[i].addHero(hDef.archetype, hDef.hp, hDef.ad, hDef.arm, hIdx);
         }
     }
@@ -90,11 +133,11 @@ void Game::createBot(int pid)
     if (pid < 0 || pid > 1) return;
     if (trainerLocked_[pid]) return;
 
-    int tIdx = rand() % N_TRAINERS;
+    int tIdx = rand() % (int)g_trainerDefs.size();
     int hIdx[3];
     std::vector<int> available;
-    for (int i = 0; i < N_HEROES; i++)
-        if (HERO_DEFS[i].trainerIndex == (uint8_t)tIdx)
+    for (int i = 0; i < (int)g_heroDefs.size(); i++)
+        if (g_heroDefs[i].trainerId == (uint8_t)(tIdx + 1))
             available.push_back(i);
     for (int s = (int)available.size() - 1; s > 0; s--) {
         int r = rand() % (s + 1);
@@ -192,8 +235,8 @@ void Game::autoPickHeroes(int pid)
     if (herosLocked_[pid]) return;
     uint8_t tIdx = trainerChoice_[pid];
     std::vector<int> available;
-    for (int i = 0; i < N_HEROES; i++)
-        if (HERO_DEFS[i].trainerIndex == tIdx)
+    for (int i = 0; i < (int)g_heroDefs.size(); i++)
+        if (g_heroDefs[i].trainerId == (uint8_t)(tIdx + 1))
             available.push_back(i);
     for (int s = (int)available.size() - 1; s > 0; s--) {
         int r = rand() % (s + 1);
@@ -220,46 +263,42 @@ void Game::update(float dt)
 
     switch (phase_) {
         case PHASE_SELECT:
-            if (!debugMode_) selectTimer_ -= dt;
+            selectTimer_ -= dt;
             if (selectSubphase_ == 0) {
-                if (debugMode_ || selectTimer_ <= 0.f || (trainerLocked_[0] && trainerLocked_[1])) {
-                    if (!debugMode_ || (trainerLocked_[0] && trainerLocked_[1])) {
-                        for (int i = 0; i < 2; i++)
-                            if (!trainerLocked_[i]) trainerChoice_[i] = rand() % N_TRAINERS;
-                        selectSubphase_ = 1;
-                        selectTimer_ = SELECT_HERO_TIME;
-                    }
+                if (selectTimer_ <= 0.f || (trainerLocked_[0] && trainerLocked_[1])) {
+                    for (int i = 0; i < 2; i++)
+                        if (!trainerLocked_[i]) trainerChoice_[i] = rand() % (int)g_trainerDefs.size();
+                    selectSubphase_ = 1;
+                    selectTimer_ = SELECT_HERO_TIME;
                 }
             } else {
-                if (debugMode_ || selectTimer_ <= 0.f || (herosLocked_[0] && herosLocked_[1])) {
-                    if (!debugMode_ || (herosLocked_[0] && herosLocked_[1])) {
-                        for (int i = 0; i < 2; i++)
-                            if (!herosLocked_[i]) autoPickHeroes(i);
-                        initFromSelections();
-                    }
+                if (selectTimer_ <= 0.f || (herosLocked_[0] && herosLocked_[1])) {
+                    for (int i = 0; i < 2; i++)
+                        if (!herosLocked_[i]) autoPickHeroes(i);
+                    initFromSelections();
                 }
             }
             break;
 
         case PHASE_POSITIONING:
-            if (!debugMode_) phaseTimer_ -= dt;
-            if (!debugMode_ && phaseTimer_ <= 0.f) startBattle();
+            phaseTimer_ -= dt;
+            if (phaseTimer_ <= 0.f) startBattle();
             break;
 
         case PHASE_BATTLE:
-            if (!debugMode_) phaseTimer_ -= dt;
+            phaseTimer_ -= dt;
             autoBattleMove();
             runCombat();
             tickUltimates(dt);
             
             if (!trainers_[0].hasLiveHeroes()) endRound(1);
             else if (!trainers_[1].hasLiveHeroes()) endRound(0);
-            else if (!debugMode_ && phaseTimer_ <= 0.f) resolveTimeLimit();
+            else if (phaseTimer_ <= 0.f) resolveTimeLimit();
             break;
 
         case PHASE_ROUND_END:
-            if (!debugMode_) phaseTimer_ -= dt;
-            if (phaseTimer_ <= 0.f && !debugMode_) {
+            phaseTimer_ -= dt;
+            if (phaseTimer_ <= 0.f) {
                 if (matchWinner_ == 0xFF) {
                     enterShopPhase();
                 }
@@ -267,12 +306,12 @@ void Game::update(float dt)
             break;
 
         case PHASE_SHOP:
-            if (!debugMode_) updateBot(dt);
+            updateBot(dt);
             break;
 
         case PHASE_VS_INTRO:
-            if (!debugMode_) phaseTimer_ -= dt;
-            if (!debugMode_ && phaseTimer_ <= 0.f) startPositioning();
+            phaseTimer_ -= dt;
+            if (phaseTimer_ <= 0.f) startPositioning();
             break;
 
         default: break;
@@ -660,52 +699,5 @@ void Game::generateBuffZones() {
         if (dup) continue;
         uint8_t type = (uint8_t)(1 + rand() % 3);
         buffZones_[buffZoneCount_++] = { bx, by, type };
-    }
-}
-
-void Game::debugAdvancePhase()
-{
-    switch (phase_) {
-        case PHASE_SELECT:
-            if (selectSubphase_ == 0) {
-                for (int i = 0; i < 2; i++)
-                    if (!trainerLocked_[i]) {
-                        trainerChoice_[i] = rand() % N_TRAINERS;
-                        trainerLocked_[i] = true;
-                    }
-                selectSubphase_ = 1;
-                selectTimer_ = SELECT_HERO_TIME;
-            } else {
-                for (int i = 0; i < 2; i++)
-                    if (!herosLocked_[i]) autoPickHeroes(i);
-                initFromSelections();
-            }
-            break;
-
-        case PHASE_VS_INTRO:
-            startPositioning();
-            break;
-
-        case PHASE_POSITIONING:
-            startBattle();
-            break;
-
-        case PHASE_BATTLE:
-            resolveTimeLimit();
-            break;
-
-        case PHASE_ROUND_END:
-            if (matchWinner_ == 0xFF) enterShopPhase();
-            break;
-
-        case PHASE_SHOP:
-            for (int i = 0; i < 2; i++) {
-                if (!shop_.playerConfirmed(i)) shop_.confirm(i);
-            }
-            startPositioning();
-            break;
-
-        case PHASE_MATCH_END:
-            break;
     }
 }

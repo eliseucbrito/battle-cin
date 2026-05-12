@@ -2,13 +2,24 @@
 #include "hero.h"
 #include "trainer.h"
 #include "protocol.h"
+#include "database.h"
 #include <string>
 #include <vector>
 #include <memory>
 
-// ═════════════════════════════════════════════════════════════════════════════
-//  Item — abstract base class (Template Method)
-// ═════════════════════════════════════════════════════════════════════════════
+// ── Item IDs (shared with protocol.h types) ──
+#define ITEM_ID_HEALTH_POTION      0
+#define ITEM_ID_STRENGTH_GEM       1
+#define ITEM_ID_STEEL_ARMOR        2
+#define ITEM_ID_SPEED_SCROLL       3
+#define ITEM_ID_BERSERKER_ELIXIR   4
+#define ITEM_ID_ARCANE_ORB         5
+#define ITEM_ID_PHOENIX_FEATHER    6
+#define ITEM_ID_MIRROR_SHIELD      7
+#define ITEM_ID_RALLY_ALL          8
+#define ITEM_ID_HEAL_WAVE          9
+#define ITEM_ID_GOLD_RUSH          10
+#define ITEM_ID_COUNT              11
 
 class Item {
 public:
@@ -29,6 +40,7 @@ public:
     virtual int         maxRounds()   const { return -1; }
     virtual uint8_t     itemId()      const = 0;
     virtual uint8_t     category()    const { return ITEM_CATEGORY_HERO; }
+    virtual std::string effectType()  const { return ""; }
 
     virtual std::unique_ptr<Item> clone() const = 0;
 
@@ -39,217 +51,27 @@ private:
     virtual void onApplied(Hero& hero, int) { (void)hero; }
 };
 
-// ═════════════════════════════════════════════════════════════════════════════
-//  Item IDs
-// ═════════════════════════════════════════════════════════════════════════════
-
-#define ITEM_ID_HEALTH_POTION      0
-#define ITEM_ID_STRENGTH_GEM       1
-#define ITEM_ID_STEEL_ARMOR        2
-#define ITEM_ID_SPEED_SCROLL       3
-#define ITEM_ID_BERSERKER_ELIXIR   4
-#define ITEM_ID_ARCANE_ORB         5
-#define ITEM_ID_PHOENIX_FEATHER    6
-#define ITEM_ID_MIRROR_SHIELD      7
-#define ITEM_ID_RALLY_ALL          8
-#define ITEM_ID_HEAL_WAVE          9
-#define ITEM_ID_GOLD_RUSH          10
-#define ITEM_ID_COUNT              11
-
-// ═════════════════════════════════════════════════════════════════════════════
-//  Concrete Hero Item classes
-// ═════════════════════════════════════════════════════════════════════════════
-
-class HealthPotion : public Item {
+class GenericItem : public Item {
+    ShopItemRecord record_;
 public:
-    std::string name()        const override { return "Pocao de Vida"; }
-    std::string description() const override { return "Restaura 30% da HP maxima"; }
-    int         basePrice()   const override { return 25; }
-    uint8_t     rarity()      const override { return ITEM_RARITY_COMMON; }
-    uint8_t     type()        const override { return ITEM_TYPE_CONSUMABLE; }
-    uint8_t     itemId()      const override { return ITEM_ID_HEALTH_POTION; }
-    std::unique_ptr<Item> clone() const override {
-        return std::make_unique<HealthPotion>(*this);
-    }
+    explicit GenericItem(const ShopItemRecord& rec) : record_(rec) {}
+
+    std::string name()        const override { return record_.name; }
+    std::string description() const override { return record_.description; }
+    int         basePrice()   const override { return record_.base_price; }
+    uint8_t     rarity()      const override { return (uint8_t)record_.rarity; }
+    uint8_t     type()        const override { return (uint8_t)record_.type; }
+    uint8_t     itemId()      const override { return (uint8_t)record_.id; }
+    uint8_t     category()    const override { return (uint8_t)record_.category; }
+    int         maxRounds()   const override { return record_.max_rounds; }
+    std::string effectType()  const override { return record_.effect_type; }
+    std::unique_ptr<Item> clone() const override;
+    void apply(Hero& hero, int currentRound) const override { (void)currentRound; doApply(hero); }
+
 private:
-    bool canApply(const Hero& hero) const override {
-        return hero.hp() < hero.maxHp();
-    }
-    void apply(Hero& hero, int) const override {
-        hero.healHp(hero.maxHp() * 30 / 100);
-    }
+    bool canApply(const Hero& hero) const override;
+    void doApply(Hero& hero) const;
 };
-
-class StrengthGem : public Item {
-public:
-    std::string name()        const override { return "Gema de Forca"; }
-    std::string description() const override { return "+15 AD permanente"; }
-    int         basePrice()   const override { return 45; }
-    uint8_t     rarity()      const override { return ITEM_RARITY_UNCOMMON; }
-    uint8_t     type()        const override { return ITEM_TYPE_EQUIPMENT; }
-    uint8_t     itemId()      const override { return ITEM_ID_STRENGTH_GEM; }
-    std::unique_ptr<Item> clone() const override {
-        return std::make_unique<StrengthGem>(*this);
-    }
-    void apply(Hero& hero, int) const override {
-        hero.setAd(hero.ad() + 15);
-    }
-};
-
-class SteelArmor : public Item {
-public:
-    std::string name()        const override { return "Armadura de Aco"; }
-    std::string description() const override { return "+10 ARM permanente"; }
-    int         basePrice()   const override { return 50; }
-    uint8_t     rarity()      const override { return ITEM_RARITY_UNCOMMON; }
-    uint8_t     type()        const override { return ITEM_TYPE_EQUIPMENT; }
-    uint8_t     itemId()      const override { return ITEM_ID_STEEL_ARMOR; }
-    std::unique_ptr<Item> clone() const override {
-        return std::make_unique<SteelArmor>(*this);
-    }
-    void apply(Hero& hero, int) const override {
-        hero.setArm(hero.arm() + 10);
-    }
-};
-
-class SpeedScroll : public Item {
-public:
-    std::string name()        const override { return "Pergaminho Veloz"; }
-    std::string description() const override { return "+30% AS por 2 rodadas"; }
-    int         basePrice()   const override { return 60; }
-    uint8_t     rarity()      const override { return ITEM_RARITY_RARE; }
-    uint8_t     type()        const override { return ITEM_TYPE_TEMPORARY; }
-    int         maxRounds()   const override { return 2; }
-    uint8_t     itemId()      const override { return ITEM_ID_SPEED_SCROLL; }
-    std::unique_ptr<Item> clone() const override {
-        return std::make_unique<SpeedScroll>(*this);
-    }
-    void apply(Hero& hero, int) const override {
-        hero.setAsRate(hero.asRate() * 1.3f);
-    }
-};
-
-class BerserkerElixir : public Item {
-public:
-    std::string name()        const override { return "Elixir Berserker"; }
-    std::string description() const override { return "+50% AD por 3 rodadas"; }
-    int         basePrice()   const override { return 70; }
-    uint8_t     rarity()      const override { return ITEM_RARITY_RARE; }
-    uint8_t     type()        const override { return ITEM_TYPE_TEMPORARY; }
-    int         maxRounds()   const override { return 3; }
-    uint8_t     itemId()      const override { return ITEM_ID_BERSERKER_ELIXIR; }
-    std::unique_ptr<Item> clone() const override {
-        return std::make_unique<BerserkerElixir>(*this);
-    }
-    void apply(Hero& hero, int) const override {
-        hero.setAd(hero.ad() * 3 / 2);
-    }
-};
-
-class ArcaneOrb : public Item {
-public:
-    std::string name()        const override { return "Orbe Arcano"; }
-    std::string description() const override { return "+25% de dano magico"; }
-    int         basePrice()   const override { return 100; }
-    uint8_t     rarity()      const override { return ITEM_RARITY_EPIC; }
-    uint8_t     type()        const override { return ITEM_TYPE_UNIQUE; }
-    uint8_t     itemId()      const override { return ITEM_ID_ARCANE_ORB; }
-    std::unique_ptr<Item> clone() const override {
-        return std::make_unique<ArcaneOrb>(*this);
-    }
-    void apply(Hero& hero, int) const override {
-        hero.setAd(hero.ad() * 125 / 100);
-    }
-};
-
-class PhoenixFeather : public Item {
-public:
-    std::string name()        const override { return "Pena da Fenix"; }
-    std::string description() const override { return "Revive com 50% HP se morto"; }
-    int         basePrice()   const override { return 130; }
-    uint8_t     rarity()      const override { return ITEM_RARITY_EPIC; }
-    uint8_t     type()        const override { return ITEM_TYPE_UNIQUE; }
-    uint8_t     itemId()      const override { return ITEM_ID_PHOENIX_FEATHER; }
-    std::unique_ptr<Item> clone() const override {
-        return std::make_unique<PhoenixFeather>(*this);
-    }
-private:
-    bool canApply(const Hero&) const override { return false; }
-    void apply(Hero&, int) const override {}
-};
-
-class MirrorShield : public Item {
-public:
-    std::string name()        const override { return "Escudo Espelhado"; }
-    std::string description() const override { return "+20 ARM permanente"; }
-    int         basePrice()   const override { return 120; }
-    uint8_t     rarity()      const override { return ITEM_RARITY_EPIC; }
-    uint8_t     type()        const override { return ITEM_TYPE_UNIQUE; }
-    uint8_t     itemId()      const override { return ITEM_ID_MIRROR_SHIELD; }
-    std::unique_ptr<Item> clone() const override {
-        return std::make_unique<MirrorShield>(*this);
-    }
-    void apply(Hero& hero, int) const override {
-        hero.setArm(hero.arm() + 20);
-    }
-};
-
-// ═════════════════════════════════════════════════════════════════════════════
-//  General Item classes (affect all allies, stored on trainer)
-// ═════════════════════════════════════════════════════════════════════════════
-
-class RallyAll : public Item {
-public:
-    std::string name()        const override { return "Rally Total"; }
-    std::string description() const override { return "+10 AD para todos aliados (1 rodada)"; }
-    int         basePrice()   const override { return 60; }
-    uint8_t     rarity()      const override { return ITEM_RARITY_UNCOMMON; }
-    uint8_t     type()        const override { return ITEM_TYPE_CONSUMABLE; }
-    uint8_t     itemId()      const override { return ITEM_ID_RALLY_ALL; }
-    uint8_t     category()    const override { return ITEM_CATEGORY_GENERAL; }
-    std::unique_ptr<Item> clone() const override {
-        return std::make_unique<RallyAll>(*this);
-    }
-    void apply(Hero& hero, int) const override {
-        hero.setAd(hero.ad() + 10);
-    }
-};
-
-class HealWave : public Item {
-public:
-    std::string name()        const override { return "Onda Curativa"; }
-    std::string description() const override { return "Cura 25% da HP maxima de todos aliados"; }
-    int         basePrice()   const override { return 70; }
-    uint8_t     rarity()      const override { return ITEM_RARITY_UNCOMMON; }
-    uint8_t     type()        const override { return ITEM_TYPE_CONSUMABLE; }
-    uint8_t     itemId()      const override { return ITEM_ID_HEAL_WAVE; }
-    uint8_t     category()    const override { return ITEM_CATEGORY_GENERAL; }
-    std::unique_ptr<Item> clone() const override {
-        return std::make_unique<HealWave>(*this);
-    }
-    void apply(Hero& hero, int) const override {
-        hero.healHp(hero.maxHp() * 25 / 100);
-    }
-};
-
-class GoldRush : public Item {
-public:
-    std::string name()        const override { return "Corrida do Ouro"; }
-    std::string description() const override { return "+50 gold bonus no proximo round"; }
-    int         basePrice()   const override { return 40; }
-    uint8_t     rarity()      const override { return ITEM_RARITY_COMMON; }
-    uint8_t     type()        const override { return ITEM_TYPE_CONSUMABLE; }
-    uint8_t     itemId()      const override { return ITEM_ID_GOLD_RUSH; }
-    uint8_t     category()    const override { return ITEM_CATEGORY_GENERAL; }
-    std::unique_ptr<Item> clone() const override {
-        return std::make_unique<GoldRush>(*this);
-    }
-    void apply(Hero&, int) const override {}
-};
-
-// ═════════════════════════════════════════════════════════════════════════════
-//  PricingStrategy (Strategy Pattern)
-// ═════════════════════════════════════════════════════════════════════════════
 
 class PricingStrategy {
 public:
@@ -263,10 +85,6 @@ public:
     int calculate(const Item& item, int round, int surviving, int wins) const override;
 };
 
-// ═════════════════════════════════════════════════════════════════════════════
-//  ItemCatalog (Prototype/Factory Pattern)
-// ═════════════════════════════════════════════════════════════════════════════
-
 class ItemCatalog {
 public:
     ItemCatalog();
@@ -276,16 +94,14 @@ public:
     const Item* getPrototype(uint8_t itemId) const;
 private:
     std::vector<std::unique_ptr<Item>> prototypes_;
+public:
     void registerPrototype(std::unique_ptr<Item> item);
+private:
 };
-
-// ═════════════════════════════════════════════════════════════════════════════
-//  Shop (composição central)
-// ═════════════════════════════════════════════════════════════════════════════
 
 class Shop {
 public:
-    Shop();
+    Shop(const std::vector<ShopItemRecord>& shopRecords);
     void enterShopPhase(int roundNumber, const Trainer& t0, const Trainer& t1);
     bool buy(int pid, int stockIndex, Trainer& buyer, int heroIndex, int slotIndex);
     void refreshStock(int pid);

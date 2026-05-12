@@ -3,23 +3,54 @@
 #include <cstdio>
 #include <algorithm>
 
-// ═════════════════════════════════════════════════════════════════════════════
-//  ItemCatalog
-// ═════════════════════════════════════════════════════════════════════════════
+// ── GenericItem ──
 
-ItemCatalog::ItemCatalog() {
-    registerPrototype(std::make_unique<HealthPotion>());
-    registerPrototype(std::make_unique<StrengthGem>());
-    registerPrototype(std::make_unique<SteelArmor>());
-    registerPrototype(std::make_unique<SpeedScroll>());
-    registerPrototype(std::make_unique<BerserkerElixir>());
-    registerPrototype(std::make_unique<ArcaneOrb>());
-    registerPrototype(std::make_unique<PhoenixFeather>());
-    registerPrototype(std::make_unique<MirrorShield>());
-    registerPrototype(std::make_unique<RallyAll>());
-    registerPrototype(std::make_unique<HealWave>());
-    registerPrototype(std::make_unique<GoldRush>());
+std::unique_ptr<Item> GenericItem::clone() const {
+    return std::make_unique<GenericItem>(record_);
 }
+
+bool GenericItem::canApply(const Hero& hero) const {
+    if (record_.effect_type == "heal_pct" && record_.effect_target == "self")
+        return hero.hp() < hero.maxHp();
+    if (record_.effect_type == "revive")
+        return false;
+    return true;
+}
+
+void GenericItem::doApply(Hero& hero) const {
+    const std::string& eff = record_.effect_type;
+    float val = record_.effect_value;
+
+    if (eff == "heal_pct") {
+        hero.healHp((int)(hero.maxHp() * val));
+    } else if (eff == "buff_ad_flat") {
+        hero.setAd(hero.ad() + (int)val);
+    } else if (eff == "buff_ad_pct") {
+        hero.setAd((int)(hero.ad() * (1.0 + val)));
+    } else if (eff == "buff_arm_flat") {
+        hero.setArm(hero.arm() + (int)val);
+    } else if (eff == "buff_as_pct") {
+        hero.setAsRate(hero.asRate() * (float)(1.0 + val));
+    }
+}
+
+// ── SupplyDemandPricing ──
+
+int SupplyDemandPricing::calculate(const Item& item, int round,
+                                   int surviving, int wins) const {
+    (void)wins;
+    int price = item.basePrice();
+    price += (round / 2) * 5;
+    if (surviving >= 2) price += 10;
+    if (item.type() == ITEM_TYPE_EQUIPMENT) price += 15;
+    if (item.type() == ITEM_TYPE_TEMPORARY) price += 10;
+    if (price < 10) price = 10;
+    return price;
+}
+
+// ── ItemCatalog ──
+
+ItemCatalog::ItemCatalog() {}
 
 void ItemCatalog::registerPrototype(std::unique_ptr<Item> item) {
     prototypes_.push_back(std::move(item));
@@ -62,153 +93,60 @@ ShopItemInfo ItemCatalog::toShopItemInfo(const Item& item, int price) {
     info.rarity   = item.rarity();
     info.price    = (uint8_t)(price < 255 ? price : 255);
     info.category = item.category();
-    std::string n = item.name();
-    int ni = 0;
-    for (; ni < 31 && ni < (int)n.size(); ni++) info.name[ni] = n[ni];
-    info.name[ni] = '\0';
-    std::string d = item.description();
-    int di = 0;
-    for (; di < 63 && di < (int)d.size(); di++) info.desc[di] = d[di];
-    info.desc[di] = '\0';
+    snprintf(info.name, sizeof(info.name), "%s", item.name().c_str());
+    snprintf(info.desc, sizeof(info.desc), "%s", item.description().c_str());
     return info;
 }
 
 const Item* ItemCatalog::getPrototype(uint8_t itemId) const {
-    for (const auto& p : prototypes_) {
+    for (const auto& p : prototypes_)
         if (p->itemId() == itemId) return p.get();
-    }
     return nullptr;
 }
 
-// ═════════════════════════════════════════════════════════════════════════════
-//  SupplyDemandPricing
-// ═════════════════════════════════════════════════════════════════════════════
+// ── Shop ──
 
-int SupplyDemandPricing::calculate(const Item& item, int round,
-                                    int surviving, int wins) const
-{
-    int price = item.basePrice();
-    price += round * 3;
-    price += surviving * 4;
-    price -= wins * 2;
-    switch (item.rarity()) {
-        case ITEM_RARITY_COMMON:   break;
-        case ITEM_RARITY_UNCOMMON: price = price * 115 / 100; break;
-        case ITEM_RARITY_RARE:     price = price * 135 / 100; break;
-        case ITEM_RARITY_EPIC:     price = price * 160 / 100; break;
-    }
-    return price < 5 ? 5 : price;
-}
-
-// ═════════════════════════════════════════════════════════════════════════════
-//  Shop
-// ═════════════════════════════════════════════════════════════════════════════
-
-Shop::Shop()
-    : currentRound_(0), isOpen_(false),
-      pricing_(std::make_unique<SupplyDemandPricing>())
+Shop::Shop(const std::vector<ShopItemRecord>& shopRecords)
+    : currentRound_(0), isOpen_(false)
 {
     gold_[0] = gold_[1] = 0;
     survivingHeroes_[0] = survivingHeroes_[1] = 0;
     wins_[0] = wins_[1] = 0;
     confirmed_[0] = confirmed_[1] = false;
+    pricing_ = std::make_unique<SupplyDemandPricing>();
+
+    for (const auto& rec : shopRecords)
+        catalog_.registerPrototype(std::make_unique<GenericItem>(rec));
 }
 
 void Shop::enterShopPhase(int roundNumber, const Trainer& t0, const Trainer& t1) {
     currentRound_ = roundNumber;
+    isOpen_ = true;
+    confirmed_[0] = confirmed_[1] = false;
+
     survivingHeroes_[0] = countSurviving(t0);
     survivingHeroes_[1] = countSurviving(t1);
     wins_[0] = t0.score();
     wins_[1] = t1.score();
-    isOpen_ = true;
-    confirmed_[0] = confirmed_[1] = false;
 
-    // Gold por jogador: base + performance individual
-    for (int p = 0; p < 2; p++) {
-        int baseGold = 30 + roundNumber * 10;
-        int perfGold = survivingHeroes_[p] * 10;
-        gold_[p] += baseGold + perfGold;
-    }
+    gold_[0] = 60 + roundNumber * 10 + (t0.score() * 15);
+    gold_[1] = 60 + roundNumber * 10 + (t1.score() * 15);
 
-    generateStock(6);
-    printf("[Shop] Round %d — P1 Gold: %d, P2 Gold: %d, Stock: %d items\n",
-           roundNumber, gold_[0], gold_[1], (int)currentStock_.size());
+    currentStock_.clear();
+    generateStock(MAX_SHOP_STOCK);
+
+    printf("[Shop] Round %d — P1 gold=%d, P2 gold=%d\n", roundNumber, gold_[0], gold_[1]);
 }
 
 void Shop::generateStock(int count) {
-    currentStock_.clear();
-    uint8_t maxRar = (currentRound_ < 3) ? (uint8_t)ITEM_RARITY_UNCOMMON
-                   : (currentRound_ < 6) ? (uint8_t)ITEM_RARITY_RARE
-                   : (uint8_t)ITEM_RARITY_EPIC;
-    currentStock_ = catalog_.generateStock(count, maxRar, currentRound_);
-}
+    uint8_t maxRarity = ITEM_RARITY_COMMON;
+    if (currentRound_ >= 3) maxRarity = ITEM_RARITY_UNCOMMON;
+    if (currentRound_ >= 6) maxRarity = ITEM_RARITY_RARE;
+    if (currentRound_ >= 9) maxRarity = ITEM_RARITY_EPIC;
 
-void Shop::refreshStock(int pid) {
-    int cost = 30 + currentRound_ * 5;
-    if (gold_[pid] < cost) {
-        printf("[Shop] P%d Gold insuficiente para refresh (%d)\n", pid, cost);
-        return;
-    }
-    spendGold(pid, cost);
-    generateStock(6);
-    printf("[Shop] P%d deu refresh por %dg\n", pid, cost);
-}
-
-bool Shop::buy(int pid, int stockIndex, Trainer& buyer, int heroIndex, int slotIndex) {
-    if (stockIndex < 0 || stockIndex >= (int)currentStock_.size()) return false;
-    if (!isOpen_) return false;
-
-    Item& item = *currentStock_[stockIndex];
-    int price = calculatePrice(item);
-
-    if (gold_[pid] < price) {
-        printf("[Shop] P%d Gold insuficiente: tem %d, precisa %d\n", pid, gold_[pid], price);
-        return false;
-    }
-
-    if (item.category() == ITEM_CATEGORY_GENERAL) {
-        if (!buyer.addGeneralItem(item.itemId())) {
-            printf("[Shop] Inventario geral cheio!\n");
-            return false;
-        }
-        spendGold(pid, price);
-        removeFromStock(stockIndex);
-        printf("[Shop] P%d comprou item geral: %s por %dg\n",
-               pid, item.name().c_str(), price);
-        return true;
-    }
-
-    // Hero item
-    Hero& hero = buyer.heroAt(heroIndex);
-
-    // Auto-select first empty slot if slotIndex is -1
-    int effSlot = slotIndex;
-    if (effSlot < 0) {
-        for (int s = 0; s < MAX_HERO_ITEMS; s++) {
-            if (hero.itemInSlot(s) == 0xFF) { effSlot = s; break; }
-        }
-        if (effSlot < 0) {
-            printf("[Shop] Nenhum slot vazio no heroi %d\n", heroIndex);
-            return false;
-        }
-    }
-
-    if (hero.itemInSlot(effSlot) != 0xFF) {
-        printf("[Shop] Slot %d ja esta ocupado\n", effSlot);
-        return false;
-    }
-
-    spendGold(pid, price);
-    bool ok = item.use(hero, currentRound_);
-    if (ok) {
-        hero.equipItem(effSlot, item.itemId());
-        printf("[Shop] P%d: %s para heroi %d (slot %d) por %dg\n",
-               pid, item.name().c_str(), heroIndex, effSlot, price);
-    } else {
-        refundGold(pid, price);
-    }
-    removeFromStock(stockIndex);
-    return ok;
+    auto items = catalog_.generateStock(count, maxRarity, currentRound_);
+    for (auto& item : items)
+        currentStock_.push_back(std::move(item));
 }
 
 void Shop::removeFromStock(int idx) {
@@ -222,58 +160,98 @@ const Item* Shop::stockItem(int idx) const {
 }
 
 int Shop::calculatePrice(const Item& item) const {
-    return pricing_->calculate(item, currentRound_,
-                               survivingHeroes_[0] + survivingHeroes_[1],
-                               wins_[0] + wins_[1]);
+    return pricing_->calculate(item, currentRound_, survivingHeroes_[0] + survivingHeroes_[1],
+                                wins_[0] + wins_[1]);
+}
+
+bool Shop::buy(int pid, int stockIndex, Trainer& buyer, int heroIndex, int slotIndex) {
+    if (!isOpen_ || confirmed_[pid]) return false;
+    if (stockIndex < 0 || stockIndex >= (int)currentStock_.size()) return false;
+    if (heroIndex < 0 || heroIndex >= buyer.heroCount()) return false;
+
+    const Item* item = currentStock_[stockIndex].get();
+    if (!item) return false;
+
+    int price = calculatePrice(*item);
+    if (gold_[pid] < price) return false;
+
+    uint8_t cat = item->category();
+    if (cat == ITEM_CATEGORY_HERO) {
+        if (slotIndex < 0) {
+            for (int s = 0; s < MAX_HERO_ITEMS; s++) {
+                if (buyer.heroAt(heroIndex).itemInSlot(s) == 0xFF) {
+                    slotIndex = s;
+                    break;
+                }
+            }
+        }
+        if (slotIndex < 0 || slotIndex >= MAX_HERO_ITEMS) return false;
+        auto purchased = currentStock_[stockIndex]->clone();
+        buyer.heroAt(heroIndex).equipItem(slotIndex, purchased->itemId());
+    } else {
+        buyer.addGeneralItem(item->itemId());
+    }
+
+    spendGold(pid, price);
+    removeFromStock(stockIndex);
+    printf("[Shop] P%d comprou %s por %d gold\n", pid, item->name().c_str(), price);
+    return true;
+}
+
+void Shop::refreshStock(int pid) {
+    if (!isOpen_ || confirmed_[pid]) return;
+    int cost = 5;
+    if (gold_[pid] < cost) return;
+    spendGold(pid, cost);
+    generateStock(1);
+    printf("[Shop] P%d refreshou estoque\n", pid);
 }
 
 bool Shop::confirm(int pid) {
+    if (!isOpen_) return false;
+    if (confirmed_[pid]) return false;
     confirmed_[pid] = true;
     printf("[Shop] P%d confirmou\n", pid);
     if (confirmed_[0] && confirmed_[1]) {
         isOpen_ = false;
-        currentStock_.clear();
-        printf("[Shop] Ambos confirmaram — saindo da loja\n");
+        printf("[Shop] Ambos confirmaram — fase encerrada.\n");
         return true;
     }
     return false;
 }
 
-void Shop::botShop(int pid, Trainer& bot, float) {
-    if (!isOpen_) return;
-    for (int attempt = 0; attempt < 2 && (int)currentStock_.size() > 0; attempt++) {
-        int h = rand() % bot.heroCount();
-        for (int s = 0; s < MAX_HERO_ITEMS; s++) {
-            if (bot.heroAt(h).itemInSlot(s) == 0xFF) {
-                int idx = rand() % (int)currentStock_.size();
-                buy(pid, idx, bot, h, s);
-                break;
-            }
-        }
+int Shop::countSurviving(const Trainer& t) const {
+    int alive = 0;
+    for (int i = 0; i < t.heroCount(); i++)
+        if (t.heroAt(i).alive()) alive++;
+    return alive;
+}
+
+void Shop::botShop(int pid, Trainer& bot, float dt) {
+    (void)dt;
+    if (!isOpen_ || confirmed_[pid]) return;
+    int attempts = 0;
+    while (attempts < 3) {
+        int r = rand() % stockCount();
+        const Item* item = stockItem(r);
+        if (!item) { attempts++; continue; }
+        int hi = rand() % bot.heroCount();
+        if (buy(pid, r, bot, hi, -1)) break;
+        attempts++;
     }
     confirm(pid);
 }
 
 void Shop::buildShopSnapshot(ShopSnapshot& snap) const {
-    for (int p = 0; p < 2; p++) {
-        snap.players[p].gold      = (uint8_t)(gold_[p] < 255 ? gold_[p] : 255);
-        snap.players[p].confirmed = confirmed_[p] ? 1 : 0;
+    for (int i = 0; i < 2; i++) {
+        snap.players[i].gold = (uint8_t)(gold_[i] < 255 ? gold_[i] : 255);
+        snap.players[i].confirmed = confirmed_[i] ? 1 : 0;
     }
-    snap.stockCount = (uint8_t)currentStock_.size();
-    for (int i = 0; i < (int)currentStock_.size() && i < MAX_SHOP_STOCK; i++) {
-        snap.stock[i] = ItemCatalog::toShopItemInfo(
-            *currentStock_[i], calculatePrice(*currentStock_[i]));
+    int sc = stockCount();
+    snap.stockCount = (uint8_t)(sc > MAX_SHOP_STOCK ? MAX_SHOP_STOCK : sc);
+    for (int i = 0; i < snap.stockCount; i++) {
+        const Item* item = stockItem(i);
+        if (item)
+            snap.stock[i] = ItemCatalog::toShopItemInfo(*item, calculatePrice(*item));
     }
-    for (int i = (int)currentStock_.size(); i < MAX_SHOP_STOCK; i++) {
-        ShopItemInfo& si = snap.stock[i];
-        si.itemId = 0xFF; si.itemType = 0xFF; si.rarity = 0xFF; si.price = 0;
-        si.name[0] = '\0'; si.desc[0] = '\0';
-    }
-}
-
-int Shop::countSurviving(const Trainer& t) const {
-    int count = 0;
-    for (int i = 0; i < t.heroCount(); i++)
-        if (t.heroAt(i).alive()) count++;
-    return count;
 }

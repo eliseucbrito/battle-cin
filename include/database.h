@@ -3,7 +3,6 @@
 #include <vector>
 #include <sqlite3.h>
 
-// dados de uma partida salva
 struct MatchRecord {
     int         id;
     std::string winner_name;
@@ -13,19 +12,46 @@ struct MatchRecord {
     std::string played_at;
 };
 
-// dados de um heroi no banco
 struct HeroRecord {
     int         id;
     std::string name;
-    std::string discipline;
+    std::string monologue;
     int         archetype;
+    std::string class_name;
+    int         trainer_id;
     int         hp;
     int         ad;
     int         arm;
     std::string asset_path;
 };
 
-// CRUD — persistencia do Battle-CIn com SQLite
+struct TrainerRecord {
+    int         id;
+    std::string name;
+    std::string discipline;
+    int         ability_type;
+    std::string ability_name;
+    std::string ability_desc;
+    int         color_r, color_g, color_b;
+    std::string portrait_path;
+    std::string card_path;
+};
+
+struct ShopItemRecord {
+    int         id;
+    std::string name;
+    std::string description;
+    int         base_price;
+    int         rarity;
+    int         type;
+    int         category;
+    int         max_rounds;
+    std::string icon_path;
+    std::string effect_type;
+    float       effect_value;
+    std::string effect_target;
+};
+
 class Database {
 private:
     sqlite3*    db_;
@@ -33,7 +59,7 @@ private:
 
     bool execute(const std::string& sql);
     void createTables();
-    void seedHeroes(); // insere os herois no banco se ainda nao tiver nenhum
+    void seedAll();
 
 public:
     explicit Database(const std::string& path = "battle_cin.db");
@@ -54,8 +80,13 @@ public:
     struct RankEntry { std::string name; int wins; int losses; };
     std::vector<RankEntry> getRanking();
 
-    std::vector<HeroRecord> getAllHeroes();
+    std::vector<HeroRecord>    getAllHeroes();
+    std::vector<TrainerRecord> getAllTrainers();
+    std::vector<ShopItemRecord> getAllShopItems();
+
     HeroRecord getHeroById(int id);
+    TrainerRecord getTrainerById(int id);
+    ShopItemRecord getShopItemById(int id);
 
     // UPDATE
     bool updateHeroStats(int id, int hp, int ad, int arm);
