@@ -50,8 +50,7 @@ int main(int argc, char *argv[])
 
     bool soloMode = (argc >= 2 && strcmp(argv[1], "--solo") == 0);
 
-    SetConfigFlags(FLAG_WINDOW_RESIZABLE);
-    InitWindow(1280, 720, "Battle-CIn");
+    InitWindow(936, 684, "Battle-CIn");
     SetTargetFPS(60);
 
     Game game;
@@ -107,8 +106,6 @@ int main(int argc, char *argv[])
         // ════════════════════════════════════════════════════════════════════
         //  INPUT
         // ════════════════════════════════════════════════════════════════════
-
-        if (IsKeyPressed(KEY_F11)) ToggleFullscreen();
 
         if (snap.phase == PHASE_SELECT) {
             if (snap.selectSubphase == 0) {
@@ -333,41 +330,13 @@ int main(int argc, char *argv[])
                  snap.phase == PHASE_ROUND_END ||
                  snap.phase == PHASE_MATCH_END)
         {
-            // Draw arena centered, preserving original aspect ratio (1201/880)
-            float arenaAspect = (float)arena.width / (float)arena.height;
             float sw = (float)GetScreenWidth();
             float sh = (float)GetScreenHeight();
-            float destW, destH, destX, destY;
-            float screenAspect = sw / sh;
-            if (screenAspect > arenaAspect) {
-                // Screen is wider: fit to height
-                destH = sh;
-                destW = destH * arenaAspect;
-            } else {
-                // Screen is taller: fit to width
-                destW = sw;
-                destH = destW / arenaAspect;
-            }
-            destX = (sw - destW) * 0.5f;
-            destY = (sh - destH) * 0.5f;
+
+            // Arena fills the entire window (stretched to align with fixed grid)
             DrawTexturePro(arena,
                 {0, 0, (float)arena.width, (float)arena.height},
-                {destX, destY, destW, destH}, {}, 0.f, WHITE);
-
-            // Cover sides and bottom with dark background so arena doesn't show through panels
-            float gridRight = g_layout.gridX + g_layout.gridW;
-            float gridBottom = g_layout.gridY + g_layout.gridH;
-            Color bg = {8, 8, 18, 255};
-            // Left of grid
-            if (g_layout.gridX > 0)
-                DrawRectangle(0, 0, (int)g_layout.gridX, (int)sh, bg);
-            // Right of grid
-            if (gridRight < sw)
-                DrawRectangle((int)gridRight, 0, (int)(sw - gridRight), (int)sh, bg);
-            // Below grid (cards area)
-            if (gridBottom < g_layout.cardsY)
-                DrawRectangle((int)g_layout.gridX, (int)gridBottom,
-                              (int)g_layout.gridW, (int)(g_layout.cardsY - gridBottom), bg);
+                {0, 0, sw, sh}, {}, 0.f, WHITE);
 
             drawBuffZones(snap);
             drawGrid();

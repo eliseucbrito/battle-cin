@@ -15,58 +15,30 @@ Layout computeLayout() {
     l.screenW = (float)GetScreenWidth();
     l.screenH = (float)GetScreenHeight();
 
-    // Minimum screen size enforcement
-    if (l.screenW < 1200.f) l.screenW = 1200.f;
-    if (l.screenH < 675.f)  l.screenH = 675.f;
-
-    // Grid size: 60% of width or 70% of height, whichever is smaller
-    // This ensures the grid is large but leaves room for panels and cards
-    float gridW = l.screenW * 0.60f;
-    float gridH = l.screenH * 0.70f;
-    float gridSize = fminf(gridW, gridH);
-    if (gridSize < 480.f) gridSize = 480.f;
-
-    l.gridW = gridSize;
-    l.gridH = gridSize;
-
-    // Center horizontally
-    l.gridX = (l.screenW - gridSize) * 0.5f;
-
-    // Vertical position: leave room for cards at bottom
-    float targetCardH = l.screenH * 0.18f;
-    if (targetCardH < 130.f) targetCardH = 130.f;
-    l.bottomCardsH = targetCardH;
-
-    float availTopH = l.screenH - gridSize - targetCardH;
-    if (availTopH < 30.f) availTopH = 30.f;
-    l.gridY = availTopH * 0.5f;
-    if (l.gridY < 20.f) l.gridY = 20.f;
-
-    // Safety check: ensure grid + cards fit
-    if (l.gridY + gridSize + targetCardH > l.screenH) {
-        l.gridY = l.screenH - gridSize - targetCardH - 5.f;
-    }
-
+    // Grid is fixed to align with arena.png slots
+    l.gridX = 218.f;
+    l.gridY = 92.f;
+    l.gridW = 500.f;
+    l.gridH = 500.f;
     l.cellW = l.gridW / GRID_COLS;
     l.cellH = l.gridH / GRID_ROWS;
 
-    // Side panels: fill the entire horizontal gap from screen edge to grid edge
+    // Side panels as floating overlays around the fixed grid
     l.leftPanelX = 0;
     l.leftPanelW = l.gridX;
-    l.rightPanelX = l.gridX + gridSize;
-    l.rightPanelW = l.screenW - (l.gridX + gridSize);
-    l.sidePanelW = l.gridX;
+    l.rightPanelX = l.gridX + l.gridW;
+    l.rightPanelW = l.screenW - l.rightPanelX;
+    l.sidePanelW = l.leftPanelW;
 
-    // Top bar area
-    l.topBarH = l.gridY;
-
-    // Cards area
-    l.cardsY = l.gridY + gridSize + 6.f;
+    // Cards overlay at the bottom
     float cardGap = 6.f;
+    l.cardsY = l.gridY + l.gridH + 8.f;
+    l.bottomCardsH = l.screenH - l.cardsY;
+    if (l.bottomCardsH < 80.f) l.bottomCardsH = 80.f;
     l.cardW = fminf(170.f, (l.screenW * 0.5f - 4.f * cardGap) / 3.f);
-    l.cardH = fminf(110.f, l.bottomCardsH - 16.f);
+    l.cardH = fminf(90.f, l.bottomCardsH - 16.f);
 
-    // Controls hints
+    l.topBarH = l.gridY;
     l.trainerAbilityBtnY = l.screenH - 24.f;
     l.controlsHintY = l.screenH - 20.f;
 
@@ -75,8 +47,7 @@ Layout computeLayout() {
 
 void applyLayout(const Layout& l) {
     g_layout = l;
-    GX = l.gridX; GY = l.gridY; GW = l.gridW; GH = l.gridH;
-    CELLW = l.cellW; CELLH = l.cellH;
+    // GX, GY, GW, GH, CELLW, CELLH remain fixed constants
 }
 
 static const Color kPlayerColor[2] = { BLUE, RED };
@@ -1049,8 +1020,8 @@ void drawHeroCards(const GameSnapshot& snap, int myId) {
     };
     static Color kTint[2] = { {80,160,230,255}, {230,80,80,255} };
 
-    // Bottom strip background
-    DrawRectangle(0, (int)cardsY - 4, (int)sw, (int)(sh - cardsY + 4), {8, 8, 18, 255});
+    // Bottom strip background (semi-transparent overlay)
+    DrawRectangle(0, (int)cardsY - 4, (int)sw, (int)(sh - cardsY + 4), {8, 8, 18, 210});
 
     for (int player = 0; player < 2; player++) {
         float halfW = (sw - 2.f * g_layout.sidePanelW) * 0.5f;
@@ -1082,8 +1053,8 @@ void drawHeroCards(const GameSnapshot& snap, int myId) {
             if (localHeroes[h] < 0) continue;
             const HeroNetState& hs = snap.heroes[localHeroes[h]];
 
-            Color cardBg = {22, 22, 40, 255};
-            if (!hs.alive) cardBg = {16, 16, 30, 255};
+            Color cardBg = {22, 22, 40, 230};
+            if (!hs.alive) cardBg = {16, 16, 30, 210};
             DrawRectangleRounded({cx, cy, cardW, cardH}, 0.06f, 6, cardBg);
             DrawRectangleRoundedLines({cx, cy, cardW, cardH}, 0.06f, 6, pCol);
 
@@ -1207,7 +1178,7 @@ void drawSidePanels(const GameSnapshot& snap, int myId) {
         float px = player == 0 ? g_layout.leftPanelX : g_layout.rightPanelX;
         float panelW = player == 0 ? g_layout.leftPanelW : g_layout.rightPanelW;
         Color pCol = player == 0 ? Color{80,150,255,255} : Color{255,100,80,255};
-        Color bg = {8, 8, 18, 255};
+        Color bg = {8, 8, 18, 210};
 
         DrawRectangle((int)px, (int)topY, (int)panelW, (int)panelH, bg);
         DrawRectangleLinesEx({px, topY, panelW, panelH}, 2, pCol);
@@ -1220,10 +1191,11 @@ void drawSidePanels(const GameSnapshot& snap, int myId) {
 
         uint8_t tId = snap.trainers[player].trainerId;
         if (tId < N_TRAINERS && trainerTextures[tId].id != 0) {
-            float ps = panelW - 16.f;
+            float ps = fminf(panelW - 16.f, 120.f);
+            float psX = px + (panelW - ps) * 0.5f;
             DrawTexturePro(trainerTextures[tId],
                 {0, 0, (float)trainerTextures[tId].width, (float)trainerTextures[tId].height},
-                {px + 8.f, cy, ps, ps}, {0, 0}, 0.f, WHITE);
+                {psX, cy, ps, ps}, {0, 0}, 0.f, WHITE);
             cy += ps + 6.f;
         }
 
@@ -1250,7 +1222,7 @@ void drawSidePanels(const GameSnapshot& snap, int myId) {
         DrawText("ITENS", (int)(px + 6), (int)cy, 11, {160, 160, 190, 255});
         cy += 16.f;
 
-        float slotSize = 32.f, slotGap = 4.f;
+        float slotSize = fminf(32.f, (panelW - 12.f - 3.f * 4.f) / 4.f), slotGap = 4.f;
         int anyItems = 0;
         for (int i = 0; i < snap.heroCount; i++) {
             if (snap.heroes[i].ownerId != (uint8_t)player) continue;
