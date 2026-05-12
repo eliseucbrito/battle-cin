@@ -3,7 +3,25 @@
 #include "../../include/protocol.h"
 #include <vector>
 
-extern const float GX, GY, GW, GH, CELLW, CELLH;
+struct Layout {
+    float screenW, screenH;
+    float topBarH;
+    float bottomCardsH;
+    float sidePanelW;
+    float gridX, gridY, gridW, gridH;
+    float cellW, cellH;
+    float cardsY, cardW, cardH;
+    float leftPanelX, leftPanelW;
+    float rightPanelX, rightPanelW;
+    float trainerAbilityBtnY;
+    float controlsHintY;
+};
+
+Layout computeLayout();
+void  applyLayout(const Layout& l);
+
+extern Layout  g_layout;
+extern float   GX, GY, GW, GH, CELLW, CELLH;
 
 struct TrainerDef {
     const char* name;
@@ -76,15 +94,48 @@ void spawnDeathEffect(Vector2 pos);
 void spawnUltimateEffect(Vector2 pos);
 void updateAndDrawVisualEffects(float dt);
 
-void spawnAttackAnim(Vector2 from, Vector2 to);
-void updateAndDrawAttackAnims(float dt);
 
-void spawnProjectile(Vector2 from, Vector2 to, uint8_t archetype);
-void updateAndDrawProjectiles(float dt);
 
 void spawnHitFlash(Vector2 pos);
 void updateAndDrawHitFlashes(float dt);
 
+// ═════════════════════════════════════════════════════════════════════════════
+//  SPRITE SHEET FX SYSTEM
+// ═════════════════════════════════════════════════════════════════════════════
+
+struct SpriteSheet {
+    Texture2D texture;
+    int cols;
+    int rows;
+    int frameWidth;
+    int frameHeight;
+};
+
+struct FxAnim {
+    Vector2 from;
+    Vector2 to;
+    Vector2 pos;
+    int     sheetIndex;
+    int     spriteRow;
+    int     currentFrame;
+    float   frameTimer;
+    float   frameDuration;
+    float   travelTimer;
+    float   travelDuration;
+    float   rotation;      // ângulo em graus para apontar na direção do alvo
+    bool    isTraveling;
+    bool    isExploding;
+};
+
+void initFxSystem();
+void shutdownFxSystem();
+void spawnRangedFx(Vector2 from, Vector2 to, uint8_t archetype);
+void spawnMeleeFx(Vector2 from, Vector2 to, uint8_t archetype);
+void updateAndDrawFxAnims(float dt);
+
 void drawTargetArrow(Vector2 from, Vector2 to);
 void drawTargetHighlight(Vector2 pos, float radius, Color color);
 void drawAdjacentEnemyHighlights(const GameSnapshot& snap, int myId, int heroIdx);
+
+void drawHeroCards(const GameSnapshot& snap, int myId);
+void drawSidePanels(const GameSnapshot& snap, int myId);

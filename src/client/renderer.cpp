@@ -4,9 +4,52 @@
 #include <algorithm>
 #include <math.h>
 
-const float GX = 218.f, GY = 92.f, GW = 500.f, GH = 500.f;
-const float CELLW = GW / GRID_COLS;
-const float CELLH = GH / GRID_ROWS;
+float GX = 218.f, GY = 92.f, GW = 500.f, GH = 500.f;
+float CELLW = GW / GRID_COLS;
+float CELLH = GH / GRID_ROWS;
+
+Layout g_layout = {};
+
+Layout computeLayout() {
+    Layout l;
+    l.screenW = (float)GetScreenWidth();
+    l.screenH = (float)GetScreenHeight();
+
+    float margin = 8.f;
+    float gridSize = fminf(l.screenW * 0.55f, l.screenH * 0.78f);
+
+    l.gridW = gridSize;
+    l.gridH = gridSize;
+    l.gridX = (l.screenW - gridSize) * 0.5f;
+    l.gridY = (l.screenH - gridSize) * 0.5f;
+    l.cellW = l.gridW / GRID_COLS;
+    l.cellH = l.gridH / GRID_ROWS;
+
+    l.topBarH = 72.f;
+    l.bottomCardsH = 148.f;
+    l.sidePanelW = 180.f;
+
+    float cardGap = 10.f;
+    l.cardW = fminf(195.f, (l.screenW * 0.5f - 4.f * margin - 2.f * cardGap) / 3.f);
+    l.cardH = fminf(130.f, l.bottomCardsH - 3.f * margin);
+    l.cardsY = l.screenH - l.bottomCardsH + margin;
+
+    l.leftPanelX = margin;
+    l.leftPanelW = l.sidePanelW - 2.f * margin;
+    l.rightPanelX = l.screenW - l.sidePanelW + margin;
+    l.rightPanelW = l.leftPanelW;
+
+    l.trainerAbilityBtnY = l.screenH - 44.f;
+    l.controlsHintY = l.screenH - 38.f;
+
+    return l;
+}
+
+void applyLayout(const Layout& l) {
+    g_layout = l;
+    GX = l.gridX; GY = l.gridY; GW = l.gridW; GH = l.gridH;
+    CELLW = l.cellW; CELLH = l.cellH;
+}
 
 static const Color kPlayerColor[2] = { BLUE, RED };
 static const Color kP1Color = {80, 150, 255, 255};
@@ -14,6 +57,19 @@ static const Color kP2Color = {255, 100, 80, 255};
 static Texture2D trainerTextures[N_TRAINERS];
 static Texture2D heroTextures[N_HEROES];
 static bool texturesLoaded = false;
+
+static const int MAX_FX_SHEETS = 8;
+static SpriteSheet fxSheets[MAX_FX_SHEETS];
+static int fxSheetCount = 0;
+static std::vector<FxAnim> fxAnims;
+
+static constexpr int ARCHETYPE_FX_ROW[5] = {
+    0,  // TANK     → Vermelho/Laranja
+    2,  // FIGHTER  → Azul
+    1,  // MAGE     → Roxo
+    3,  // ASSASSIN → Verde
+    4   // SUPPORT  → Dourado
+};
 
 void loadTextures() {
     if (texturesLoaded) return;
@@ -120,6 +176,9 @@ void drawHUD(const GameSnapshot& snap, int myId) {
     loadTextures();
     (void)myId;
 
+    float sw = g_layout.screenW;
+    float midX = sw * 0.5f;
+
     float pSize = 80.f;
     uint8_t tId0 = snap.trainers[0].trainerId;
     uint8_t tId1 = snap.trainers[1].trainerId;
@@ -127,45 +186,48 @@ void drawHUD(const GameSnapshot& snap, int myId) {
         DrawTexturePro(trainerTextures[tId0], {0,0,(float)trainerTextures[tId0].width, (float)trainerTextures[tId0].height}, {10,10,pSize,pSize}, {0,0}, 0.f, WHITE);
     }
     if (tId1 < N_TRAINERS && trainerTextures[tId1].id != 0) {
-        DrawTexturePro(trainerTextures[tId1], {0,0,(float)trainerTextures[tId1].width, (float)trainerTextures[tId1].height}, {936 - pSize - 10,10,pSize,pSize}, {0,0}, 0.f, WHITE);
+        DrawTexturePro(trainerTextures[tId1], {0,0,(float)trainerTextures[tId1].width, (float)trainerTextures[tId1].height}, {sw - pSize - 10,10,pSize,pSize}, {0,0}, 0.f, WHITE);
     }
 
     char s0[32], s1[32];
     snprintf(s0, sizeof(s0), "P0: %d", snap.trainers[0].score);
     snprintf(s1, sizeof(s1), "P1: %d", snap.trainers[1].score);
     DrawText(s0, 100, 20, 24, BLUE);
-    DrawText(s1, 936 - MeasureText(s1, 24) - 100, 20, 24, RED);
+    DrawText(s1, (int)(sw - MeasureText(s1, 24) - 100), 20, 24, RED);
 
     if (snap.phase == PHASE_POSITIONING || snap.phase == PHASE_BATTLE) {
         char t[16]; snprintf(t, sizeof(t), "%ds", snap.timer);
-        DrawText(t, 468 - MeasureText(t, 28)/2, 20, 28, GOLD);
+        DrawText(t, (int)(midX - MeasureText(t, 28) * 0.5f), 20, 28, GOLD);
     }
 
     if (snap.trainers[0].abilityReady || snap.trainers[1].abilityReady) {
         const char* msg = "P1: Q  |  P2: E  = Poder do Treinador";
-        DrawText(msg, 468 - MeasureText(msg, 20)/2, 640, 20, YELLOW);
+        DrawText(msg, (int)(midX - MeasureText(msg, 20) * 0.5f), (int)g_layout.trainerAbilityBtnY, 20, YELLOW);
     }
 
     if (snap.phase == PHASE_POSITIONING) {
         const char* hint = "P1: 1/2/3 heroi  |  WASD mover  |  Space posicionar     |     P2: Numpad 1/2/3 heroi  |  Setas mover  |  Enter posicionar";
         int hw = MeasureText(hint, 18);
-        DrawRectangle(468 - hw/2 - 6, 604, hw + 12, 30, {0,0,0,200});
-        DrawText(hint, 468 - hw/2, 610, 18, SKYBLUE);
+        DrawRectangle((int)(midX - hw * 0.5f - 6), (int)(g_layout.controlsHintY - 6), hw + 12, 30, {0,0,0,200});
+        DrawText(hint, (int)(midX - hw * 0.5f), (int)g_layout.controlsHintY, 18, SKYBLUE);
     }
 }
 
 void drawOverlays(const GameSnapshot& snap, int myId) {
     (void)myId;
+    float sw = g_layout.screenW, sh = g_layout.screenH;
+    float midX = sw * 0.5f;
     if (snap.phase == PHASE_ROUND_END) {
-        DrawRectangle(0, 0, 936, 684, {0, 0, 0, 100});
+        DrawRectangle(0, 0, (int)sw, (int)sh, {0, 0, 0, 100});
         const char* msg = (snap.roundWinner == 0) ? "PONTO PARA P1!" : (snap.roundWinner == 1 ? "PONTO PARA P2!" : "EMPATE!");
-        DrawText(msg, 468 - MeasureText(msg, 40)/2, 300, 40, snap.roundWinner == 0 ? BLUE : RED);
+        DrawText(msg, (int)(midX - MeasureText(msg, 40) * 0.5f), (int)(sh * 0.44f), 40, snap.roundWinner == 0 ? BLUE : RED);
     }
     if (snap.phase == PHASE_MATCH_END) {
-        DrawRectangle(0, 0, 936, 684, {0, 0, 0, 200});
+        DrawRectangle(0, 0, (int)sw, (int)sh, {0, 0, 0, 200});
         const char* res = (snap.matchWinner == 0) ? "P1 VENCEU!" : "P2 VENCEU!";
-        DrawText(res, 468 - MeasureText(res, 60)/2, 300, 60, GOLD);
-        DrawText("Feche o jogo para reiniciar", 468 - MeasureText("Feche o jogo para reiniciar", 20)/2, 400, 20, LIGHTGRAY);
+        DrawText(res, (int)(midX - MeasureText(res, 60) * 0.5f), (int)(sh * 0.44f), 60, GOLD);
+        const char* restart = "Feche o jogo para reiniciar";
+        DrawText(restart, (int)(midX - MeasureText(restart, 20) * 0.5f), (int)(sh * 0.58f), 20, LIGHTGRAY);
     }
 }
 
@@ -173,8 +235,11 @@ void drawVSScreen(const GameSnapshot& snap, int myId) {
     loadTextures();
     (void)myId;
 
+    float sw = g_layout.screenW, sh = g_layout.screenH;
+    float midX = sw * 0.5f;
+
     ClearBackground({12, 12, 26, 255});
-    DrawRectangle(0, 0, 936, 684, {0, 0, 0, 80});
+    DrawRectangle(0, 0, (int)sw, (int)sh, {0, 0, 0, 80});
 
     static const Color kTint[2] = { {80, 160, 230, 255}, {230, 80, 80, 255} };
 
@@ -256,19 +321,19 @@ void drawVSScreen(const GameSnapshot& snap, int myId) {
         }
     };
 
-    drawSide(0, 234.f, 0);
-    drawSide(1, 702.f, 1);
+    drawSide(0, sw * 0.25f, 0);
+    drawSide(1, sw * 0.75f, 1);
 
-    DrawText("VS", 468 - MeasureText("VS", 72)/2, 150, 72, GOLD);
+    DrawText("VS", (int)(midX - MeasureText("VS", 72) * 0.5f), (int)(sh * 0.22f), 72, GOLD);
 
     if (snap.phase == PHASE_VS_INTRO) {
         char timerStr[16];
         snprintf(timerStr, sizeof(timerStr), "%d", snap.timer);
-        DrawText(timerStr, 468 - MeasureText(timerStr, 48)/2, 580, 48, {255, 255, 255, 180});
+        DrawText(timerStr, (int)(midX - MeasureText(timerStr, 48) * 0.5f), (int)(sh * 0.85f), 48, {255, 255, 255, 180});
     }
 
     const char* hint = "Preparando arena...";
-    DrawText(hint, 468 - MeasureText(hint, 18)/2, 640, 18, {255, 255, 255, 120});
+    DrawText(hint, (int)(midX - MeasureText(hint, 18) * 0.5f), (int)(sh * 0.94f), 18, {255, 255, 255, 120});
 }
 
 void unloadTextures() {
@@ -279,7 +344,133 @@ void unloadTextures() {
     for (int i = 0; i < N_HEROES; i++) {
         if (heroTextures[i].id != 0) UnloadTexture(heroTextures[i]);
     }
+    shutdownFxSystem();
     texturesLoaded = false;
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  SPRITE SHEET FX SYSTEM
+// ═════════════════════════════════════════════════════════════════════════════
+
+static SpriteSheet loadSpriteSheet(const char* path, int cols, int rows) {
+    SpriteSheet s;
+    s.texture = LoadTexture(path);
+    s.cols = cols;
+    s.rows = rows;
+    s.frameWidth  = s.texture.width  / cols;
+    s.frameHeight = s.texture.height / rows;
+    return s;
+}
+
+static Rectangle getFrameRect(const SpriteSheet& s, int frame, int row) {
+    return {
+        (float)(frame % s.cols) * s.frameWidth,
+        (float)(row % s.rows)    * s.frameHeight,
+        (float)s.frameWidth,
+        (float)s.frameHeight
+    };
+}
+
+void initFxSystem() {
+    fxSheets[0] = loadSpriteSheet("assets/fx/attack_05.png", 14, 9);
+    fxSheetCount = 1;
+}
+
+void shutdownFxSystem() {
+    for (int i = 0; i < fxSheetCount; i++) {
+        if (fxSheets[i].texture.id != 0) {
+            UnloadTexture(fxSheets[i].texture);
+            fxSheets[i].texture = Texture2D{};
+        }
+    }
+    fxSheetCount = 0;
+    fxAnims.clear();
+}
+
+static void spawnFx(Vector2 from, Vector2 to, uint8_t archetype, float travelDur) {
+    FxAnim fx;
+    fx.from           = from;
+    fx.to             = to;
+    fx.pos            = from;
+    fx.sheetIndex     = 0;
+    fx.spriteRow      = ARCHETYPE_FX_ROW[archetype % 5];
+    fx.currentFrame   = 0;
+    fx.frameTimer     = 0.f;
+    fx.frameDuration  = 0.03f;
+    fx.travelTimer    = 0.f;
+    fx.travelDuration = travelDur;
+    fx.isTraveling    = true;
+    fx.isExploding    = false;
+
+    // Calcula o ângulo de direção do ataque (em graus)
+    float dx = to.x - from.x;
+    float dy = to.y - from.y;
+    fx.rotation = atan2f(dy, dx) * RAD2DEG;
+
+    fxAnims.push_back(fx);
+}
+
+void spawnRangedFx(Vector2 from, Vector2 to, uint8_t archetype) {
+    spawnFx(from, to, archetype, 0.30f);
+}
+
+void spawnMeleeFx(Vector2 from, Vector2 to, uint8_t archetype) {
+    spawnFx(from, to, archetype, 0.15f);
+}
+
+void updateAndDrawFxAnims(float dt) {
+    for (int i = (int)fxAnims.size() - 1; i >= 0; i--) {
+        FxAnim& fx = fxAnims[i];
+        fx.frameTimer += dt;
+
+        // Avança frame
+        if (fx.frameTimer >= fx.frameDuration) {
+            fx.frameTimer -= fx.frameDuration;
+            fx.currentFrame++;
+        }
+
+        if (fx.isTraveling) {
+            // Fase de viagem: move de A → B e loopa frames
+            fx.travelTimer += dt;
+            float t = fminf(1.f, fx.travelTimer / fx.travelDuration);
+            fx.pos.x = fx.from.x + (fx.to.x - fx.from.x) * t;
+            fx.pos.y = fx.from.y + (fx.to.y - fx.from.y) * t;
+
+            const SpriteSheet& sheet = fxSheets[fx.sheetIndex];
+            if (fx.currentFrame >= sheet.cols) {
+                fx.currentFrame = 0; // loop durante viagem
+            }
+
+            // Chegou no alvo → troca para explosão
+            if (t >= 1.f) {
+                fx.isTraveling = false;
+                fx.isExploding = true;
+                fx.currentFrame = 0;
+                fx.frameTimer = 0.f;
+            }
+        } else if (fx.isExploding) {
+            // Fase de explosão: fixo no alvo, toca frames sem loop
+            fx.pos = fx.to;
+            const SpriteSheet& sheet = fxSheets[fx.sheetIndex];
+            if (fx.currentFrame >= sheet.cols) {
+                fxAnims.erase(fxAnims.begin() + i);
+                continue;
+            }
+        }
+
+        // Draw
+        const SpriteSheet& sheet = fxSheets[fx.sheetIndex];
+        Rectangle src = getFrameRect(sheet, fx.currentFrame, fx.spriteRow);
+        float spriteSize = CELLW * 0.8f;
+        Rectangle dst = {
+            fx.pos.x - spriteSize * 0.5f,
+            fx.pos.y - spriteSize * 0.5f,
+            spriteSize,
+            spriteSize
+        };
+        Vector2 origin = { spriteSize * 0.5f, spriteSize * 0.5f };
+        DrawTexturePro(sheet.texture, src, dst, origin, fx.rotation, WHITE);
+    }
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -380,99 +571,6 @@ void updateAndDrawVisualEffects(float dt) {
                 };
                 DrawLineV(ve.pos, end, c);
             }
-        }
-    }
-}
-
-// ═════════════════════════════════════════════════════════════════════════════
-//  MELEE ATTACK ANIMATIONS
-// ═════════════════════════════════════════════════════════════════════════════
-
-struct AttackAnim {
-    Vector2 from;
-    Vector2 to;
-    Vector2 start;
-    Vector2 end;
-    float   timer;
-    float   maxTimer;
-};
-
-static std::vector<AttackAnim> attackAnims;
-
-void spawnAttackAnim(Vector2 from, Vector2 to) {
-    attackAnims.push_back({ from, to, from, to, 0.16f, 0.16f });
-}
-
-void updateAndDrawAttackAnims(float dt) {
-    for (int i = (int)attackAnims.size() - 1; i >= 0; i--) {
-        AttackAnim& a = attackAnims[i];
-        a.timer -= dt;
-        if (a.timer <= 0.f) {
-            attackAnims.erase(attackAnims.begin() + i);
-            continue;
-        }
-        float t = 1.f - (a.timer / a.maxTimer);
-        float phase = (t < 0.5f) ? t * 2.f : 2.f * (1.f - t);
-        Vector2 pos = {
-            a.from.x + (a.to.x - a.from.x) * phase * 0.3f,
-            a.from.y + (a.to.y - a.from.y) * phase * 0.3f
-        };
-        float alpha = (t < 0.5f) ? 1.f : 1.f - (t - 0.5f) * 2.f;
-        Color c = {255, 220, 100, (unsigned char)(255.f * alpha)};
-        DrawCircleV(pos, 6.f, c);
-        if (phase > 0.01f) {
-            Color lineC = {255, 200, 80, (unsigned char)(180.f * alpha)};
-            DrawLineEx(a.from, pos, 2.f, lineC);
-        }
-    }
-}
-
-// ═════════════════════════════════════════════════════════════════════════════
-//  RANGED PROJECTILES
-// ═════════════════════════════════════════════════════════════════════════════
-
-struct Projectile {
-    Vector2 from;
-    Vector2 to;
-    float   timer;
-    float   maxTimer;
-    uint8_t archetype;
-};
-
-static std::vector<Projectile> projectiles;
-
-void spawnProjectile(Vector2 from, Vector2 to, uint8_t archetype) {
-    projectiles.push_back({ from, to, 0.3f, 0.3f, archetype });
-}
-
-void updateAndDrawProjectiles(float dt) {
-    for (int i = (int)projectiles.size() - 1; i >= 0; i--) {
-        Projectile& p = projectiles[i];
-        p.timer -= dt;
-        if (p.timer <= 0.f) {
-            projectiles.erase(projectiles.begin() + i);
-            continue;
-        }
-        float t = 1.f - (p.timer / p.maxTimer);
-        Vector2 pos = {
-            p.from.x + (p.to.x - p.from.x) * t,
-            p.from.y + (p.to.y - p.from.y) * t
-        };
-        float alpha = 1.f;
-        Color c;
-        if (p.archetype == ARCHETYPE_MAGE) {
-            c = {160, 80, 255, (unsigned char)(255.f * alpha)};
-        } else {
-            c = {80, 220, 130, (unsigned char)(255.f * alpha)};
-        }
-        Color trailC = c; trailC.a = (unsigned char)(100.f * (1.f - t));
-        DrawLineEx(p.from, pos, 2.f, trailC);
-        DrawCircleV(pos, 5.f, c);
-        DrawCircleLinesV(pos, 5.f, WHITE);
-        if (t > 0.8f) {
-            float flash = (t - 0.8f) / 0.2f;
-            Color flashC = WHITE; flashC.a = (unsigned char)(200.f * (1.f - flash));
-            DrawCircleV(p.to, 8.f * flash, flashC);
         }
     }
 }
@@ -611,16 +709,16 @@ void drawTrainerSelectMK(const GameSnapshot& snap,
                          const PlayerInput& p1, const PlayerInput& p2)
 {
     static const Color BG   = {12,12,26,220};
-    DrawRectangle(0, 0, 936, 684, BG);
+    float sw = g_layout.screenW, sh = g_layout.screenH;
+    float midX = sw * 0.5f;
+    DrawRectangle(0, 0, (int)sw, (int)sh, BG);
 
-    // Title
     const char* title = "SELECIONE SEU TREINADOR";
-    DrawText(title, (936 - MeasureText(title, 28))/2, 12, 28, WHITE);
+    DrawText(title, (int)(midX - MeasureText(title, 28) * 0.5f), 12, 28, WHITE);
 
-    // Timer
     char timerStr[32];
     snprintf(timerStr, sizeof(timerStr), "%.1f", snap.selectTimer);
-    DrawText(timerStr, 468 - MeasureText(timerStr, 36)/2, 48, 36, GOLD);
+    DrawText(timerStr, (int)(midX - MeasureText(timerStr, 36) * 0.5f), 48, 36, GOLD);
 
     // Left portrait (P1)
     {
@@ -646,7 +744,7 @@ void drawTrainerSelectMK(const GameSnapshot& snap,
 
     // Right portrait (P2)
     {
-        float px = 936 - 40 - 180.f, py = 100.f, pSize = 180.f;
+        float px = sw - 40 - 180.f, py = 100.f, pSize = 180.f;
         int tIdx = p2.trainerLocked >= 0 ? p2.trainerLocked : p2.trainerCursor;
         if (tIdx < nT && selTrainerTex && selTrainerTex[tIdx].id) {
             DrawTexturePro(selTrainerTex[tIdx],
@@ -669,7 +767,7 @@ void drawTrainerSelectMK(const GameSnapshot& snap,
     // Trainer cards at bottom
     const float CW = 188.f, CH = 200.f, PAD = 16.f;
     float totalW = nT * CW + (nT-1) * PAD;
-    float startX = (936.f - totalW) / 2.f;
+    float startX = (sw - totalW) / 2.f;
     float startY = 400.f;
 
     for (int i = 0; i < nT; i++) {
@@ -720,7 +818,7 @@ void drawTrainerSelectMK(const GameSnapshot& snap,
     // Controls
     float cy = startY + CH + 16.f;
     const char* ctrlHint = "P1: A / D + Space    |    P2: ← → + Enter";
-    DrawText(ctrlHint, (int)(468 - MeasureText(ctrlHint, 16)/2), (int)cy, 16, {160,160,190,255});
+    DrawText(ctrlHint, (int)(midX - MeasureText(ctrlHint, 16) * 0.5f), (int)cy, 16, {160,160,190,255});
 }
 
 // ── drawHeroSelectMK ─────────────────────────────────────────────────────────
@@ -732,23 +830,26 @@ void drawHeroSelectMK(const GameSnapshot& snap,
 {
     (void)trainers;
     static const Color BG = {12,12,26,180};
-    DrawRectangle(0, 0, 936, 684, BG);
+    float sw = g_layout.screenW, sh = g_layout.screenH;
+    float midX = sw * 0.5f;
+    DrawRectangle(0, 0, (int)sw, (int)sh, BG);
 
-    // Timer
     char timerStr[32];
     snprintf(timerStr, sizeof(timerStr), "Escolha 3 Herois  —  %.1f", snap.selectTimer);
     int tw = MeasureText(timerStr, 24);
-    DrawRectangle(468 - tw/2 - 8, 6, tw + 16, 36, {0,0,0,160});
-    DrawText(timerStr, 468 - tw/2, 12, 24, GOLD);
+    DrawRectangle((int)(midX - tw * 0.5f - 8), 6, tw + 16, 36, {0,0,0,160});
+    DrawText(timerStr, (int)(midX - tw * 0.5f), 12, 24, GOLD);
 
     const float CARD_W = 78.f, CARD_H = 110.f, PAD = 6.f;
 
-    auto drawPlayerSide = [&](int pid, const PlayerInput& inp, Color pCol, float sideX, bool isLeft) {
+        auto drawPlayerSide = [&](int pid, const PlayerInput& inp, Color pCol, float sideX, bool isLeft) {
         int tIdx = snap.trainerChoice[pid];
+
+        float areaW = sw * 0.5f;
 
         // ── Trainer standing on side (large portrait) ──
         float tW = 200.f, tH = 360.f;
-        float tX = isLeft ? 30.f : (936 - 30 - tW);
+        float tX = isLeft ? 30.f : (sw - 30 - tW);
         float tY = 50.f;
 
         // Shadow/ground effect under trainer
@@ -781,7 +882,7 @@ void drawHeroSelectMK(const GameSnapshot& snap,
         float slotSize = 56.f;
         float slotGap = 10.f;
         float slotsTotalW = 3 * slotSize + 2 * slotGap;
-        float slotsX = sideX + (464.f - slotsTotalW) / 2.f;
+        float slotsX = sideX + (areaW - slotsTotalW) / 2.f;
         float slotsY = 440.f;
 
         for (int s = 0; s < 3; s++) {
@@ -817,7 +918,7 @@ void drawHeroSelectMK(const GameSnapshot& snap,
 
         int nFiltered = (int)filtered.size();
         float cardsTotalW = nFiltered * CARD_W + (nFiltered - 1) * PAD;
-        float cardsX = sideX + (464.f - cardsTotalW) / 2.f;
+        float cardsX = sideX + (areaW - cardsTotalW) / 2.f;
         float cardsY = 520.f;
 
         for (int fi = 0; fi < nFiltered; fi++) {
@@ -872,13 +973,13 @@ void drawHeroSelectMK(const GameSnapshot& snap,
         // Controls hint
         const char* ctrl = (pid == 0) ? "P1: A / D + Space" : "P2: ← → + Enter";
         int cw = MeasureText(ctrl, 16);
-        float cx = sideX + (464.f - cw) / 2.f;
+        float cx = sideX + (areaW - cw) / 2.f;
         DrawRectangle((int)(cx - 4), 640, cw + 8, 24, {0,0,0,180});
         DrawText(ctrl, (int)cx, 642, 16, pCol);
     };
 
     drawPlayerSide(0, p1, kP1Color, 0.f, true);
-    drawPlayerSide(1, p2, kP2Color, 472.f, false);
+    drawPlayerSide(1, p2, kP2Color, sw * 0.5f, false);
 }
 
 // ── isValidDeployCell ────────────────────────────────────────────────────────
@@ -896,7 +997,295 @@ bool isValidDeployCell(int col, int row, uint8_t archetype, bool isLeft)
     }
 }
 
-// ── drawPlacementCursors ─────────────────────────────────────────────────────
+// ── drawHeroCards ────────────────────────────────────────────────────────────
+void drawHeroCards(const GameSnapshot& snap, int myId) {
+    (void)myId;
+    loadTextures();
+
+    float sw = g_layout.screenW, sh = g_layout.screenH;
+    float cardW = g_layout.cardW, cardH = g_layout.cardH;
+    float cardsY = g_layout.cardsY;
+    float gap = 10.f;
+
+    static const char* archNames[]  = {"Tank", "Fighter", "Mage", "Assassin", "Support"};
+    static Color archColors[] = {
+        {80,130,220,255}, {220,80,80,255}, {150,80,220,255},
+        {70,70,70,255},   {80,200,130,255}
+    };
+    static Color kTint[2] = { {80,160,230,255}, {230,80,80,255} };
+
+    for (int player = 0; player < 2; player++) {
+        float startX;
+        if (player == 0)
+            startX = g_layout.leftPanelW + g_layout.sidePanelW * 0.5f + 10.f;
+        else
+            startX = g_layout.rightPanelX - 10.f;
+
+        float px = player == 0
+            ? startX - 3.f * cardW - 2.f * gap - startX * 0.0f + g_layout.leftPanelW + g_layout.sidePanelW + 20.f
+            : startX - 3.f * cardW - 2.f * gap;
+
+        float halfW = (sw - 2.f * g_layout.sidePanelW) * 0.5f;
+        float areaW = 3.f * cardW + 2.f * gap;
+        float areaStartX = g_layout.sidePanelW + (halfW - areaW) * 0.5f;
+        if (player == 1)
+            areaStartX = sw - g_layout.sidePanelW - halfW + (halfW - areaW) * 0.5f;
+
+        const char* playerLabel = player == 0 ? "P1" : "P2";
+        Color pCol = player == 0 ? Color{80,150,255,255} : Color{255,100,80,255};
+
+        char goldStr[32];
+        snprintf(goldStr, sizeof(goldStr), "%s  Gold: %d", playerLabel, snap.trainers[player].gold);
+        int gw = MeasureText(goldStr, 16);
+        DrawText(goldStr, (int)(areaStartX + (areaW - gw) * 0.5f), (int)(cardsY - 20), 16, pCol);
+
+        int localHeroes[3] = {-1, -1, -1};
+        int localCount = 0;
+        for (int i = 0; i < snap.heroCount; i++) {
+            if (snap.heroes[i].ownerId == (uint8_t)player) {
+                if (localCount < 3) localHeroes[localCount++] = i;
+            }
+        }
+
+        for (int h = 0; h < 3; h++) {
+            float cx = areaStartX + h * (cardW + gap);
+            float cy = cardsY;
+
+            if (localHeroes[h] < 0) continue;
+            const HeroNetState& hs = snap.heroes[localHeroes[h]];
+
+            Color cardBg = {25, 25, 45, 220};
+            if (!hs.alive) cardBg = {20, 20, 35, 160};
+            DrawRectangleRounded({cx, cy, cardW, cardH}, 0.06f, 6, cardBg);
+            DrawRectangleRoundedLines({cx, cy, cardW, cardH}, 0.06f, 6, pCol);
+
+            float portraitSize = cardH * 0.38f;
+            float px2 = cx + 6.f;
+            float py2 = cy + 6.f;
+
+            uint8_t texIdx = (hs.heroDefIndex < N_HEROES) ? hs.heroDefIndex : hs.archetype;
+            Texture2D& tex = heroTextures[texIdx];
+            if (tex.id != 0) {
+                float scale = portraitSize / tex.height;
+                float sw2 = tex.width * scale;
+                DrawTexturePro(tex,
+                    {0, 0, (float)tex.width, (float)tex.height},
+                    {px2, py2, sw2, portraitSize}, {0, 0}, 0.f, WHITE);
+            } else {
+                DrawRectangle((int)px2, (int)py2, (int)portraitSize, (int)portraitSize, archColors[hs.archetype]);
+            }
+
+            float textX = px2 + portraitSize + 8.f;
+            float textY = cy + 8.f;
+
+            const char* heroName = "???";
+            if (hs.heroDefIndex < N_HEROES)
+                heroName = HERO_DEFS[hs.heroDefIndex].name;
+            DrawText(heroName, (int)textX, (int)textY, 12, WHITE);
+            textY += 14.f;
+
+            const char* archName = (hs.archetype < 5) ? archNames[hs.archetype] : "???";
+            int aw = MeasureText(archName, 10);
+            DrawRectangleRounded({textX, textY, (float)(aw + 8), 14.f}, 0.3f, 3, archColors[hs.archetype]);
+            DrawText(archName, (int)(textX + 4), (int)(textY + 1), 10, WHITE);
+            textY = cy + 8.f + portraitSize + 4.f;
+
+            // HP bar
+            {
+                float bw = cardW - 14.f, bh = 8.f;
+                float bx = cx + 7.f, by = textY;
+                float hpPct = (hs.maxHp > 0) ? (float)hs.hp / hs.maxHp : 0.f;
+                Color hpColor = hpPct > 0.5f ? GREEN : (hpPct > 0.25f ? YELLOW : RED);
+                DrawRectangle((int)bx, (int)by, (int)bw, (int)bh, DARKGRAY);
+                DrawRectangle((int)bx, (int)by, (int)(bw * hpPct), (int)bh, hpColor);
+                DrawRectangleLinesEx({bx, by, bw, bh}, 1, {255, 255, 255, 60});
+
+                char hpText[32];
+                snprintf(hpText, sizeof(hpText), "HP %d/%d", hs.hp, hs.maxHp);
+                DrawText(hpText, (int)bx, (int)(by - 12), 10, LIGHTGRAY);
+                textY = by + bh + 6.f;
+            }
+
+            // Ultimate power bar
+            {
+                float bw = cardW - 14.f, bh = 6.f;
+                float bx = cx + 7.f, by = textY;
+                uint8_t pct = hs.ultPct;
+
+                DrawRectangle((int)bx, (int)by, (int)bw, (int)bh, DARKGRAY);
+
+                if (pct == 255) {
+                    float t = (float)GetTime();
+                    unsigned char alpha = (unsigned char)(180 + 75 * sinf(t * 6.f));
+                    DrawRectangle((int)bx, (int)by, (int)bw, (int)bh, (Color){255, 215, 0, alpha});
+                    DrawText("ATIVO!", (int)(bx + 2), (int)(by - 12), 10, GOLD);
+                } else {
+                    float fillPct = pct / 100.f;
+                    Color pwrColor = (pct >= 100) ? GOLD : (Color){60, 100, 200, 255};
+                    if (pct >= 100) {
+                        float t = (float)GetTime();
+                        unsigned char alpha = (unsigned char)(200 + 55 * sinf(t * 4.f));
+                        pwrColor = GOLD; pwrColor.a = alpha;
+                    }
+                    DrawRectangle((int)bx, (int)by, (int)(bw * fillPct), (int)bh, pwrColor);
+                    DrawRectangleLinesEx({bx, by, bw, bh}, 1, {255, 255, 255, 40});
+
+                    char pwrText[16];
+                    snprintf(pwrText, sizeof(pwrText), "PWR %u%%", pct);
+                    DrawText(pwrText, (int)bx, (int)(by - 12), 10, (pct >= 100) ? GOLD : LIGHTGRAY);
+                }
+                textY = by + bh + 6.f;
+            }
+
+            // Stats line
+            {
+                float as = hs.asRate_x10 / 10.f;
+                char stats[64];
+                snprintf(stats, sizeof(stats), "AD:%d  ARM:%d  AS:%.2f", hs.ad, hs.arm, as);
+                DrawText(stats, (int)(cx + 7), (int)textY, 10, {180, 180, 200, 255});
+                textY += 14.f;
+            }
+
+            // Item slots
+            {
+                float slotSize = 18.f;
+                float slotGap = 4.f;
+                float sx = cx + 7.f;
+                float sy = cy + cardH - slotSize - 8.f;
+                for (int s = 0; s < 4; s++) {
+                    float ssx = sx + s * (slotSize + slotGap);
+                    uint8_t itemId = (s < 4) ? hs.items[s] : (uint8_t)0xFF;
+                    Color slotColor = (itemId != 0xFF) ? Color{60, 60, 80, 255} : Color{35, 35, 50, 200};
+                    DrawRectangleRounded({ssx, sy, slotSize, slotSize}, 0.2f, 3, slotColor);
+                    DrawRectangleRoundedLines({ssx, sy, slotSize, slotSize}, 0.2f, 3, Color{60, 60, 90, 200});
+                }
+            }
+        }
+    }
+}
+
+// ── drawSidePanels ───────────────────────────────────────────────────────────
+void drawSidePanels(const GameSnapshot& snap, int myId) {
+    (void)myId;
+    loadTextures();
+    (void)snap;
+
+    float sw = g_layout.screenW, sh = g_layout.screenH;
+    float panelW = g_layout.leftPanelW;
+    float topY = g_layout.topBarH + 8.f;
+    float panelH = g_layout.gridY + g_layout.gridH - topY;
+
+    static const char* abilityNames[] = { "Rally (+AD)", "Shield (+ARM)" };
+
+    for (int player = 0; player < 2; player++) {
+        float px = player == 0 ? g_layout.leftPanelX : g_layout.rightPanelX;
+        Color pCol = player == 0 ? Color{80,150,255,255} : Color{255,100,80,255};
+        Color bg = {18, 18, 38, 220};
+
+        DrawRectangleRounded({px, topY, panelW, panelH}, 0.06f, 6, bg);
+        DrawRectangleRoundedLines({px, topY, panelW, panelH}, 0.06f, 6, pCol);
+
+        float cy = topY + 8.f;
+
+        const char* label = player == 0 ? "P1" : "P2";
+        DrawText(label, (int)(px + (panelW - MeasureText(label, 18)) * 0.5f), (int)cy, 18, pCol);
+        cy += 22.f;
+
+        uint8_t tId = snap.trainers[player].trainerId;
+        if (tId < N_TRAINERS && trainerTextures[tId].id != 0) {
+            float ps = panelW - 16.f;
+            DrawTexturePro(trainerTextures[tId],
+                {0, 0, (float)trainerTextures[tId].width, (float)trainerTextures[tId].height},
+                {px + 8.f, cy, ps, ps}, {0, 0}, 0.f, WHITE);
+            cy += ps + 6.f;
+        }
+
+        const char* tName = (tId < N_TRAINERS) ? TRAINER_DEFS[tId].name : "???";
+        int nw = MeasureText(tName, 12);
+        DrawText(tName, (int)(px + (panelW - nw) * 0.5f), (int)cy, 12, WHITE);
+        cy += 16.f;
+
+        char scoreStr[32];
+        snprintf(scoreStr, sizeof(scoreStr), "Score: %d", snap.trainers[player].score);
+        int sw2 = MeasureText(scoreStr, 11);
+        DrawText(scoreStr, (int)(px + (panelW - sw2) * 0.5f), (int)cy, 11, {180, 180, 200, 255});
+        cy += 18.f;
+
+        char goldStr[32];
+        snprintf(goldStr, sizeof(goldStr), "Gold: %d", snap.trainers[player].gold);
+        DrawText(goldStr, (int)(px + 6), (int)cy, 12, GOLD);
+        cy += 20.f;
+
+        // Divider
+        DrawLineEx({px + 6, cy}, {px + panelW - 6, cy}, 1, {60, 60, 90, 200});
+        cy += 8.f;
+
+        DrawText("ITENS", (int)(px + 6), (int)cy, 11, {160, 160, 190, 255});
+        cy += 16.f;
+
+        float slotSize = 32.f, slotGap = 4.f;
+        int anyItems = 0;
+        for (int i = 0; i < snap.heroCount; i++) {
+            if (snap.heroes[i].ownerId != (uint8_t)player) continue;
+            for (int s = 0; s < 4; s++) {
+                if (snap.heroes[i].items[s] != 0xFF) {
+                    anyItems = 1;
+                    break;
+                }
+            }
+            if (anyItems) break;
+        }
+
+        if (!anyItems) {
+            DrawText("Nenhum item", (int)(px + 6), (int)cy, 10, {100, 100, 120, 255});
+            cy += 16.f;
+
+            for (int s = 0; s < 4; s++) {
+                float ssx = px + 6.f + s * (slotSize + slotGap);
+                DrawRectangleRounded({ssx, cy, slotSize, slotSize}, 0.2f, 3, {25, 25, 40, 200});
+                DrawRectangleRoundedLines({ssx, cy, slotSize, slotSize}, 0.2f, 3, {50, 50, 70, 200});
+            }
+            cy += slotSize + 8.f;
+        }
+
+        DrawLineEx({px + 6, cy}, {px + panelW - 6, cy}, 1, {60, 60, 90, 200});
+        cy += 8.f;
+
+        DrawText("PODER", (int)(px + 6), (int)cy, 11, {160, 160, 190, 255});
+        cy += 16.f;
+
+        uint8_t abType = TRAINER_DEFS[tId].abilityType;
+        const char* abName = (abType < 2) ? abilityNames[abType] : "???";
+        DrawText(abName, (int)(px + 6), (int)cy, 11, WHITE);
+        cy += 14.f;
+
+        if (snap.trainers[player].abilityReady) {
+            float t = (float)GetTime();
+            unsigned char alpha = (unsigned char)(180 + 75 * sinf(t * 5.f));
+            Color readyColor = GREEN; readyColor.a = alpha;
+            DrawText("READY", (int)(px + 6), (int)cy, 11, readyColor);
+        } else {
+            DrawText("Wait...", (int)(px + 6), (int)cy, 11, RED);
+        }
+        cy += 16.f;
+
+        // Controls hint
+        const char* ctrl = player == 0
+            ? "Q = Poder"
+            : "E = Poder";
+        DrawText(ctrl, (int)(px + 6), (int)cy, 9, {120, 120, 140, 255});
+    }
+
+    // Trainer ability bar in side panels
+    for (int player = 0; player < 2; player++) {
+        float px = player == 0 ? g_layout.leftPanelX : g_layout.rightPanelX;
+        float by = g_layout.gridY + g_layout.gridH + 8.f;
+
+        if (snap.trainers[player].abilityReady) {
+            DrawText(player == 0 ? "P1: [Q]" : "P2: [E]", (int)(px + 6), (int)by, 11, YELLOW);
+        }
+    }
+}
 void drawPlacementCursors(const GameSnapshot& snap,
                           const PlayerInput& p1, const PlayerInput& p2)
 {
@@ -974,14 +1363,14 @@ void drawPlacementCursors(const GameSnapshot& snap,
     char lbl1[128];
     snprintf(lbl1, sizeof(lbl1), "P1: [%d/3] %s  |  1/2/3 heroi  |  WASD mover  |  Space posicionar", p1.moveHeroIdx + 1, name1);
     int w1 = MeasureText(lbl1, 18);
-    DrawRectangle(0, 650, w1 + 16, 30, {0,0,0,200});
-    DrawText(lbl1, 8, 654, 18, kP1Color);
+    DrawRectangle(0, (int)(g_layout.screenH - 34), w1 + 16, 30, {0,0,0,200});
+    DrawText(lbl1, 8, (int)(g_layout.screenH - 30), 18, kP1Color);
 
     uint8_t arch2 = 0xFF; bool placed2 = false; const char* name2 = "???";
     findHeroInfo(1, p2.moveHeroIdx, arch2, placed2, name2);
     char lbl2[128];
     snprintf(lbl2, sizeof(lbl2), "P2: [%d/3] %s  |  Numpad 1/2/3 heroi  |  Setas mover  |  Enter posicionar", p2.moveHeroIdx + 1, name2);
     int w2 = MeasureText(lbl2, 18);
-    DrawRectangle(936 - w2 - 16, 650, w2 + 16, 30, {0,0,0,200});
-    DrawText(lbl2, 936 - w2 - 8, 654, 18, kP2Color);
+    DrawRectangle((int)(g_layout.screenW - w2 - 16), (int)(g_layout.screenH - 34), w2 + 16, 30, {0,0,0,200});
+    DrawText(lbl2, (int)(g_layout.screenW - w2 - 8), (int)(g_layout.screenH - 30), 18, kP2Color);
 }

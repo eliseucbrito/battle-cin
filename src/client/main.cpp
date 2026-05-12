@@ -50,7 +50,8 @@ int main(int argc, char *argv[])
 
     bool soloMode = (argc >= 2 && strcmp(argv[1], "--solo") == 0);
 
-    InitWindow(936, 684, "Battle-CIn");
+    SetConfigFlags(FLAG_WINDOW_RESIZABLE);
+    InitWindow(1280, 720, "Battle-CIn");
     SetTargetFPS(60);
 
     Game game;
@@ -95,6 +96,7 @@ int main(int argc, char *argv[])
     }
 
     initSelectionAssets(TRAINERS, N_TRAINERS_LOCAL, HEROES, N_HEROES_LOCAL);
+    initFxSystem();
 
     float accumulator = 0.f;
     uint8_t prevPhase = PHASE_SELECT;
@@ -105,6 +107,8 @@ int main(int argc, char *argv[])
         // ════════════════════════════════════════════════════════════════════
         //  INPUT
         // ════════════════════════════════════════════════════════════════════
+
+        if (IsKeyPressed(KEY_F11)) ToggleFullscreen();
 
         if (snap.phase == PHASE_SELECT) {
             if (snap.selectSubphase == 0) {
@@ -282,9 +286,9 @@ int main(int argc, char *argv[])
                         if (dx <= 1 && dy <= 1) {
                             uint8_t arch = snap.heroes[j].archetype;
                             if (arch == ARCHETYPE_MAGE || arch == ARCHETYPE_SUPPORT) {
-                                spawnProjectile(heroVis[j].pos, heroVis[i].pos, arch);
+                                spawnRangedFx(heroVis[j].pos, heroVis[i].pos, arch);
                             } else {
-                                spawnAttackAnim(heroVis[j].pos, heroVis[i].pos);
+                                spawnMeleeFx(heroVis[j].pos, heroVis[i].pos, arch);
                             }
                             break;
                         }
@@ -307,14 +311,14 @@ int main(int argc, char *argv[])
         // ════════════════════════════════════════════════════════════════════
         //  RENDER
         // ════════════════════════════════════════════════════════════════════
+        applyLayout(computeLayout());
         BeginDrawing();
         ClearBackground({12, 12, 26, 255});
 
         if (snap.phase == PHASE_SELECT) {
-            // Draw arena as background for selection screens (MK style)
             DrawTexturePro(arena,
                 {0, 0, (float)arena.width, (float)arena.height},
-                {0, 0, 936, 684}, {}, 0.f, WHITE);
+                {0, 0, (float)GetScreenWidth(), (float)GetScreenHeight()}, {}, 0.f, WHITE);
             if (snap.selectSubphase == 0) {
                 drawTrainerSelectMK(snap, TRAINERS, N_TRAINERS_LOCAL, inputs[0], inputs[1]);
             } else {
@@ -331,7 +335,14 @@ int main(int argc, char *argv[])
         {
             DrawTexturePro(arena,
                 {0, 0, (float)arena.width, (float)arena.height},
-                {0, 0, 936, 684}, {}, 0.f, WHITE);
+                {0, 0, (float)GetScreenWidth(), (float)GetScreenHeight()}, {}, 0.f, WHITE);
+
+            // Dark backdrops for side panels and bottom cards area
+            DrawRectangle(0, 0, (int)g_layout.sidePanelW, (int)g_layout.screenH, {8, 8, 18, 255});
+            DrawRectangle((int)(g_layout.screenW - g_layout.sidePanelW), 0,
+                          (int)g_layout.sidePanelW, (int)g_layout.screenH, {8, 8, 18, 255});
+            DrawRectangle(0, (int)g_layout.cardsY,
+                          (int)g_layout.screenW, (int)(g_layout.screenH - g_layout.cardsY), {8, 8, 18, 255});
 
             drawBuffZones(snap);
             drawGrid();
@@ -354,14 +365,15 @@ int main(int argc, char *argv[])
                 drawPlacementCursors(snap, inputs[0], inputs[1]);
             }
 
-            updateAndDrawAttackAnims(dt);
-            updateAndDrawProjectiles(dt);
+            updateAndDrawFxAnims(dt);
             updateAndDrawHitFlashes(dt);
             updateAndDrawFloatingTexts(dt);
             updateAndDrawVisualEffects(dt);
 
             drawHUD(snap, 0);
             drawOverlays(snap, 0);
+            drawSidePanels(snap, 0);
+            drawHeroCards(snap, 0);
         }
 
         EndDrawing();
