@@ -125,3 +125,32 @@ void Trainer::tickAbility(float dt)
         }
     }
 }
+
+uint8_t Trainer::generalItemInSlot(int s) const {
+    if (s < 0 || s >= MAX_GENERAL_ITEMS) return 0xFF;
+    return generalItems_[s];
+}
+
+bool Trainer::addGeneralItem(uint8_t itemId) {
+    if (generalItemCount_ >= MAX_GENERAL_ITEMS) return false;
+    for (int i = 0; i < MAX_GENERAL_ITEMS; i++) {
+        if (generalItems_[i] == 0xFF) {
+            generalItems_[i] = itemId;
+            generalItemCount_++;
+            return true;
+        }
+    }
+    return false;
+}
+
+void Trainer::removeGeneralItem(int slot) {
+    if (slot < 0 || slot >= MAX_GENERAL_ITEMS) return;
+    if (generalItems_[slot] == 0xFF) return;
+    generalItems_[slot] = 0xFF;
+    if (generalItemCount_ > 0) generalItemCount_--;
+}
+
+void Trainer::clearGeneralItems() {
+    for (int i = 0; i < MAX_GENERAL_ITEMS; i++) generalItems_[i] = 0xFF;
+    generalItemCount_ = 0;
+}

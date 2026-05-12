@@ -296,7 +296,7 @@ void Game::buildSnapshot(GameSnapshot& snap) const
     if (!initialized_) {
         snap.heroCount = 0;
         for (int i = 0; i < 2; i++)
-            snap.trainers[i] = {0, 0, 0, 0, 0};
+            snap.trainers[i] = {0, 0, 0, 0, 0, 0, {0xFF, 0xFF, 0xFF}};
         snap.buffZoneCount = 0;
         for (int i = 0; i < 4; i++)
             snap.buffZones[i] = {0xFF, 0xFF, BUFF_NONE};
@@ -308,7 +308,9 @@ void Game::buildSnapshot(GameSnapshot& snap) const
         const Trainer& t = trainers_[i];
         snap.trainers[i] = {
             t.trainerId(), t.score(), (uint8_t)t.heroCount(), (uint8_t)t.canUseAbility(),
-            (uint16_t)(shop_.isOpen() ? shop_.gold(i) : 0)
+            (uint16_t)(shop_.isOpen() ? shop_.gold(i) : 0),
+            t.generalItemCount(),
+            { t.generalItemInSlot(0), t.generalItemInSlot(1), t.generalItemInSlot(2) }
         };
 
         for (int h = 0; h < t.heroCount(); h++) {
@@ -441,6 +443,31 @@ void Game::handleConfirmShop(int pid) {
     if (shop_.confirm(pid)) {
         startPositioning();
     }
+}
+
+void Game::handleUseGeneralItem(int pid, int slot) {
+    if (phase_ != PHASE_BATTLE) return;
+    uint8_t itemId = trainers_[pid].generalItemInSlot(slot);
+    if (itemId == 0xFF) return;
+
+    const Item* proto = shop_.getPrototype(itemId);
+    if (!proto) return;
+
+    if (itemId == ITEM_ID_GOLD_RUSH) {
+        shop_.addBonusGold(pid, 50);
+        printf("[GeneralItem] P%d usou Corrida do Ouro — +50g no proximo round\n", pid);
+        trainers_[pid].removeGeneralItem(slot);
+        return;
+    }
+
+    for (int h = 0; h < trainers_[pid].heroCount(); h++) {
+        Hero& hero = trainers_[pid].heroAt(h);
+        if (hero.alive()) {
+            proto->apply(hero, roundNumber_);
+        }
+    }
+    printf("[GeneralItem] P%d usou %s\n", pid, proto->name().c_str());
+    trainers_[pid].removeGeneralItem(slot);
 }
 
 void Game::autoBattleMove()

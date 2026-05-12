@@ -1,6 +1,6 @@
 # Battle-CIn Makefile
 
-.PHONY: all build clean conan-build run-local run-solo
+.PHONY: all build clean conan-build run-local run-solo run-debug
 
 BUILD_DIR := build
 CMAKE_BUILD_TYPE ?= Release
@@ -33,13 +33,17 @@ clean:
 	@rm -rf $(BUILD_DIR)
 	@echo "==> Build directory removed."
 
-run-local: build
+run-local: conan-build
 	@echo "==> Starting local multiplayer..."
 	@cd $(BUILD_DIR) && ./meu_projeto
 
-run-solo: build
+run-solo: conan-build
 	@echo "==> Starting solo mode (P2 = bot)..."
 	@cd $(BUILD_DIR) && ./meu_projeto --solo
+
+run-debug: conan-build
+	@echo "==> Starting debug mode..."
+	@cd $(BUILD_DIR) && ./meu_projeto --debug
 
 help:
 	@echo "Battle-CIn Build Commands"
@@ -50,6 +54,7 @@ help:
 	@echo "  make clean        - Remove build directory"
 	@echo "  make run-local    - Run local multiplayer (P1 + P2 on one keyboard)"
 	@echo "  make run-solo     - Run solo mode (P1 human, P2 bot)"
+	@echo "  make run-debug    - Run in debug mode (image sizing)"
 	@echo ""
 	@echo "Controls:"
 	@echo "  P1: Arrow keys + Enter"

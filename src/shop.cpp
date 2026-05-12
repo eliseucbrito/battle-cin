@@ -16,6 +16,9 @@ ItemCatalog::ItemCatalog() {
     registerPrototype(std::make_unique<ArcaneOrb>());
     registerPrototype(std::make_unique<PhoenixFeather>());
     registerPrototype(std::make_unique<MirrorShield>());
+    registerPrototype(std::make_unique<RallyAll>());
+    registerPrototype(std::make_unique<HealWave>());
+    registerPrototype(std::make_unique<GoldRush>());
 }
 
 void ItemCatalog::registerPrototype(std::unique_ptr<Item> item) {
@@ -58,6 +61,7 @@ ShopItemInfo ItemCatalog::toShopItemInfo(const Item& item, int price) {
     info.itemType = item.type();
     info.rarity   = item.rarity();
     info.price    = (uint8_t)(price < 255 ? price : 255);
+    info.category = item.category();
     std::string n = item.name();
     int ni = 0;
     for (; ni < 31 && ni < (int)n.size(); ni++) info.name[ni] = n[ni];
@@ -69,6 +73,13 @@ ShopItemInfo ItemCatalog::toShopItemInfo(const Item& item, int price) {
     return info;
 }
 
+const Item* ItemCatalog::getPrototype(uint8_t itemId) const {
+    for (const auto& p : prototypes_) {
+        if (p->itemId() == itemId) return p.get();
+    }
+    return nullptr;
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 //  SupplyDemandPricing
 // ═════════════════════════════════════════════════════════════════════════════
@@ -77,16 +88,16 @@ int SupplyDemandPricing::calculate(const Item& item, int round,
                                     int surviving, int wins) const
 {
     int price = item.basePrice();
-    price += round * 5;
-    price += surviving * 8;
-    price -= wins * 3;
+    price += round * 3;
+    price += surviving * 4;
+    price -= wins * 2;
     switch (item.rarity()) {
         case ITEM_RARITY_COMMON:   break;
-        case ITEM_RARITY_UNCOMMON: price = price * 130 / 100; break;
-        case ITEM_RARITY_RARE:     price = price * 180 / 100; break;
-        case ITEM_RARITY_EPIC:     price = price * 250 / 100; break;
+        case ITEM_RARITY_UNCOMMON: price = price * 115 / 100; break;
+        case ITEM_RARITY_RARE:     price = price * 135 / 100; break;
+        case ITEM_RARITY_EPIC:     price = price * 160 / 100; break;
     }
-    return price < 10 ? 10 : price;
+    return price < 5 ? 5 : price;
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -148,7 +159,6 @@ bool Shop::buy(int pid, int stockIndex, Trainer& buyer, int heroIndex, int slotI
     if (!isOpen_) return false;
 
     Item& item = *currentStock_[stockIndex];
-    Hero& hero = buyer.heroAt(heroIndex);
     int price = calculatePrice(item);
 
     if (gold_[pid] < price) {
@@ -156,17 +166,44 @@ bool Shop::buy(int pid, int stockIndex, Trainer& buyer, int heroIndex, int slotI
         return false;
     }
 
-    if (hero.itemInSlot(slotIndex) != 0xFF) {
-        printf("[Shop] Slot %d ja esta ocupado\n", slotIndex);
+    if (item.category() == ITEM_CATEGORY_GENERAL) {
+        if (!buyer.addGeneralItem(item.itemId())) {
+            printf("[Shop] Inventario geral cheio!\n");
+            return false;
+        }
+        spendGold(pid, price);
+        removeFromStock(stockIndex);
+        printf("[Shop] P%d comprou item geral: %s por %dg\n",
+               pid, item.name().c_str(), price);
+        return true;
+    }
+
+    // Hero item
+    Hero& hero = buyer.heroAt(heroIndex);
+
+    // Auto-select first empty slot if slotIndex is -1
+    int effSlot = slotIndex;
+    if (effSlot < 0) {
+        for (int s = 0; s < MAX_HERO_ITEMS; s++) {
+            if (hero.itemInSlot(s) == 0xFF) { effSlot = s; break; }
+        }
+        if (effSlot < 0) {
+            printf("[Shop] Nenhum slot vazio no heroi %d\n", heroIndex);
+            return false;
+        }
+    }
+
+    if (hero.itemInSlot(effSlot) != 0xFF) {
+        printf("[Shop] Slot %d ja esta ocupado\n", effSlot);
         return false;
     }
 
     spendGold(pid, price);
     bool ok = item.use(hero, currentRound_);
     if (ok) {
-        hero.equipItem(slotIndex, item.itemId());
+        hero.equipItem(effSlot, item.itemId());
         printf("[Shop] P%d: %s para heroi %d (slot %d) por %dg\n",
-               pid, item.name().c_str(), heroIndex, slotIndex, price);
+               pid, item.name().c_str(), heroIndex, effSlot, price);
     } else {
         refundGold(pid, price);
     }
