@@ -306,11 +306,14 @@ void drawHero(const HeroNetState& hs, Vector2 ctr, int myId, bool dragging,
             }
         }
 
-        int fs = 11;
+        int fs = 18;
         int tw = MeasureText(ultTxt, fs);
-        float boxW = (float)tw + 12.f;
-        DrawRectangleRounded({ heroCtr.x - boxW * 0.5f, heroCtr.y - r - 34, boxW, 16.f }, 0.5f, 4, { 255, 200, 0, 180 });
-        DrawText(ultTxt, (int)(heroCtr.x - tw / 2), (int)(heroCtr.y - r - 32), fs, BLACK);
+        float boxW = (float)tw + 20.f;
+        float boxH = (float)fs + 8.f;
+        // Draw slightly higher to be more visible
+        DrawRectangleRounded({ heroCtr.x - boxW * 0.5f, heroCtr.y - r - 45, boxW, boxH }, 0.3f, 4, { 255, 200, 0, 220 });
+        DrawRectangleRoundedLines({ heroCtr.x - boxW * 0.5f, heroCtr.y - r - 45, boxW, boxH }, 0.3f, 4, 2, BLACK);
+        DrawText(ultTxt, (int)(heroCtr.x - tw / 2), (int)(heroCtr.y - r - 41), fs, BLACK);
     } else if (hs.alive && hs.hp > 0 && hs.hp <= (uint16_t)(hs.maxHp * 0.15f)) {
         // Dying phrase
         const char* dieTxt = "...";
@@ -318,11 +321,13 @@ void drawHero(const HeroNetState& hs, Vector2 ctr, int myId, bool dragging,
             dieTxt = g_heroDefs[hs.heroDefIndex].dyingPhrase.c_str();
         }
 
-        int fs = 10;
+        int fs = 16;
         int tw = MeasureText(dieTxt, fs);
-        float boxW = (float)tw + 12.f;
-        DrawRectangleRounded({ heroCtr.x - boxW * 0.5f, heroCtr.y - r - 30, boxW, 14.f }, 0.5f, 4, { 200, 40, 40, 200 });
-        DrawText(dieTxt, (int)(heroCtr.x - tw / 2), (int)(heroCtr.y - r - 28), fs, WHITE);
+        float boxW = (float)tw + 16.f;
+        float boxH = (float)fs + 6.f;
+        DrawRectangleRounded({ heroCtr.x - boxW * 0.5f, heroCtr.y - r - 42, boxW, boxH }, 0.3f, 4, { 200, 40, 40, 230 });
+        DrawRectangleRoundedLines({ heroCtr.x - boxW * 0.5f, heroCtr.y - r - 42, boxW, boxH }, 0.3f, 4, 2, WHITE);
+        DrawText(dieTxt, (int)(heroCtr.x - tw / 2), (int)(heroCtr.y - r - 39), fs, WHITE);
     }
 
     float bw = CELLW * 0.85f, bh = 6.f;
