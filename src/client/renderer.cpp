@@ -50,13 +50,12 @@ Layout computeLayout() {
     l.cellW = l.gridW / GRID_COLS;
     l.cellH = l.gridH / GRID_ROWS;
 
-    // Side panels: fill the horizontal gaps, capped at 300px, centered in gap
-    float maxPanelW = 300.f;
-    l.sidePanelW = fminf(l.gridX, maxPanelW);
-    l.leftPanelX = (l.gridX - l.sidePanelW) * 0.5f;
-    l.leftPanelW = l.sidePanelW;
-    l.rightPanelX = l.gridX + gridSize + (l.gridX - l.sidePanelW) * 0.5f;
-    l.rightPanelW = l.sidePanelW;
+    // Side panels: fill the entire horizontal gap from screen edge to grid edge
+    l.leftPanelX = 0;
+    l.leftPanelW = l.gridX;
+    l.rightPanelX = l.gridX + gridSize;
+    l.rightPanelW = l.screenW - (l.gridX + gridSize);
+    l.sidePanelW = l.gridX;
 
     // Top bar area
     l.topBarH = l.gridY;
@@ -1199,7 +1198,6 @@ void drawSidePanels(const GameSnapshot& snap, int myId) {
     loadTextures();
     (void)snap;
 
-    float panelW = g_layout.leftPanelW;
     float topY = 0;
     float panelH = g_layout.cardsY;
 
@@ -1207,11 +1205,12 @@ void drawSidePanels(const GameSnapshot& snap, int myId) {
 
     for (int player = 0; player < 2; player++) {
         float px = player == 0 ? g_layout.leftPanelX : g_layout.rightPanelX;
+        float panelW = player == 0 ? g_layout.leftPanelW : g_layout.rightPanelW;
         Color pCol = player == 0 ? Color{80,150,255,255} : Color{255,100,80,255};
         Color bg = {8, 8, 18, 255};
 
-        DrawRectangleRounded({px, topY, panelW, panelH}, 0.04f, 4, bg);
-        DrawRectangleRoundedLines({px, topY, panelW, panelH}, 0.04f, 4, pCol);
+        DrawRectangle((int)px, (int)topY, (int)panelW, (int)panelH, bg);
+        DrawRectangleLinesEx({px, topY, panelW, panelH}, 2, pCol);
 
         float cy = topY + 8.f;
 
