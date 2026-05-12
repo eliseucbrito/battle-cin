@@ -46,12 +46,15 @@ Layout computeLayout() {
     l.bottomCardsH = l.screenH - l.cardsY;
     if (l.bottomCardsH < 100.f) l.bottomCardsH = 100.f;
 
-    // Player area = half of the central zone between side panels
-    float playerAreaW = (l.screenW - l.leftPanelW - l.rightPanelW) * 0.5f;
+    // Container spans half the screen for each player.
+    // Cards are placed inside the container but respect the side panel.
+    // Effective card area = half-screen minus adjacent panel width.
+    float effectiveP1 = l.screenW * 0.5f - l.leftPanelW;
+    float effectiveP2 = l.screenW * 0.5f - l.rightPanelW;
+    float effectiveW = fminf(effectiveP1, effectiveP2);
     float minCardW = 120.f;
     float maxCardW = 200.f;
-    // 3 cards with space-between: cardW = areaW / 3, clamped
-    l.cardW = fminf(maxCardW, fmaxf(minCardW, playerAreaW / 3.f));
+    l.cardW = fminf(maxCardW, fmaxf(minCardW, effectiveW / 3.f));
     l.cardH = fminf(120.f, l.bottomCardsH - 20.f);
 
     l.topBarH = l.gridY;
@@ -1057,17 +1060,21 @@ void drawHeroCards(const GameSnapshot& snap, int myId) {
     DrawRectangle(0, (int)cardsY - 8, (int)sw, (int)(sh - cardsY + 8), {6, 6, 14, 255});
 
     for (int player = 0; player < 2; player++) {
-        float areaW = (sw - g_layout.leftPanelW - g_layout.rightPanelW) * 0.5f;
-        float areaStartX = player == 0
-            ? g_layout.leftPanelW
-            : (sw - g_layout.rightPanelW - areaW);
+        // Full half-screen container for each player
+        float containerX = player == 0 ? 0.f : sw * 0.5f;
+        float containerW = sw * 0.5f;
 
-        // space-between: 3 cards distributed across the central area
+        // Effective area excludes the adjacent side panel
+        float effX = player == 0 ? g_layout.leftPanelW : containerX;
+        float effW = player == 0
+            ? (containerW - g_layout.leftPanelW)
+            : (containerW - g_layout.rightPanelW);
+
+        // space-between: 3 cards distributed across the effective area
         float cardX[3];
-        float margin = 8.f;
-        cardX[0] = areaStartX + margin;                           // left edge
-        cardX[1] = areaStartX + (areaW - cardW) * 0.5f;           // center
-        cardX[2] = areaStartX + areaW - cardW - margin;           // right edge
+        cardX[0] = effX;                                          // left edge
+        cardX[1] = effX + (effW - cardW) * 0.5f;                  // center
+        cardX[2] = effX + effW - cardW;                           // right edge
 
         Color pCol = player == 0 ? Color{80,150,255,255} : Color{255,100,80,255};
         Color dimCol = player == 0 ? Color{80,150,255,120} : Color{255,100,80,120};
