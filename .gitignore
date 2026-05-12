@@ -24,3 +24,6 @@ CMakeUserPresets.json
 # AI Assistant
 MAPPING.mdCMakePresets.json
 CMakeUserPresets.json
+
+# Database
+*.db
