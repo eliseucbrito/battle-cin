@@ -169,11 +169,40 @@ void drawOverlays(const GameSnapshot& snap, int myId) {
         DrawText(msg, 468 - MeasureText(msg, 40)/2, 300, 40, (snap.roundWinner == (uint8_t)myId) ? GREEN : RED);
     }
     if (snap.phase == PHASE_MATCH_END) {
-        DrawRectangle(0, 0, 936, 684, {0, 0, 0, 200});
-        const char* res = (snap.matchWinner == (uint8_t)myId) ? "VITÓRIA!" : "DERROTA";
-        DrawText(res, 468 - MeasureText(res, 60)/2, 300, 60, GOLD);
-        DrawText("Feche o jogo para reiniciar", 468 - MeasureText("Feche o jogo para reiniciar", 20)/2, 400, 20, LIGHTGRAY);
-    }
+    DrawRectangle(0, 0, 936, 684, {0, 0, 0, 200});
+
+    const char* res = (snap.matchWinner == (uint8_t)myId) ? "VITÓRIA!" : "DERROTA";
+    Color resColor = (snap.matchWinner == (uint8_t)myId) ? GOLD : RED;
+    DrawText(res, 468 - MeasureText(res, 60)/2, 180, 60, resColor);
+
+    uint8_t t0 = snap.trainers[0].trainerId;
+    uint8_t t1 = snap.trainers[1].trainerId;
+
+    char placar[64];
+    snprintf(placar, sizeof(placar), "%s  %d x %d  %s",
+             TRAINER_DEFS[t0].name, snap.trainers[0].score,
+             snap.trainers[1].score, TRAINER_DEFS[t1].name);
+    DrawText(placar, 468 - MeasureText(placar, 24)/2, 280, 24, WHITE);
+
+    DrawRectangle(200, 320, 536, 1, {255, 255, 255, 60});
+    DrawText("RANKING", 468 - MeasureText("RANKING", 18)/2, 335, 18, GOLD);
+
+    int first  = (snap.trainers[0].score >= snap.trainers[1].score) ? 0 : 1;
+    int second = 1 - first;
+
+    char linha1[64], linha2[64];
+    snprintf(linha1, sizeof(linha1), "1. %s - %d pts",
+             TRAINER_DEFS[snap.trainers[first].trainerId].name,
+             snap.trainers[first].score);
+    snprintf(linha2, sizeof(linha2), "2. %s - %d pts",
+             TRAINER_DEFS[snap.trainers[second].trainerId].name,
+             snap.trainers[second].score);
+
+    DrawText(linha1, 468 - MeasureText(linha1, 20)/2, 365, 20, WHITE);
+    DrawText(linha2, 468 - MeasureText(linha2, 20)/2, 395, 20, LIGHTGRAY);
+
+    DrawText("Feche o jogo para reiniciar", 468 - MeasureText("Feche o jogo para reiniciar", 16)/2, 450, 16, {160,160,160,255});
+}
 }
 
 void drawVSScreen(const GameSnapshot& snap, int myId) {
