@@ -217,6 +217,176 @@ int main(int argc, char *argv[])
         else if (snap.phase == PHASE_BATTLE) {
             if (IsKeyPressed(KEY_Q)) game.handleUseAbility(0);
             if (IsKeyPressed(KEY_E)) game.handleUseAbility(1);
+
+            // ── P1 Targeting ─────────────────────────────────────────
+            if (IsKeyPressed(KEY_T)) {
+                if (inputs[0].targetingMode) {
+                    inputs[0].targetingMode = false;
+                } else {
+                    for (int slot = 0; slot < 3; slot++) {
+                        int gIdx = heroSlotToGlobal(snap, 0, slot);
+                        if (gIdx >= 0 && snap.heroes[gIdx].alive) {
+                            inputs[0].targetingHeroIdx = slot;
+                            inputs[0].targetCursorX = snap.heroes[gIdx].x;
+                            inputs[0].targetCursorY = snap.heroes[gIdx].y;
+                            inputs[0].targetingMode = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            if (inputs[0].targetingMode) {
+                if (IsKeyPressed(KEY_ONE)) {
+                    int gIdx = heroSlotToGlobal(snap, 0, 0);
+                    if (gIdx >= 0 && snap.heroes[gIdx].alive) {
+                        inputs[0].targetingHeroIdx = 0;
+                        inputs[0].targetCursorX = snap.heroes[gIdx].x;
+                        inputs[0].targetCursorY = snap.heroes[gIdx].y;
+                    }
+                }
+                if (IsKeyPressed(KEY_TWO)) {
+                    int gIdx = heroSlotToGlobal(snap, 0, 1);
+                    if (gIdx >= 0 && snap.heroes[gIdx].alive) {
+                        inputs[0].targetingHeroIdx = 1;
+                        inputs[0].targetCursorX = snap.heroes[gIdx].x;
+                        inputs[0].targetCursorY = snap.heroes[gIdx].y;
+                    }
+                }
+                if (IsKeyPressed(KEY_THREE)) {
+                    int gIdx = heroSlotToGlobal(snap, 0, 2);
+                    if (gIdx >= 0 && snap.heroes[gIdx].alive) {
+                        inputs[0].targetingHeroIdx = 2;
+                        inputs[0].targetCursorX = snap.heroes[gIdx].x;
+                        inputs[0].targetCursorY = snap.heroes[gIdx].y;
+                    }
+                }
+
+                if (IsKeyPressed(KEY_W)) inputs[0].targetCursorY = (uint8_t)((int)inputs[0].targetCursorY > 0 ? inputs[0].targetCursorY - 1 : 0);
+                if (IsKeyPressed(KEY_S)) inputs[0].targetCursorY = (uint8_t)((int)inputs[0].targetCursorY < GRID_ROWS - 1 ? inputs[0].targetCursorY + 1 : GRID_ROWS - 1);
+                if (IsKeyPressed(KEY_A)) inputs[0].targetCursorX = (uint8_t)((int)inputs[0].targetCursorX > 0 ? inputs[0].targetCursorX - 1 : 0);
+                if (IsKeyPressed(KEY_D)) inputs[0].targetCursorX = (uint8_t)((int)inputs[0].targetCursorX < GRID_COLS - 1 ? inputs[0].targetCursorX + 1 : GRID_COLS - 1);
+
+                if (IsKeyPressed(KEY_R)) {
+                    int heroG = heroSlotToGlobal(snap, 0, inputs[0].targetingHeroIdx);
+                    int targetLocal = -1;
+                    if (heroG >= 0) {
+                        int enemyIdx = 0;
+                        for (int i = 0; i < snap.heroCount; i++) {
+                            if (snap.heroes[i].ownerId == 1) {
+                                if (snap.heroes[i].alive &&
+                                    snap.heroes[i].x == inputs[0].targetCursorX &&
+                                    snap.heroes[i].y == inputs[0].targetCursorY)
+                                {
+                                    int dx = abs((int)snap.heroes[heroG].x - snap.heroes[i].x);
+                                    int dy = abs((int)snap.heroes[heroG].y - snap.heroes[i].y);
+                                    if (dx <= 1 && dy <= 1)
+                                        targetLocal = enemyIdx;
+                                    break;
+                                }
+                                enemyIdx++;
+                            }
+                        }
+                    }
+                    game.handleTarget(0, inputs[0].targetingHeroIdx, targetLocal);
+                    inputs[0].targetingMode = false;
+                }
+            }
+
+            // ── P2 Targeting ─────────────────────────────────────────
+            if (IsKeyPressed(KEY_U)) {
+                if (inputs[1].targetingMode) {
+                    inputs[1].targetingMode = false;
+                } else {
+                    for (int slot = 0; slot < 3; slot++) {
+                        int gIdx = heroSlotToGlobal(snap, 1, slot);
+                        if (gIdx >= 0 && snap.heroes[gIdx].alive) {
+                            inputs[1].targetingHeroIdx = slot;
+                            inputs[1].targetCursorX = snap.heroes[gIdx].x;
+                            inputs[1].targetCursorY = snap.heroes[gIdx].y;
+                            inputs[1].targetingMode = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            if (inputs[1].targetingMode) {
+                if (IsKeyPressed(KEY_KP_1)) {
+                    int gIdx = heroSlotToGlobal(snap, 1, 0);
+                    if (gIdx >= 0 && snap.heroes[gIdx].alive) {
+                        inputs[1].targetingHeroIdx = 0;
+                        inputs[1].targetCursorX = snap.heroes[gIdx].x;
+                        inputs[1].targetCursorY = snap.heroes[gIdx].y;
+                    }
+                }
+                if (IsKeyPressed(KEY_KP_2)) {
+                    int gIdx = heroSlotToGlobal(snap, 1, 1);
+                    if (gIdx >= 0 && snap.heroes[gIdx].alive) {
+                        inputs[1].targetingHeroIdx = 1;
+                        inputs[1].targetCursorX = snap.heroes[gIdx].x;
+                        inputs[1].targetCursorY = snap.heroes[gIdx].y;
+                    }
+                }
+                if (IsKeyPressed(KEY_KP_3)) {
+                    int gIdx = heroSlotToGlobal(snap, 1, 2);
+                    if (gIdx >= 0 && snap.heroes[gIdx].alive) {
+                        inputs[1].targetingHeroIdx = 2;
+                        inputs[1].targetCursorX = snap.heroes[gIdx].x;
+                        inputs[1].targetCursorY = snap.heroes[gIdx].y;
+                    }
+                }
+
+                if (IsKeyPressed(KEY_UP))    inputs[1].targetCursorY = (uint8_t)((int)inputs[1].targetCursorY > 0 ? inputs[1].targetCursorY - 1 : 0);
+                if (IsKeyPressed(KEY_DOWN))  inputs[1].targetCursorY = (uint8_t)((int)inputs[1].targetCursorY < GRID_ROWS - 1 ? inputs[1].targetCursorY + 1 : GRID_ROWS - 1);
+                if (IsKeyPressed(KEY_LEFT))  inputs[1].targetCursorX = (uint8_t)((int)inputs[1].targetCursorX > 0 ? inputs[1].targetCursorX - 1 : 0);
+                if (IsKeyPressed(KEY_RIGHT)) inputs[1].targetCursorX = (uint8_t)((int)inputs[1].targetCursorX < GRID_COLS - 1 ? inputs[1].targetCursorX + 1 : GRID_COLS - 1);
+
+                if (IsKeyPressed(KEY_P)) {
+                    int heroG = heroSlotToGlobal(snap, 1, inputs[1].targetingHeroIdx);
+                    int targetLocal = -1;
+                    if (heroG >= 0) {
+                        int enemyIdx = 0;
+                        for (int i = 0; i < snap.heroCount; i++) {
+                            if (snap.heroes[i].ownerId == 0) {
+                                if (snap.heroes[i].alive &&
+                                    snap.heroes[i].x == inputs[1].targetCursorX &&
+                                    snap.heroes[i].y == inputs[1].targetCursorY)
+                                {
+                                    int dx = abs((int)snap.heroes[heroG].x - snap.heroes[i].x);
+                                    int dy = abs((int)snap.heroes[heroG].y - snap.heroes[i].y);
+                                    if (dx <= 1 && dy <= 1)
+                                        targetLocal = enemyIdx;
+                                    break;
+                                }
+                                enemyIdx++;
+                            }
+                        }
+                    }
+                    game.handleTarget(1, inputs[1].targetingHeroIdx, targetLocal);
+                    inputs[1].targetingMode = false;
+                }
+            }
+        }
+
+        else if (snap.phase == PHASE_SHOP) {
+            // P1
+            if (IsKeyPressed(KEY_D))      inputs[0].shopCursor = (inputs[0].shopCursor + 1) % 6;
+            if (IsKeyPressed(KEY_A))      inputs[0].shopCursor = (inputs[0].shopCursor + 5) % 6;
+            if (IsKeyPressed(KEY_S))      inputs[0].shopHeroCursor = (inputs[0].shopHeroCursor + 1) % 3;
+            if (IsKeyPressed(KEY_W))      inputs[0].shopHeroCursor = (inputs[0].shopHeroCursor + 2) % 3;
+            if (IsKeyPressed(KEY_E))      inputs[0].shopSlotCursor = (inputs[0].shopSlotCursor + 1) % 4;
+            if (IsKeyPressed(KEY_Q))      inputs[0].shopSlotCursor = (inputs[0].shopSlotCursor + 3) % 4;
+            if (IsKeyPressed(KEY_SPACE))  game.handleBuyItem(0, inputs[0].shopCursor, inputs[0].shopHeroCursor, inputs[0].shopSlotCursor);
+            if (IsKeyPressed(KEY_F))      game.handleConfirmShop(0);
+
+            // P2
+            if (IsKeyPressed(KEY_RIGHT))  inputs[1].shopCursor = (inputs[1].shopCursor + 1) % 6;
+            if (IsKeyPressed(KEY_LEFT))   inputs[1].shopCursor = (inputs[1].shopCursor + 5) % 6;
+            if (IsKeyPressed(KEY_DOWN))   inputs[1].shopHeroCursor = (inputs[1].shopHeroCursor + 1) % 3;
+            if (IsKeyPressed(KEY_UP))     inputs[1].shopHeroCursor = (inputs[1].shopHeroCursor + 2) % 3;
+            if (IsKeyPressed(KEY_RIGHT_BRACKET))  inputs[1].shopSlotCursor = (inputs[1].shopSlotCursor + 1) % 4;
+            if (IsKeyPressed(KEY_LEFT_BRACKET))   inputs[1].shopSlotCursor = (inputs[1].shopSlotCursor + 3) % 4;
+            if (IsKeyPressed(KEY_ENTER))  game.handleBuyItem(1, inputs[1].shopCursor, inputs[1].shopHeroCursor, inputs[1].shopSlotCursor);
+            if (IsKeyPressed(KEY_PERIOD)) game.handleConfirmShop(1);
         }
 
         // ════════════════════════════════════════════════════════════════════
@@ -322,6 +492,12 @@ int main(int argc, char *argv[])
                 drawHeroSelectMK(snap, TRAINERS, HEROES, N_HEROES_LOCAL, inputs[0], inputs[1]);
             }
         }
+        else if (snap.phase == PHASE_SHOP) {
+            DrawTexturePro(arena,
+                {0, 0, (float)arena.width, (float)arena.height},
+                {0, 0, (float)GetScreenWidth(), (float)GetScreenHeight()}, {}, 0.f, WHITE);
+            drawShop(snap, inputs[0], inputs[1]);
+        }
         else if (snap.phase == PHASE_VS_INTRO) {
             drawVSScreen(snap, 0);
         }
@@ -370,6 +546,8 @@ int main(int argc, char *argv[])
             updateAndDrawHitFlashes(dt);
             updateAndDrawFloatingTexts(dt);
             updateAndDrawVisualEffects(dt);
+
+            drawTargetingVisuals(snap, inputs[0], inputs[1]);
 
             drawHUD(snap, 0);
             drawOverlays(snap, 0);

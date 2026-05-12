@@ -7,6 +7,7 @@
 #define PHASE_ROUND_END     3
 #define PHASE_MATCH_END     4
 #define PHASE_VS_INTRO      5
+#define PHASE_SHOP          6
 
 #define BUFF_NONE  0
 #define BUFF_AD    1
@@ -23,6 +24,19 @@
 #define ABILITY_SHIELD_WALL  1
 #define ABILITY_BATTLE_HEAL  2
 #define ABILITY_FRENZY       3
+
+#define ITEM_TYPE_CONSUMABLE  0
+#define ITEM_TYPE_EQUIPMENT   1
+#define ITEM_TYPE_TEMPORARY   2
+#define ITEM_TYPE_UNIQUE      3
+
+#define ITEM_RARITY_COMMON    0
+#define ITEM_RARITY_UNCOMMON  1
+#define ITEM_RARITY_RARE      2
+#define ITEM_RARITY_EPIC      3
+
+#define MAX_SHOP_STOCK        6
+#define MAX_HERO_ITEMS        4
 
 #define BUFF_AD_BONUS    15
 #define BUFF_HP_BONUS    50
@@ -78,6 +92,26 @@ struct BuffZoneInfo {
     uint8_t x, y, type;
 };
 
+struct ShopItemInfo {
+    uint8_t itemId;
+    uint8_t itemType;
+    uint8_t rarity;
+    uint8_t price;
+    char    name[32];
+    char    desc[64];
+};
+
+struct ShopPlayerInfo {
+    uint8_t gold;
+    uint8_t confirmed;
+};
+
+struct ShopSnapshot {
+    ShopPlayerInfo players[2];
+    uint8_t        stockCount;
+    ShopItemInfo   stock[MAX_SHOP_STOCK];
+};
+
 struct HeroNetState {
     uint8_t  x, y;
     uint16_t hp;
@@ -123,5 +157,6 @@ struct GameSnapshot {
     uint8_t  trainerChoice[2];
     uint8_t  herosLocked[2];
     uint8_t  heroPicks[2][3];
+    ShopSnapshot shop;
 };
 #pragma pack(pop)
