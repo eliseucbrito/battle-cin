@@ -337,13 +337,6 @@ int main(int argc, char *argv[])
                 {0, 0, (float)arena.width, (float)arena.height},
                 {0, 0, (float)GetScreenWidth(), (float)GetScreenHeight()}, {}, 0.f, WHITE);
 
-            // Dark backdrops for side panels and bottom cards area
-            DrawRectangle(0, 0, (int)g_layout.sidePanelW, (int)g_layout.screenH, {8, 8, 18, 255});
-            DrawRectangle((int)(g_layout.screenW - g_layout.sidePanelW), 0,
-                          (int)g_layout.sidePanelW, (int)g_layout.screenH, {8, 8, 18, 255});
-            DrawRectangle(0, (int)g_layout.cardsY,
-                          (int)g_layout.screenW, (int)(g_layout.screenH - g_layout.cardsY), {8, 8, 18, 255});
-
             drawBuffZones(snap);
             drawGrid();
 
