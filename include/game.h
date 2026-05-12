@@ -26,6 +26,9 @@ public:
     bool isInitialized() const { return initialized_; }
     bool isBot(int pid) const { return isBot_[pid]; }
 
+    void setDebugMode(bool v) { debugMode_ = v; }
+    void debugAdvancePhase();
+
     void createBot(int pid);
     void updateBot(float dt);
 
@@ -70,6 +73,8 @@ private:
     TournamentTree tournament_;
 
     Shop shop_;
+
+    bool debugMode_ = false;
 
     // PHASE_SELECT state
     uint8_t  selectSubphase_;

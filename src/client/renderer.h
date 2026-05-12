@@ -188,14 +188,48 @@ void drawShop(const GameSnapshot& snap, const PlayerInput& p1, const PlayerInput
 //  DEBUG MODE — resizable image params
 // ═════════════════════════════════════════════════════════════════════════════
 
+struct DebugImageEntry {
+    const char* name;
+    const char* location;
+    float* w;
+    float* h;
+    int debugIndex;
+};
+
 struct DebugParams {
     bool enabled;
-    float imgX, imgY, imgW, imgH;
-    float arenaScale;
-    int selectedIndex;
+    int selectedImage;
+    int numDebugImages;
+    DebugImageEntry images[32];
+    Rectangle debugRects[32];
+    int debugRectCount[32];
+    float arenaX, arenaY, arenaW, arenaH;
+    float trainerSelectP1PortraitW, trainerSelectP1PortraitH;
+    float trainerSelectP2PortraitW, trainerSelectP2PortraitH;
+    float trainerSelectCardThumbW, trainerSelectCardThumbH;
+    float heroSelectTrainerW, heroSelectTrainerH;
+    float heroSelectPickSlotW, heroSelectPickSlotH;
+    float heroSelectCardPortraitW, heroSelectCardPortraitH;
+    float vsTrainerPortraitW, vsTrainerPortraitH;
+    float vsHeroCardPortraitW, vsHeroCardPortraitH;
+    float battleHeroSpriteH;
+    float hudTrainerPortraitW, hudTrainerPortraitH;
+    float sidePanelTrainerPortraitMaxW;
+    float battleHeroCardPortraitH;
+    float fxSpriteSize;
+    float shopItemIconW, shopItemIconH;
+    float shopEquippedIconW, shopEquippedIconH;
+    float shopHelpIconW, shopHelpIconH;
+    float shopCoinIconW, shopCoinIconH;
 };
 
 extern DebugParams g_debug;
 
+void debugInitParams();
 void debugHandleInput();
 void debugDrawHUD();
+void debugSaveConfig();
+void debugLoadConfig();
+void debugBeginFrame();
+void debugRecordRect(int idx, Rectangle r);
+void debugDrawOverlay();
