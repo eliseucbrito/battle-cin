@@ -41,6 +41,8 @@ public:
     virtual uint8_t     itemId()      const = 0;
     virtual uint8_t     category()    const { return ITEM_CATEGORY_HERO; }
     virtual std::string effectType()  const { return ""; }
+    virtual int         trainerId()   const { return -1; }
+    virtual int         heroId()      const { return -1; }
 
     virtual std::unique_ptr<Item> clone() const = 0;
 
@@ -65,6 +67,8 @@ public:
     uint8_t     category()    const override { return (uint8_t)record_.category; }
     int         maxRounds()   const override { return record_.max_rounds; }
     std::string effectType()  const override { return record_.effect_type; }
+    int         trainerId()   const override { return record_.trainer_id; }
+    int         heroId()      const override { return record_.hero_id; }
     std::unique_ptr<Item> clone() const override;
     void apply(Hero& hero, int currentRound) const override { (void)currentRound; doApply(hero); }
 
@@ -88,8 +92,8 @@ public:
 class ItemCatalog {
 public:
     ItemCatalog();
-    std::unique_ptr<Item> createRandom(uint8_t maxRarity) const;
-    std::vector<std::unique_ptr<Item>> generateStock(int count, uint8_t maxRarity, int roundNumber) const;
+    std::unique_ptr<Item> createRandom(uint8_t maxRarity, const std::vector<int>& tIds, const std::vector<int>& hIds) const;
+    std::vector<std::unique_ptr<Item>> generateStock(int count, uint8_t maxRarity, int roundNumber, const std::vector<int>& tIds, const std::vector<int>& hIds) const;
     static ShopItemInfo toShopItemInfo(const Item& item, int price);
     const Item* getPrototype(uint8_t itemId) const;
 private:
@@ -132,6 +136,8 @@ private:
     ItemCatalog catalog_;
     std::vector<std::unique_ptr<Item>> currentStock_;
     std::unique_ptr<PricingStrategy> pricing_;
+    std::vector<int> allowedTrainers_;
+    std::vector<int> allowedHeroes_;
     void generateStock(int count);
     void removeFromStock(int idx);
 };
