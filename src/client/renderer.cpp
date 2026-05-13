@@ -917,6 +917,7 @@ static const Color  ARCH_COLORS[]  = {
 };
 
 static Texture2D* selTrainerTex = nullptr;
+static Texture2D* selTrainerCardTex = nullptr;
 static Texture2D* selHeroTex    = nullptr;
 static int        selNTrainers  = 0;
 static int        selNHeroes    = 0;
@@ -926,11 +927,15 @@ void initSelectionAssets(const TrainerDef* trainers, int nT,
     selNTrainers   = nT;
     selNHeroes     = nH;
     selTrainerTex  = new Texture2D[nT];
+    selTrainerCardTex = new Texture2D[nT];
     selHeroTex     = new Texture2D[nH];
     for (int i = 0; i < nT; i++) {
         selTrainerTex[i] = (trainers[i].portraitPath[0] != '\0')
                            ? LoadTexture(trainers[i].portraitPath)
                            : Texture2D{};
+        selTrainerCardTex[i] = (trainers[i].cardPath[0] != '\0')
+                               ? LoadTexture(trainers[i].cardPath)
+                               : Texture2D{};
     }
     for (int i = 0; i < nH; i++) {
         selHeroTex[i] = LoadTexture(heroes[i].assetPath);
@@ -938,9 +943,13 @@ void initSelectionAssets(const TrainerDef* trainers, int nT,
 }
 
 void freeSelectionAssets(int nT, int nH) {
-    for (int i = 0; i < nT; i++) if (selTrainerTex[i].id) UnloadTexture(selTrainerTex[i]);
-    for (int i = 0; i < nH; i++) if (selHeroTex[i].id)    UnloadTexture(selHeroTex[i]);
+    for (int i = 0; i < nT; i++) {
+        if (selTrainerTex[i].id) UnloadTexture(selTrainerTex[i]);
+        if (selTrainerCardTex[i].id) UnloadTexture(selTrainerCardTex[i]);
+    }
+    for (int i = 0; i < nH; i++) if (selHeroTex[i].id) UnloadTexture(selHeroTex[i]);
     delete[] selTrainerTex; selTrainerTex = nullptr;
+    delete[] selTrainerCardTex; selTrainerCardTex = nullptr;
     delete[] selHeroTex;    selHeroTex    = nullptr;
 }
 
@@ -975,13 +984,23 @@ void drawTrainerSelectMK(const GameSnapshot& snap,
             DrawRectangle((int)px, (int)py, (int)pSize, (int)pSizeH, kP1Color);
         }
         DrawRectangleLinesEx({px, py, pSize, pSizeH}, 3, kP1Color);
+        
+        // --- Trainer Info Panel ---
+        if (tIdx < nT) {
+            float infoX = px + pSize + 30.f;
+            float infoY = py + 60.f;
+            DrawText(trainers[tIdx].name, (int)infoX, (int)infoY, 38, GOLD);
+            infoY += 45.f;
+            DrawText(TextFormat("Disciplina: %s", trainers[tIdx].discipline), (int)infoX, (int)infoY, 22, LIGHTGRAY);
+            infoY += 35.f;
+            DrawText(TextFormat("Habilidade: %s", trainers[tIdx].abilityName), (int)infoX, (int)infoY, 22, trainers[tIdx].color);
+        }
+
         const char* p1lbl = "P1";
         DrawText(p1lbl, (int)(px + (pSize - MeasureText(p1lbl, 20))/2), (int)(py + pSizeH + 6), 20, kP1Color);
         if (p1.trainerLocked >= 0) {
             const char* ready = "READY!";
             DrawText(ready, (int)(px + (pSize - MeasureText(ready, 24))/2), (int)(py + pSizeH + 30), 24, GREEN);
-        } else if (tIdx < nT) {
-            DrawText(trainers[tIdx].name, (int)(px + (pSize - MeasureText(trainers[tIdx].name, 14))/2), (int)(py + pSizeH + 30), 14, WHITE);
         }
     }
 
@@ -992,6 +1011,22 @@ void drawTrainerSelectMK(const GameSnapshot& snap,
         float pSize = 377.f;
         float pSizeH = 610.f;
         int tIdx = p2.trainerLocked >= 0 ? p2.trainerLocked : p2.trainerCursor;
+        
+        // --- Trainer Info Panel ---
+        if (tIdx < nT) {
+            float infoY = py + 60.f;
+            const char* nameStr = trainers[tIdx].name;
+            DrawText(nameStr, (int)(px - 30.f - MeasureText(nameStr, 38)), (int)infoY, 38, GOLD);
+            infoY += 45.f;
+            
+            const char* discStr = TextFormat("Disciplina: %s", trainers[tIdx].discipline);
+            DrawText(discStr, (int)(px - 30.f - MeasureText(discStr, 22)), (int)infoY, 22, LIGHTGRAY);
+            infoY += 35.f;
+            
+            const char* abStr = TextFormat("Habilidade: %s", trainers[tIdx].abilityName);
+            DrawText(abStr, (int)(px - 30.f - MeasureText(abStr, 22)), (int)infoY, 22, trainers[tIdx].color);
+        }
+
         if (tIdx < nT && selTrainerTex && selTrainerTex[tIdx].id) {
             DrawTexturePro(selTrainerTex[tIdx],
                 {0,0,(float)selTrainerTex[tIdx].width,(float)selTrainerTex[tIdx].height},
@@ -1000,18 +1035,17 @@ void drawTrainerSelectMK(const GameSnapshot& snap,
             DrawRectangle((int)px, (int)py, (int)pSize, (int)pSizeH, kP2Color);
         }
         DrawRectangleLinesEx({px, py, pSize, pSizeH}, 3, kP2Color);
+        
         const char* p2lbl = "P2";
         DrawText(p2lbl, (int)(px + (pSize - MeasureText(p2lbl, 20))/2), (int)(py + pSizeH + 6), 20, kP2Color);
         if (p2.trainerLocked >= 0) {
             const char* ready = "READY!";
             DrawText(ready, (int)(px + (pSize - MeasureText(ready, 24))/2), (int)(py + pSizeH + 30), 24, GREEN);
-        } else if (tIdx < nT) {
-            DrawText(trainers[tIdx].name, (int)(px + (pSize - MeasureText(trainers[tIdx].name, 14))/2), (int)(py + pSizeH + 30), 14, WHITE);
         }
     }
 
-    // Trainer cards at bottom — positioned with ~20% bottom margin
-    const float CW = 188.f, CH = 200.f, PAD = 16.f;
+    // Trainer cards at bottom — positioned with ~5% bottom margin
+    const float CW = 188.f, CH = 263.f, PAD = 16.f;
     float totalW = nT * CW + (nT-1) * PAD;
     float startX = (sw - totalW) / 2.f;
     float startY = sh - CH - sh * 0.05f;
@@ -1022,47 +1056,31 @@ void drawTrainerSelectMK(const GameSnapshot& snap,
         bool hov1 = (i == p1.trainerCursor && p1.trainerLocked < 0);
         bool hov2 = (i == p2.trainerCursor && p2.trainerLocked < 0);
 
-        Color bg = (hov1 || hov2) ? Color{50,50,90,255} : Color{30,30,58,255};
-        DrawRectangleRounded({x, y, CW, CH}, 0.08f, 6, bg);
-        DrawRectangleRoundedLines({x, y, CW, CH}, 0.08f, 6, {60,60,90,255});
-
-        float psH = 100.f;
-        float ps = 100.f;
-        if (selTrainerTex && selTrainerTex[i].id) {
-            ps = psH * ((float)selTrainerTex[i].width / selTrainerTex[i].height);
-        }
-        float px2 = x + (CW-ps)/2.f, py2 = y + 14.f;
-        if (selTrainerTex && selTrainerTex[i].id) {
-            DrawTexturePro(selTrainerTex[i],
-                {0,0,(float)selTrainerTex[i].width,(float)selTrainerTex[i].height},
-                {px2, py2, ps, psH}, {}, 0.f, WHITE);
+        if (selTrainerCardTex && selTrainerCardTex[i].id) {
+            DrawTexturePro(selTrainerCardTex[i],
+                {0,0,(float)selTrainerCardTex[i].width,(float)selTrainerCardTex[i].height},
+                {x, y, CW, CH}, {}, 0.f, WHITE);
         } else {
-            DrawRectangleRounded({px2,py2,ps,psH}, 0.2f, 6, trainers[i].color);
+            Color bg = (hov1 || hov2) ? Color{50,50,90,255} : Color{30,30,58,255};
+            DrawRectangleRounded({x, y, CW, CH}, 0.08f, 6, bg);
+            DrawRectangleRoundedLines({x, y, CW, CH}, 0.08f, 6, trainers[i].color);
+            int nw = MeasureText(trainers[i].name, 14);
+            DrawText(trainers[i].name, (int)(x+(CW-nw)/2), (int)(y+CH/2), 14, WHITE);
         }
-
-        int nw = MeasureText(trainers[i].name, 14);
-        DrawText(trainers[i].name, (int)(x+(CW-nw)/2), (int)(py2+ps+10), 14, WHITE);
-
-        int dw = MeasureText(trainers[i].discipline, 11);
-        DrawText(trainers[i].discipline, (int)(x+(CW-dw)/2), (int)(py2+ps+28), 11, {160,160,190,255});
-
-        char abuf[32]; snprintf(abuf, sizeof(abuf), "Poder: %s", trainers[i].abilityName);
-        int aw = MeasureText(abuf, 11);
-        DrawText(abuf, (int)(x+(CW-aw)/2), (int)(py2+ps+48), 11, trainers[i].color);
 
         // P1 cursor
         if (hov1) {
             float t = (float)GetTime();
             unsigned char alpha = (unsigned char)(180 + 75 * sinf(t * 4.f));
             Color bc = kP1Color; bc.a = alpha;
-            DrawRectangleLinesEx({x-4, y-4, CW+8, CH+8}, 3, bc);
+            DrawRectangleLinesEx({x-6, y-6, CW+12, CH+12}, 4, bc);
         }
         // P2 cursor
         if (hov2) {
             float t = (float)GetTime();
             unsigned char alpha = (unsigned char)(180 + 75 * sinf(t * 4.f));
             Color bc = kP2Color; bc.a = alpha;
-            DrawRectangleLinesEx({x-2, y-2, CW+4, CH+4}, 2, bc);
+            DrawRectangleLinesEx({x-3, y-3, CW+6, CH+6}, 3, bc);
         }
     }
 
