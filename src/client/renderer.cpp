@@ -933,8 +933,8 @@ void initSelectionAssets(const TrainerDef* trainers, int nT,
         selTrainerTex[i] = (trainers[i].portraitPath[0] != '\0')
                            ? LoadTexture(trainers[i].portraitPath)
                            : Texture2D{};
-        selTrainerCardTex[i] = (trainers[i].cardPath[0] != '\0')
-                               ? LoadTexture(trainers[i].cardPath)
+        selTrainerCardTex[i] = (trainers[i].cardDeckPath[0] != '\0')
+                               ? LoadTexture(trainers[i].cardDeckPath)
                                : Texture2D{};
     }
     for (int i = 0; i < nH; i++) {

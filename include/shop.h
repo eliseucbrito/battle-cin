@@ -68,7 +68,7 @@ public:
     int         maxRounds()   const override { return record_.max_rounds; }
     std::string effectType()  const override { return record_.effect_type; }
     int         trainerId()   const override { return record_.trainer_id; }
-    int         heroId()      const override { return record_.hero_id; }
+    int         heroId()      const override { return record_.archetype_id; }
     std::unique_ptr<Item> clone() const override;
     void apply(Hero& hero, int currentRound) const override { (void)currentRound; doApply(hero); }
 

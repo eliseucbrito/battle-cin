@@ -164,8 +164,8 @@ void Shop::enterShopPhase(int roundNumber, const Trainer& t0, const Trainer& t1)
     allowedTrainers_.push_back(t1.trainerId());
 
     allowedHeroes_.clear();
-    for (int i = 0; i < t0.heroCount(); i++) allowedHeroes_.push_back(t0.heroAt(i).heroDefIndex());
-    for (int i = 0; i < t1.heroCount(); i++) allowedHeroes_.push_back(t1.heroAt(i).heroDefIndex());
+    for (int i = 0; i < t0.heroCount(); i++) allowedHeroes_.push_back(t0.heroAt(i).archetype());
+    for (int i = 0; i < t1.heroCount(); i++) allowedHeroes_.push_back(t1.heroAt(i).archetype());
 
     gold_[0] = 60 + roundNumber * 10 + (t0.score() * 15);
     gold_[1] = 60 + roundNumber * 10 + (t1.score() * 15);

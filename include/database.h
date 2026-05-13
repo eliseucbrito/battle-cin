@@ -40,6 +40,7 @@ struct TrainerRecord {
     int         color_r, color_g, color_b;
     std::string portrait_path;
     std::string card_path;
+    std::string card_deck_path;
 };
 
 struct ShopItemRecord {

@@ -50,6 +50,7 @@ struct TrainerDef {
     const char* abilityName;
     const char* portraitPath;
     const char* cardPath;
+    const char* cardDeckPath;
 };
 
 struct HeroDef {

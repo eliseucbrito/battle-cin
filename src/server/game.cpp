@@ -57,6 +57,7 @@ void Game::loadDefs()
         e.colorB = (uint8_t)t.color_b;
         e.portraitPath = t.portrait_path;
         e.cardPath = t.card_path;
+        e.cardDeckPath = t.card_deck_path;
         g_trainerDefs.push_back(std::move(e));
     }
 

@@ -57,7 +57,8 @@ void Database::createTables()
             color_g       INTEGER NOT NULL DEFAULT 160,
             color_b       INTEGER NOT NULL DEFAULT 230,
             portrait_path TEXT    NOT NULL DEFAULT '',
-            card_path     TEXT    NOT NULL DEFAULT ''
+            card_path     TEXT    NOT NULL DEFAULT '',
+            card_deck_path TEXT   NOT NULL DEFAULT ''
         );
     )");
 
@@ -131,32 +132,38 @@ void Database::seedAll()
 
     // ── Treinadores ──
     struct TrainerSeed { const char* name; const char* disc; int abType; const char* abName;
-                         int r, g, b; const char* pp; const char* cp; };
+                         int r, g, b; const char* pp; const char* cp; const char* cdp; };
     TrainerSeed tdata[] = {
         { "Abel Guilhermino",  "Engenharia de Software", 0, "Rally (+AD)",  0, 120, 215,
           "assets/trainers/presentation/Abel_Guilhermino_presentation.png",
-          "assets/trainers/card/Abel_Guilhermino_card.png" },
+          "assets/trainers/card/Abel_Guilhermino_card.png",
+          "assets/trainers/card_deck/Abel_Guilhermino_card_thin.png" },
         { "Alex Sandro",       "Algoritmos",             1, "Shield (+ARM)", 200, 50, 50,
           "assets/trainers/presentation/Alex_Sandro_presentation.png",
-          "assets/trainers/card/Alex_Sandro_card.png" },
+          "assets/trainers/card/Alex_Sandro_card.png",
+          "assets/trainers/card_deck/Alex_Sandro_card_thin.png" },
         { "David Junior",       "Redes de Computadores",  2, "Heal (+HP)",  255, 165, 0,
           "assets/trainers/presentation/David_presentation.png",
-          "assets/trainers/card/David_Junior_card.png" },
+          "assets/trainers/card/David_Junior_card.png",
+          "assets/trainers/card_deck/David_Junior_card_thin.png" },
         { "Francisco Paulo",   "Estrutura de Dados e Orientação a Objetos", 3, "Frenzy (+AS)", 0, 255, 0,
           "assets/trainers/presentation/Francisco_Paulo_presentation.png",
-          "assets/trainers/card/Francisco_Paulo_card.png" },
+          "assets/trainers/card/Francisco_Paulo_card.png",
+          "assets/trainers/card_deck/Francisco_Paulo_card_thin.png" },
         { "Juliano Lyoda",     "Introdução a Programação", 0, "Rally (+AD)",  0, 255, 255,
           "assets/trainers/presentation/Juliano_lyoda_presentation.png",
-          "assets/trainers/card/Juliano_lyoda_card.png" },
+          "assets/trainers/card/Juliano_lyoda_card.png",
+          "assets/trainers/card_deck/Juliano_lyoda_card_thin.png" },
         { "Valeria Cesario",   "Banco de Dados",         1, "Shield (+ARM)", 128, 0, 128,
           "assets/trainers/presentation/Valeria_Cesario_presentation.png",
-          "assets/trainers/card/Valeria_Cesario_card.png" },
+          "assets/trainers/card/Valeria_Cesario_card.png",
+          "assets/trainers/card_deck/Valeria_Cesario_card_thin.png" },
     };
 
     for (const auto& t : tdata) {
         const char* sql = "INSERT INTO trainers (name,discipline,ability_type,ability_name,"
-                          "color_r,color_g,color_b,portrait_path,card_path)"
-                          "VALUES (?,?,?,?,?,?,?,?,?);";
+                          "color_r,color_g,color_b,portrait_path,card_path,card_deck_path)"
+                          "VALUES (?,?,?,?,?,?,?,?,?,?);";
         sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr);
         sqlite3_bind_text(stmt, 1, t.name, -1, SQLITE_STATIC);
         sqlite3_bind_text(stmt, 2, t.disc, -1, SQLITE_STATIC);
@@ -167,6 +174,7 @@ void Database::seedAll()
         sqlite3_bind_int (stmt, 7, t.b);
         sqlite3_bind_text(stmt, 8, t.pp, -1, SQLITE_STATIC);
         sqlite3_bind_text(stmt, 9, t.cp, -1, SQLITE_STATIC);
+        sqlite3_bind_text(stmt, 10, t.cdp, -1, SQLITE_STATIC);
         sqlite3_step(stmt);
         sqlite3_finalize(stmt);
     }
@@ -463,7 +471,7 @@ std::vector<TrainerRecord> Database::getAllTrainers()
     sqlite3_stmt* stmt = nullptr;
     sqlite3_prepare_v2(db_,
         "SELECT id, name, discipline, ability_type, ability_name, ability_desc, "
-        "color_r, color_g, color_b, portrait_path, card_path FROM trainers ORDER BY id;",
+        "color_r, color_g, color_b, portrait_path, card_path, card_deck_path FROM trainers ORDER BY id;",
         -1, &stmt, nullptr);
 
     while (sqlite3_step(stmt) == SQLITE_ROW) {
@@ -479,6 +487,7 @@ std::vector<TrainerRecord> Database::getAllTrainers()
         t.color_b       = sqlite3_column_int (stmt, 8);
         t.portrait_path = (const char*)sqlite3_column_text(stmt, 9);
         t.card_path     = (const char*)sqlite3_column_text(stmt, 10);
+        t.card_deck_path = (const char*)sqlite3_column_text(stmt, 11);
         results.push_back(t);
     }
     sqlite3_finalize(stmt);
@@ -556,7 +565,7 @@ TrainerRecord Database::getTrainerById(int id)
     sqlite3_stmt* stmt = nullptr;
     sqlite3_prepare_v2(db_,
         "SELECT id,name,discipline,ability_type,ability_name,ability_desc,"
-        "color_r,color_g,color_b,portrait_path,card_path FROM trainers WHERE id = ?;",
+        "color_r,color_g,color_b,portrait_path,card_path,card_deck_path FROM trainers WHERE id = ?;",
         -1, &stmt, nullptr);
     sqlite3_bind_int(stmt, 1, id);
 
@@ -572,6 +581,7 @@ TrainerRecord Database::getTrainerById(int id)
         t.color_b       = sqlite3_column_int (stmt, 8);
         t.portrait_path = (const char*)sqlite3_column_text(stmt, 9);
         t.card_path     = (const char*)sqlite3_column_text(stmt, 10);
+        t.card_deck_path = (const char*)sqlite3_column_text(stmt, 11);
     }
     sqlite3_finalize(stmt);
     return t;

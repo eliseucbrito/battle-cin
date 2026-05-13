@@ -12,6 +12,7 @@ struct TrainerDefEntry {
     uint8_t     colorR, colorG, colorB;
     std::string portraitPath;
     std::string cardPath;
+    std::string cardDeckPath;
 };
 
 struct HeroDefEntry {

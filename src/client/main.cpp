@@ -28,7 +28,8 @@ static void buildLocalDefs() {
             g_trainerDefs[i].abilityType,
             g_trainerDefs[i].abilityName.c_str(),
             g_trainerDefs[i].portraitPath.c_str(),
-            g_trainerDefs[i].cardPath.c_str()
+            g_trainerDefs[i].cardPath.c_str(),
+            g_trainerDefs[i].cardDeckPath.c_str()
         };
     }
     g_localHeroDefs.resize(g_heroDefs.size());
