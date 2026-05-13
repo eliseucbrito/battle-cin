@@ -16,6 +16,7 @@ struct HeroRecord {
     int         id;
     std::string name;
     std::string monologue;
+    std::string description;
     int         archetype;
     std::string class_name;
     int         trainer_id;
