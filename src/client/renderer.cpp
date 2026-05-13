@@ -245,15 +245,7 @@ void drawBuffZones(const GameSnapshot& snap) {
     }
 }
 
-void drawPedestal(Vector2 ctr, int ownerId) {
-    float rx = CELLW * 0.55f;
-    float ry = CELLH * 0.22f;
-    Color fill = (ownerId == 0) ? Color{60, 120, 230, 120} : Color{230, 60, 60, 120};
-    Color border = (ownerId == 0) ? Color{40, 90, 200, 180} : Color{200, 40, 40, 180};
-    float baseY = ctr.y + CELLH * 0.32f;
-    DrawEllipse((int)ctr.x, (int)baseY, rx, ry, fill);
-    DrawEllipseLines((int)ctr.x, (int)baseY, rx, ry, border);
-}
+
 
 void drawHero(const HeroNetState& hs, Vector2 ctr, int myId, bool dragging,
               float breathScale, float tiltAngle)
@@ -334,8 +326,8 @@ void drawHero(const HeroNetState& hs, Vector2 ctr, int myId, bool dragging,
     float bx = heroCtr.x - bw * 0.5f, by = heroCtr.y - r - 14.f;
     float pct = (hs.maxHp > 0) ? (float)hs.hp / hs.maxHp : 0.f;
     DrawRectangle((int)bx, (int)by, (int)bw, (int)bh, DARKGRAY);
-    DrawRectangle((int)bx, (int)by, (int)(bw * pct), (int)bh,
-                  pct > 0.5f ? GREEN : (pct > 0.25f ? YELLOW : RED));
+    Color hpCol = (hs.ownerId == 0) ? kP1Color : kP2Color;
+    DrawRectangle((int)bx, (int)by, (int)(bw * pct), (int)bh, hpCol);
     DrawRectangleLinesEx({ bx, by, bw, bh }, 1, { 255, 255, 255, 80 });
 }
 
@@ -385,11 +377,13 @@ void drawOverlays(const GameSnapshot& snap, int myId) {
     (void)myId;
     float sw = g_layout.screenW, sh = g_layout.screenH;
     float midX = sw * 0.5f;
+
     if (snap.phase == PHASE_ROUND_END) {
         DrawRectangle(0, 0, (int)sw, (int)sh, {0, 0, 0, 100});
         const char* msg = (snap.roundWinner == 0) ? "PONTO PARA P1!" : (snap.roundWinner == 1 ? "PONTO PARA P2!" : "EMPATE!");
         DrawText(msg, (int)(midX - MeasureText(msg, 40) * 0.5f), (int)(sh * 0.44f), 40, snap.roundWinner == 0 ? BLUE : RED);
     }
+
     if (snap.phase == PHASE_MATCH_END) {
         DrawRectangle(0, 0, (int)sw, (int)sh, {0, 0, 0, 220});
 
@@ -424,7 +418,7 @@ void drawOverlays(const GameSnapshot& snap, int myId) {
         snprintf(line2, sizeof(line2), "2º LUGAR: %s (%d pts)", sName, snap.trainers[second].score);
 
         DrawText(line1, (int)(midX - MeasureText(line1, 22) * 0.5f), (int)(sh * 0.56f), 22, YELLOW);
-        DrawText(line2, (int)(midX - MeasureText(line2, 22) * 0.5f), (int)(sh * 0.61f), 22, LIGHTGRAY);
+        DrawText(line2, (int)(midX - MeasureText(line2, 22) * 0.5f), (int)(sh * 0.59f), 22, LIGHTGRAY);
 
         const char* restart = "Feche o jogo para reiniciar";
         DrawText(restart, (int)(midX - MeasureText(restart, 18) * 0.5f), (int)(sh * 0.72f), 18, GRAY);
