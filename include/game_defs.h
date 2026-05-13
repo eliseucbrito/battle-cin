@@ -17,6 +17,7 @@ struct TrainerDefEntry {
 struct HeroDefEntry {
     std::string name;
     std::string monologue;
+    std::string description;
     uint8_t     archetype;
     uint8_t     trainerId;     // 1-based DB trainer id
     std::string className;

@@ -1234,19 +1234,90 @@ void drawHeroSelectMK(const GameSnapshot& snap,
             }
             
             // ── Render 300px hero above deck if hovered ──
-            if (hov && selHeroTex && selHeroTex[i].id) {
+            if (hov) {
                 float heroH = 300.f;
-                float heroW = heroH * ((float)selHeroTex[i].width / selHeroTex[i].height);
-                float heroX = sideX + areaW * 0.5f - heroW * 0.5f;
+                float heroW = (selHeroTex && selHeroTex[i].id) ? (heroH * ((float)selHeroTex[i].width / selHeroTex[i].height)) : heroH;
+                
+                float textW = 340.f;
+                float padding = 30.f;
+                float totalW = heroW + padding + textW;
+                
+                float blockX = sideX + areaW * 0.5f - totalW * 0.5f;
+                float heroX = blockX;
                 float heroY = cardsY - heroH - 30.f; // 30px spacing above the deck
                 
-                // Shadow
-                DrawEllipse((int)(heroX + heroW/2), (int)(heroY + heroH), heroW*0.4f, 15.f, {0,0,0,160});
+                if (selHeroTex && selHeroTex[i].id) {
+                    // Shadow
+                    DrawEllipse((int)(heroX + heroW/2), (int)(heroY + heroH), heroW*0.4f, 15.f, {0,0,0,160});
+                    // Texture
+                    DrawTexturePro(selHeroTex[i],
+                        {0,0,(float)selHeroTex[i].width,(float)selHeroTex[i].height},
+                        {heroX, heroY, heroW, heroH}, {}, 0.f, WHITE);
+                } else {
+                    DrawRectangleRounded({heroX, heroY, heroW, heroH}, 0.1f, 4, ARCH_COLORS[heroes[i].archetype]);
+                }
                 
-                // Texture
-                DrawTexturePro(selHeroTex[i],
-                    {0,0,(float)selHeroTex[i].width,(float)selHeroTex[i].height},
-                    {heroX, heroY, heroW, heroH}, {}, 0.f, WHITE);
+                // --- Text Panel (Stats, Lore, Monologue) ---
+                float textX = heroX + heroW + padding;
+                float textY = heroY + 10.f;
+                
+                // Background panel for text
+                DrawRectangleRounded({textX - 15, textY - 15, textW + 30, heroH}, 0.1f, 6, {20,20,30,220});
+                DrawRectangleRoundedLines({textX - 15, textY - 15, textW + 30, heroH}, 0.1f, 6, {100,100,140,150});
+                
+                // Name & Archetype
+                DrawText(heroes[i].name, (int)textX, (int)textY, 22, GOLD);
+                int aw = MeasureText(ARCH_NAMES[heroes[i].archetype], 12);
+                DrawRectangleRounded({textX + textW - aw - 8, textY, (float)aw + 8, 18}, 0.3f, 4, ARCH_COLORS[heroes[i].archetype]);
+                DrawText(ARCH_NAMES[heroes[i].archetype], (int)(textX + textW - aw - 4), (int)textY + 3, 12, WHITE);
+                
+                textY += 35.f;
+                
+                // Stats
+                char hstats[64];
+                snprintf(hstats, sizeof(hstats), "HP: %d   AD: %d   ARM: %d", heroes[i].hp, heroes[i].ad, heroes[i].arm);
+                DrawText(hstats, (int)textX, (int)textY, 16, {200, 220, 240, 255});
+                textY += 25.f;
+                
+                // Word Wrap Helper
+                auto drawWrapped = [&](const char* text, float startX, float startY, float maxW, int fontSize, Color c) -> float {
+                    if (!text) return startY;
+                    std::string words = text;
+                    std::string line = "";
+                    float yy = startY;
+                    size_t pos = 0;
+                    while (pos < words.length()) {
+                        size_t nextSpace = words.find(' ', pos);
+                        if (nextSpace == std::string::npos) nextSpace = words.length();
+                        std::string word = words.substr(pos, nextSpace - pos);
+                        std::string testLine = line.empty() ? word : (line + " " + word);
+                        if (MeasureText(testLine.c_str(), fontSize) > maxW) {
+                            DrawText(line.c_str(), (int)startX, (int)yy, fontSize, c);
+                            yy += fontSize + 4;
+                            line = word;
+                        } else {
+                            line = testLine;
+                        }
+                        pos = nextSpace + 1;
+                    }
+                    if (!line.empty()) {
+                        DrawText(line.c_str(), (int)startX, (int)yy, fontSize, c);
+                        yy += fontSize + 4;
+                    }
+                    return yy;
+                };
+
+                // Monologue
+                if (heroes[i].monologue && strlen(heroes[i].monologue) > 0) {
+                    std::string mono = std::string("\"") + heroes[i].monologue + "\"";
+                    textY = drawWrapped(mono.c_str(), textX, textY, textW, 14, {160, 180, 255, 255});
+                    textY += 15.f;
+                }
+                
+                // Lore/Description
+                if (heroes[i].description && strlen(heroes[i].description) > 0) {
+                    textY = drawWrapped(heroes[i].description, textX, textY, textW, 14, {200, 200, 200, 255});
+                }
             }
         }
 

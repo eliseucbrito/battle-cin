@@ -35,6 +35,8 @@ static void buildLocalDefs() {
     for (size_t i = 0; i < g_heroDefs.size(); i++) {
         g_localHeroDefs[i] = {
             g_heroDefs[i].name.c_str(),
+            g_heroDefs[i].monologue.c_str(),
+            g_heroDefs[i].description.c_str(),
             g_heroDefs[i].archetype,
             (uint8_t)(g_heroDefs[i].trainerId - 1),
             g_heroDefs[i].className.c_str(),

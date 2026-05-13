@@ -66,6 +66,7 @@ void Game::loadDefs()
         HeroDefEntry e;
         e.name = h.name;
         e.monologue = h.monologue;
+        e.description = h.description;
         e.archetype = (uint8_t)h.archetype;
         e.trainerId = (uint8_t)h.trainer_id;
         e.className = h.class_name;

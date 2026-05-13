@@ -54,6 +54,8 @@ struct TrainerDef {
 
 struct HeroDef {
     const char* name;
+    const char* monologue;
+    const char* description;
     uint8_t     archetype;
     uint8_t     trainerIndex;
     const char* className;
