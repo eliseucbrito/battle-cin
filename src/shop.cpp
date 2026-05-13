@@ -86,34 +86,44 @@ std::vector<std::unique_ptr<Item>> ItemCatalog::generateStock(
     int count, uint8_t maxRarity, int roundNumber, const std::vector<int>& tIds, const std::vector<int>& hIds) const
 {
     (void)roundNumber;
-    std::vector<int> eligible;
+    std::vector<int> eligibleGen;
+    std::vector<int> eligibleHero;
     for (int i = 0; i < (int)prototypes_.size(); i++) {
         if (prototypes_[i]->rarity() <= maxRarity) {
             int tId = prototypes_[i]->trainerId();
             int hId = prototypes_[i]->heroId();
             bool ok = false;
             if (tId == -1 && hId == -1) ok = true;
-            else if (tId != -1) { for (int tid : tIds) if (tid == tId) { ok = true; break; } }
+            else if (tId != -1) { for (int tid : tIds) if (tid + 1 == tId) { ok = true; break; } }
             else if (hId != -1) { for (int hid : hIds) if (hid == hId) { ok = true; break; } }
-            if (ok) eligible.push_back(i);
+            if (ok) {
+                if (prototypes_[i]->category() == ITEM_CATEGORY_GENERAL) eligibleGen.push_back(i);
+                else eligibleHero.push_back(i);
+            }
         }
     }
 
     std::vector<std::unique_ptr<Item>> stock;
-    if (eligible.empty()) return stock;
+    
+    auto shuffleAndPick = [&](std::vector<int>& elig, int need) {
+        if (elig.empty()) return;
+        for (int i = (int)elig.size() - 1; i > 0; i--) {
+            int j = rand() % (i + 1);
+            std::swap(elig[i], elig[j]);
+        }
+        int pick = std::min(need, (int)elig.size());
+        for (int i = 0; i < pick; i++) {
+            stock.push_back(prototypes_[elig[i]]->clone());
+        }
+    };
 
-    // Shuffle eligible to pick without replacement
-    for (int i = (int)eligible.size() - 1; i > 0; i--) {
-        int j = rand() % (i + 1);
-        std::swap(eligible[i], eligible[j]);
-    }
+    // UI expects up to 3 general items and up to 3 hero items
+    shuffleAndPick(eligibleGen, 3);
+    shuffleAndPick(eligibleHero, 3);
 
-    int pickCount = std::min(count, (int)eligible.size());
-    for (int i = 0; i < pickCount; i++) {
-        stock.push_back(prototypes_[eligible[i]]->clone());
-    }
     return stock;
 }
+
 
 ShopItemInfo ItemCatalog::toShopItemInfo(const Item& item, int price) {
     ShopItemInfo info;
@@ -177,15 +187,16 @@ void Shop::enterShopPhase(int roundNumber, const Trainer& t0, const Trainer& t1)
 }
 
 void Shop::generateStock(int count) {
-    uint8_t maxRarity = ITEM_RARITY_COMMON;
-    if (currentRound_ >= 3) maxRarity = ITEM_RARITY_UNCOMMON;
-    if (currentRound_ >= 6) maxRarity = ITEM_RARITY_RARE;
-    if (currentRound_ >= 9) maxRarity = ITEM_RARITY_EPIC;
+    uint8_t maxRarity = ITEM_RARITY_EPIC; // Permite todos os itens desde a rodada 1 para maior variedade
 
     auto items = catalog_.generateStock(count, maxRarity, currentRound_, allowedTrainers_, allowedHeroes_);
-    for (auto& item : items)
+    printf("[Shop] Gerando stock de %d itens:\n", (int)items.size());
+    for (auto& item : items) {
+        printf("  - %s (tId=%d, hId=%d)\n", item->name().c_str(), item->trainerId(), item->heroId());
         currentStock_.push_back(std::move(item));
+    }
 }
+
 
 void Shop::removeFromStock(int idx) {
     if (idx >= 0 && idx < (int)currentStock_.size())

@@ -1564,12 +1564,12 @@ void drawShop(const GameSnapshot& snap, const PlayerInput& p1, const PlayerInput
 
         // ── Description Box ──
         if (selItem) {
-            DrawRectangleRounded({sideX + 10, y, sideW - 20, 60}, 0.1f, 5, {20, 20, 40, 180});
-            DrawRectangleRoundedLines({sideX + 10, y, sideW - 20, 60}, 0.1f, 5, pCol);
-            DrawText("DESCRICAO:", (int)(sideX + 18), (int)(y + 8), 11, GOLD);
-            DrawTextWrapped(GetFontDefault(), selItem->desc, {sideX + 18, y + 24}, 12, sideW - 36, LIGHTGRAY);
+            DrawRectangleRounded({sideX + 10, y, sideW - 20, 90}, 0.1f, 5, {20, 20, 40, 180});
+            DrawRectangleRoundedLines({sideX + 10, y, sideW - 20, 90}, 0.1f, 5, pCol);
+            DrawText("DESCRICAO:", (int)(sideX + 18), (int)(y + 8), 14, GOLD);
+            DrawTextWrapped(GetFontDefault(), selItem->desc, {sideX + 18, y + 28}, 16, sideW - 36, LIGHTGRAY);
         }
-        y += 70;
+        y += 100;
 
         // ── Controls ──
         const char* ctrl = (pid == 0)

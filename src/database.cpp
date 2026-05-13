@@ -263,8 +263,8 @@ void Database::seedAll()
     for (const auto& t : trainers) {
         struct ItemData { std::string name; const char* desc; int price; int rarity; const char* eff; float val; int idOff; };
         ItemData trainerItems[] = {
-            { "Cafe Energizante", "Um cafe forte que desperta o potencial do treinador, concedendo um bonus de 10 de Dano de Ataque (AD) para todos os herois durante o round atual.", 40, 0, "buff_ad_flat", 10.0f, 3 },
-            { "Lampada do Conhecimento",  "Uma lampada que ilumina a estrategia, aumentando a Armadura (ARM) de todos os herois em 15 pontos durante o round atual.",    45, 0, "buff_arm_flat", 15.0f, 4 }
+            { "Cafe Energizante", "Concede um bonus de 10 de AD para todos os herois no round atual. Nao recomendado para quem ja tem ansiedade e tremores.", 40, 0, "buff_ad_flat", 10.0f, 3 },
+            { "Lampada do Conhecimento",  "Aumenta a Armadura (ARM) de todos os herois em 15 pontos no round atual. Apenas nao olhe diretamente para a luz, da dor de cabeca.",    45, 0, "buff_arm_flat", 15.0f, 4 }
         };
         for (auto& it : trainerItems) {
             int finalId = (currentItemId / 5) * 5 + it.idOff;
@@ -291,24 +291,24 @@ void Database::seedAll()
 
     struct NewItemData { std::string name; const char* desc; int price; int rarity; const char* eff; float val; int archId; std::string icon; };
     NewItemData archetypeItems[] = {
-        { "Abraco do Arcanjo", "Cura um aliado automaticamente quando ele cai abaixo de 20% de vida (cooldown 30s, sem custo de mana)", 100, 1, "auto_heal", 0.2f, 4, "assets/shop/abraco_do_arcanjo.png" },
-        { "Adaga Envenenada", "Ataques basicos envenenam, causando 3% de vida maxima como dano verdadeiro por 4s (nao acumula)", 80, 1, "poison_hit", 0.03f, 3, "assets/shop/adaga_envenenada.png" },
-        { "Botas da Agilidade", "Aumenta o movespeed base em +20", 50, 0, "buff_speed", 20.0f, -1, "assets/shop/botas_da_agilidade.png" },
-        { "Cajado Sagrado", "Ao usar ultimate, reduz o cooldown de todas as outras habilidades em 4s.", 120, 2, "ult_cd_red", 4.0f, 2, "assets/shop/cajado_sagrado.png" },
-        { "Egide do Guardiao", "Move-se 20% mais devagar, mas reduz todo dano recebido em 15%", 90, 1, "dmg_reduction", 0.15f, 0, "assets/shop/egide_do_guardiao.png" },
-        { "Elmo do Esquecimento", "Imunidade temporaria", 110, 2, "temp_immunity", 0.f, 0, "assets/shop/elmo_do_esquecimento.png" },
-        { "Escudo do Pacto", "Proteger um aliado transfere 20% do dano recebido para voce (limitado a 30% da sua vida).", 100, 1, "dmg_transfer", 0.2f, 0, "assets/shop/escudo_do_pacto.png" },
-        { "Excalibur", "Seu proximo ataque apos habilidade causa 100% de dano extra em area.", 150, 2, "aoe_next_hit", 1.0f, 1, "assets/shop/excalibur.png" },
-        { "Foice do Enforcado", "Executa inimigos com menos de 15% de vida se acertados pelas costas", 130, 2, "execute_backstab", 0.15f, 3, "assets/shop/foice_do_enforcado.png" },
-        { "Lamina Dupla", "Acertar um mesmo inimigo duas vezes seguidas se cura baseado no dano causado", 95, 1, "lifesteal_combo", 0.f, 1, "assets/shop/lamina_dupla.png" },
-        { "Luvas da Paciencia", "Reduz o tempo de recarga das skills em 10%", 60, 0, "cd_reduction", 0.1f, -1, "assets/shop/luvas_da_paciencia.png" },
-        { "Machado do Berserker", "Cada ataque basico aumenta o dano do proximo em 5% (acumula ate 30%). Focado em abate sustentado.", 110, 2, "stack_ad", 0.05f, 1, "assets/shop/machado_do_berserker.png" },
-        { "Manto do Espreitador", "Ao ficar 3s sem tomar dano, entra em furtividade por 4s (primeiro ataque causa 50% mais dano).", 105, 1, "stealth_ooc", 0.5f, 3, "assets/shop/manto_do_espreitador.png" },
-        { "Martelo do Gigante", "Habilidades de impacto causam stun de 0.75s (cooldown 8s por alvo)", 100, 1, "stun_on_hit", 0.75f, 1, "assets/shop/martelo_do_gigante.png" },
-        { "Olho de Sauron", "Habilidades de area deixam um rastro que causa 40% do dano original por 2s.", 140, 2, "aoe_trail", 0.4f, 2, "assets/shop/olho_de_sauron.png" },
-        { "Tomo Amaldicoado", "Habilidades aplicam queimadura que causa 2% de vida maxima como dano magico por 3s.", 85, 1, "burn_skill", 0.02f, 2, "assets/shop/tomo_amaldicoado.png" },
-        { "Tomo da Sabedoria", "Ao curar um aliado com menos de 30% de vida, a cura e 50% mais eficaz.", 95, 1, "bonus_heal_low", 0.5f, 4, "assets/shop/tomo_da_sabedoria.png" },
-        { "Tomo Inspirador", "Habilidades de cura também concedem 15% de velocidade de ataque por 3s.", 85, 1, "heal_buff_as", 0.15f, 4, "assets/shop/tomo_inspirador.png" }
+        { "Abraco do Arcanjo", "Cura automaticamente quando abaixo de 20% de vida (cooldown 30s). Vem com um cartaozinho de 'Melhoras Rapidas'.", 100, 1, "auto_heal", 0.2f, 4, "assets/shop/abraco_do_arcanjo.png" },
+        { "Adaga Envenenada", "Ataques basicos envenenam (3% vida max como true damage por 4s). Cuidado pra nao se cortar abrindo a embalagem.", 80, 1, "poison_hit", 0.03f, 3, "assets/shop/adaga_envenenada.png" },
+        { "Botas da Agilidade", "Aumenta o movespeed base em +20. Cheiro de chule garantido apos duas rodadas de corrida.", 50, 0, "buff_speed", 20.0f, -1, "assets/shop/botas_da_agilidade.png" },
+        { "Cajado Sagrado", "Ao usar ultimate, reduz os cooldowns em 4s. Foi furtado de um mago idoso que so queria pescar em paz.", 120, 2, "ult_cd_red", 4.0f, 2, "assets/shop/cajado_sagrado.png" },
+        { "Egide do Guardiao", "20% mais lento, mas reduz dano em 15%. Pesado demais pra correr, porem otimo pra ignorar seus problemas.", 90, 1, "dmg_reduction", 0.15f, 0, "assets/shop/egide_do_guardiao.png" },
+        { "Elmo do Esquecimento", "Imunidade temporaria. Esqueca seus problemas, suas dividas e, principalmente, como respirar por alguns segundos.", 110, 2, "temp_immunity", 0.f, 0, "assets/shop/elmo_do_esquecimento.png" },
+        { "Escudo do Pacto", "Proteger aliado transfere 20% do dano para voce. Ser o heroi da equipe tem seu preco (e geralmente doi muito).", 100, 1, "dmg_transfer", 0.2f, 0, "assets/shop/escudo_do_pacto.png" },
+        { "Excalibur", "Proximo ataque apos skill da 100% dano extra em area. O Rei Arthur mandou mensagem cobrando os direitos autorais.", 150, 2, "aoe_next_hit", 1.0f, 1, "assets/shop/excalibur.png" },
+        { "Foice do Enforcado", "Executa quem tem <15% de vida se bater pelas costas. A arma favorita de quem adora roubar as kills do coleguinha.", 130, 2, "execute_backstab", 0.15f, 3, "assets/shop/foice_do_enforcado.png" },
+        { "Lamina Dupla", "Bater duas vezes seguidas no mesmo inimigo cura voce. Para aqueles que acham que a melhor defesa e bater ate sarar.", 95, 1, "lifesteal_combo", 0.f, 1, "assets/shop/lamina_dupla.png" },
+        { "Luvas da Paciencia", "Reduz recarga das skills em 10%. Ironicamente, feita para os apressadinhos que nao aguentam esperar.", 60, 0, "cd_reduction", 0.1f, -1, "assets/shop/luvas_da_paciencia.png" },
+        { "Machado do Berserker", "Ataques basicos aumentam o dano em 5% (ate 30%). Quando a diplomacia falha, a forca bruta (e o odio) resolvem tudo.", 110, 2, "stack_ad", 0.05f, 1, "assets/shop/machado_do_berserker.png" },
+        { "Manto do Espreitador", "Sem tomar dano por 3s ganha furtividade. Excelente tanto para gankar quanto para evitar conversar com estranhos.", 105, 1, "stealth_ooc", 0.5f, 3, "assets/shop/manto_do_espreitador.png" },
+        { "Martelo do Gigante", "Skills de impacto dao stun de 0.75s. Uma prova de que todo problema parece um prego quando voce tem um martelo.", 100, 1, "stun_on_hit", 0.75f, 1, "assets/shop/martelo_do_gigante.png" },
+        { "Olho de Sauron", "Skills em area deixam rastro flamejante de dano. Ele ve tudo, principalmente as suas gambiarras no codigo.", 140, 2, "aoe_trail", 0.4f, 2, "assets/shop/olho_de_sauron.png" },
+        { "Tomo Amaldicoado", "Skills aplicam queimadura (2% hp maximo). Um livro tao mal escrito que a simples leitura causa queimaduras graves.", 85, 1, "burn_skill", 0.02f, 2, "assets/shop/tomo_amaldicoado.png" },
+        { "Tomo da Sabedoria", "Curar aliado com pouca vida tem 50% de bonus. Perfeito pra manter aquele seu companheiro kamikaze vivo mais uns segundos.", 95, 1, "bonus_heal_low", 0.5f, 4, "assets/shop/tomo_da_sabedoria.png" },
+        { "Tomo Inspirador", "Skills de cura dao bonus de velocidade de ataque. Como diria o autor: pare de choramingar e bata mais rapido!", 85, 1, "heal_buff_as", 0.15f, 4, "assets/shop/tomo_inspirador.png" }
     };
 
     for (auto& it : archetypeItems) {
