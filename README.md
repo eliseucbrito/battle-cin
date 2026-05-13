@@ -35,13 +35,21 @@
 
 ## Imagens do jogo
 
-<img width="1920" height="1080" alt="screenshot-2026-05-12_23-03-30" src="https://github.com/user-attachments/assets/8dd43d10-9876-4ce0-b0f8-19c9b0eea9c5" />
+imagem da seleção de treinador
 
+<img width="1920" height="1080" alt="screenshot-2026-05-12_23-28-16" src="https://github.com/user-attachments/assets/adf1e7ac-a880-475b-adbe-7af28eead8ef" />
+
+Imagem da seleção dos heróis 
+
+<img width="1920" height="1080" alt="screenshot-2026-05-12_23-03-30" src="https://github.com/user-attachments/assets/f1974b98-83e5-4e1c-8c72-d35708fb656e" />
+
+Imagem da fase de batalha
 
 <img width="1640" height="1060" alt="screenshot-2026-05-12_23-04-50" src="https://github.com/user-attachments/assets/842a2614-21b0-4b3e-ba36-62195d93733f" />
 
+Imagem da loja
 
-<img width="1640" height="1060" alt="screenshot-2026-05-12_23-05-19" src="https://github.com/user-attachments/assets/7ab1ca60-650d-4112-a633-49c0c6c46e3e" />
+<img width="1640" height="1060" alt="screenshot-2026-05-12_23-26-46" src="https://github.com/user-attachments/assets/48dcc3f8-e49d-4a14-b0dd-1b71adf25252" />
 
 ---
 
