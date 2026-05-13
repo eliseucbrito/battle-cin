@@ -1091,18 +1091,20 @@ void drawHeroSelectMK(const GameSnapshot& snap,
     DrawRectangle((int)(midX - tw * 0.5f - 8), 6, tw + 16, 36, {0,0,0,160});
     DrawText(timerStr, (int)(midX - tw * 0.5f), 12, 24, GOLD);
 
-    const float CARD_W = 78.f, CARD_H = 110.f, PAD = 6.f;
+    const float CARD_W = 117.f, CARD_H = 165.f, PAD = 10.f;
 
-        auto drawPlayerSide = [&](int pid, const PlayerInput& inp, Color pCol, float sideX, bool isLeft) {
+    // Linha divisória central
+    DrawLine((int)midX, 50, (int)midX, (int)sh - 50, {255, 255, 255, 40});
+
+    auto drawPlayerSide = [&](int pid, const PlayerInput& inp, Color pCol, float sideX, bool isLeft) {
         int tIdx = snap.trainerChoice[pid];
-
         float areaW = sw * 0.5f;
 
         // ── Trainer standing on side (large portrait) ──
         float tW = 200.f;
         float tH = 360.f;
-        float tX = isLeft ? 30.f : (sw - 30 - tW);
-        float tY = 50.f;
+        float tX = isLeft ? 40.f : (sw - 40 - tW);
+        float tY = 80.f;
 
         // Shadow/ground effect under trainer
         DrawEllipse((int)(tX + tW/2), (int)(tY + tH + 10), tW*0.45f, 12.f, {0,0,0,120});
@@ -1130,12 +1132,12 @@ void drawHeroSelectMK(const GameSnapshot& snap,
             DrawText(ready, (int)(tX + (tW - rw)/2), (int)(tY + tH + 52), 20, GREEN);
         }
 
-        // ── Pick slots (3 small squares between trainer and cards) ──
-        float slotSize = 56.f;
-        float slotGap = 10.f;
+        // ── Pick slots (3 small squares) ──
+        float slotSize = 64.f;
+        float slotGap = 16.f;
         float slotsTotalW = 3 * slotSize + 2 * slotGap;
         float slotsX = sideX + (areaW - slotsTotalW) / 2.f;
-        float slotsY = 440.f;
+        float slotsY = 120.f; // Subido para dar espaço ao herói em destaque
 
         for (int s = 0; s < 3; s++) {
             float sx = slotsX + s * (slotSize + slotGap);
@@ -1143,6 +1145,7 @@ void drawHeroSelectMK(const GameSnapshot& snap,
             Color slotBg = filled ? Color{40,60,40,220} : Color{30,30,50,180};
             DrawRectangleRounded({sx, slotsY, slotSize, slotSize}, 0.1f, 4, slotBg);
             DrawRectangleRoundedLines({sx, slotsY, slotSize, slotSize}, 0.1f, 4, filled ? GREEN : Color{60,60,80,200});
+            
             if (filled) {
                 int hIdx = inp.heroPicks[s];
                 float slotW = slotSize - 4;
@@ -1156,15 +1159,15 @@ void drawHeroSelectMK(const GameSnapshot& snap,
                 }
                 // Small archetype label
                 const char* an = ARCH_NAMES[heroes[hIdx].archetype];
-                int anw = MeasureText(an, 8);
-                DrawRectangle((int)(sx + (slotSize-anw)/2 - 2), (int)(slotsY + slotSize - 14), anw + 4, 12, {0,0,0,200});
-                DrawText(an, (int)(sx + (slotSize-anw)/2), (int)(slotsY + slotSize - 12), 8, WHITE);
+                int anw = MeasureText(an, 10);
+                DrawRectangle((int)(sx + (slotSize-anw)/2 - 2), (int)(slotsY + slotSize - 16), anw + 4, 14, {0,0,0,200});
+                DrawText(an, (int)(sx + (slotSize-anw)/2), (int)(slotsY + slotSize - 14), 10, WHITE);
             } else {
-                DrawText("?", (int)(sx + (slotSize - MeasureText("?", 20))/2), (int)(slotsY + (slotSize-20)/2), 20, Color{80,80,100,255});
+                DrawText("?", (int)(sx + (slotSize - MeasureText("?", 24))/2), (int)(slotsY + (slotSize-24)/2), 24, Color{80,80,100,255});
             }
         }
 
-        // ── Hero cards at bottom (single horizontal row) ──
+        // ── Hero cards at bottom ──
         std::vector<int> filtered;
         for (int i = 0; i < nH; i++)
             if (heroes[i].trainerIndex == (uint8_t)tIdx)
@@ -1173,7 +1176,8 @@ void drawHeroSelectMK(const GameSnapshot& snap,
         int nFiltered = (int)filtered.size();
         float cardsTotalW = nFiltered * CARD_W + (nFiltered - 1) * PAD;
         float cardsX = sideX + (areaW - cardsTotalW) / 2.f;
-        float cardsY = 520.f;
+        // 10% margin bottom
+        float cardsY = sh * 0.90f - CARD_H;
 
         for (int fi = 0; fi < nFiltered; fi++) {
             int i = filtered[fi];
@@ -1183,12 +1187,12 @@ void drawHeroSelectMK(const GameSnapshot& snap,
             bool hov = (fi == inp.heroCursor);
             bool picked = (std::find(inp.heroPicks.begin(), inp.heroPicks.end(), i) != inp.heroPicks.end());
 
-            Color bg = picked ? Color{40,80,40,230} : (hov ? Color{60,60,100,230} : Color{35,35,60,230});
+            Color bg = picked ? Color{40,80,40,255} : (hov ? Color{70,70,120,255} : Color{35,35,60,230});
             DrawRectangleRounded({x, y, CARD_W, CARD_H}, 0.08f, 6, bg);
 
-            // Hero portrait
+            // Hero portrait na carta
             float imgH = CARD_H * 0.50f;
-            float imgW = CARD_W - 6;
+            float imgW = CARD_W - 8;
             if (selHeroTex && selHeroTex[i].id) {
                 imgW = imgH * ((float)selHeroTex[i].width / selHeroTex[i].height);
             }
@@ -1197,45 +1201,62 @@ void drawHeroSelectMK(const GameSnapshot& snap,
             if (selHeroTex && selHeroTex[i].id) {
                 DrawTexturePro(selHeroTex[i],
                     {0,0,(float)selHeroTex[i].width,(float)selHeroTex[i].height},
-                    {hx, y+4, imgW, imgH}, {}, 0.f, WHITE);
+                    {hx, y+6, imgW, imgH}, {}, 0.f, WHITE);
             } else {
-                DrawRectangleRounded({x+3, y+4, CARD_W-6, imgH}, 0.1f, 4, ARCH_COLORS[heroes[i].archetype]);
+                DrawRectangleRounded({x+4, y+6, CARD_W-8, imgH}, 0.1f, 4, ARCH_COLORS[heroes[i].archetype]);
             }
 
             // Name
-            float ty = y + 4 + imgH + 3;
-            int nw = MeasureText(heroes[i].name, 9);
-            DrawText(heroes[i].name, (int)(x+(CARD_W-nw)/2), (int)ty, 9, WHITE); ty += 12;
+            float ty = y + 8 + imgH + 4;
+            int nw = MeasureText(heroes[i].name, 12);
+            DrawText(heroes[i].name, (int)(x+(CARD_W-nw)/2), (int)ty, 12, WHITE); ty += 16;
 
             // Class badge
-            int bw = MeasureText(ARCH_NAMES[heroes[i].archetype], 9);
-            DrawRectangleRounded({x+(CARD_W-bw-8)/2, ty, (float)(bw+8), 14}, 0.4f, 4, ARCH_COLORS[heroes[i].archetype]);
-            DrawText(ARCH_NAMES[heroes[i].archetype], (int)(x+(CARD_W-bw)/2), (int)(ty+2), 9, WHITE); ty += 16;
+            int bw = MeasureText(ARCH_NAMES[heroes[i].archetype], 10);
+            DrawRectangleRounded({x+(CARD_W-bw-10)/2, ty, (float)(bw+10), 16}, 0.4f, 4, ARCH_COLORS[heroes[i].archetype]);
+            DrawText(ARCH_NAMES[heroes[i].archetype], (int)(x+(CARD_W-bw)/2), (int)(ty+3), 10, WHITE); ty += 20;
 
             // Stats
             char sb[32]; snprintf(sb, sizeof(sb), "HP:%d AD:%d", heroes[i].hp, heroes[i].ad);
-            int sw = MeasureText(sb, 8);
-            DrawText(sb, (int)(x+(CARD_W-sw)/2), (int)ty, 8, {160,160,190,255});
+            int sw_txt = MeasureText(sb, 10);
+            DrawText(sb, (int)(x+(CARD_W-sw_txt)/2), (int)ty, 10, {180,180,210,255});
 
             // Cursor highlight
             if (hov) {
                 float t = (float)GetTime();
                 unsigned char alpha = (unsigned char)(180 + 75 * sinf(t * 5.f));
                 Color bc = pCol; bc.a = alpha;
-                DrawRectangleLinesEx({x-3, y-3, CARD_W+6, CARD_H+6}, 3, bc);
+                DrawRectangleLinesEx({x-4, y-4, CARD_W+8, CARD_H+8}, 4, bc);
             }
             if (picked) {
-                DrawRectangleLinesEx({x, y, CARD_W, CARD_H}, 2, GREEN);
-                DrawText("✓", (int)(x+CARD_W-14), (int)(y+4), 12, GREEN);
+                DrawRectangleLinesEx({x, y, CARD_W, CARD_H}, 3, GREEN);
+                DrawText("✓", (int)(x+CARD_W-18), (int)(y+6), 16, GREEN);
+            }
+            
+            // ── Render 300px hero above deck if hovered ──
+            if (hov && selHeroTex && selHeroTex[i].id) {
+                float heroH = 300.f;
+                float heroW = heroH * ((float)selHeroTex[i].width / selHeroTex[i].height);
+                float heroX = sideX + areaW * 0.5f - heroW * 0.5f;
+                float heroY = cardsY - heroH - 30.f; // 30px spacing above the deck
+                
+                // Shadow
+                DrawEllipse((int)(heroX + heroW/2), (int)(heroY + heroH), heroW*0.4f, 15.f, {0,0,0,160});
+                
+                // Texture
+                DrawTexturePro(selHeroTex[i],
+                    {0,0,(float)selHeroTex[i].width,(float)selHeroTex[i].height},
+                    {heroX, heroY, heroW, heroH}, {}, 0.f, WHITE);
             }
         }
 
         // Controls hint
         const char* ctrl = (pid == 0) ? "P1: A / D + Space" : "P2: ← → + Enter";
-        int cw = MeasureText(ctrl, 16);
+        int cw = MeasureText(ctrl, 18);
         float cx = sideX + (areaW - cw) / 2.f;
-        DrawRectangle((int)(cx - 4), 640, cw + 8, 24, {0,0,0,180});
-        DrawText(ctrl, (int)cx, 642, 16, pCol);
+        float ctrlY = sh * 0.95f;
+        DrawRectangle((int)(cx - 6), (int)ctrlY - 2, cw + 12, 26, {0,0,0,180});
+        DrawText(ctrl, (int)cx, (int)ctrlY + 2, 18, pCol);
     };
 
     drawPlayerSide(0, p1, kP1Color, 0.f, true);
