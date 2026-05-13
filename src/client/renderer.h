@@ -109,7 +109,7 @@ Rectangle cellRect(int cx, int cy);
 
 void drawGrid();
 void drawBuffZones(const GameSnapshot& snap);
-void drawPedestal(Vector2 ctr, int ownerId);
+
 void drawHero(const HeroNetState& hs, Vector2 pos, int myId, bool dragging,
               float breathScale = 1.0f, float tiltAngle = 0.0f);
 void drawHUD(const GameSnapshot& snap, int myId);

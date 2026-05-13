@@ -684,7 +684,7 @@ int main(int argc, char *argv[])
 
             for (int i = 0; i < snap.heroCount; i++) {
                 if (!snap.heroes[i].alive) continue;
-                drawPedestal(heroVis[i].pos, snap.heroes[i].ownerId);
+
                 float breathScale = 0.95f + 0.10f * (0.5f + 0.5f * sinf((float)GetTime() * PI));
                 Vector2 delta = {
                     heroVis[i].pos.x - heroVis[i].prevPos.x,
