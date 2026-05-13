@@ -97,7 +97,7 @@ void Database::createTables()
             effect_value    REAL    NOT NULL DEFAULT 0,
             effect_target   TEXT    NOT NULL DEFAULT 'self',
             trainer_id      INTEGER NOT NULL DEFAULT -1,
-            hero_id         INTEGER NOT NULL DEFAULT -1
+            archetype_id    INTEGER NOT NULL DEFAULT -1
         );
     )");
 
@@ -281,38 +281,50 @@ void Database::seedAll()
         }
     }
 
-    auto heroes = getAllHeroes();
-    for (const auto& h : heroes) {
-        struct ItemData { std::string name; const char* desc; int price; int rarity; const char* eff; float val; int idOff; };
-        ItemData heroItems[] = {
-            { "Pocao de Cura (25% HP)",   "Uma pocao magica que restaura instantaneamente 25% dos Pontos de Vida (HP) maximos do heroi que a consome.",            30, 0, "heal_pct", 0.25f, 0 },
-            { "Pocao de Vitalidade (+20 AD)", "Um elixir potente que fortalece os musculos do heroi, concedendo um bonus permanente de 20 de Dano de Ataque (AD).",    60, 0, "buff_ad_flat", 20.0f, 1 },
-            { "Pocao de Resiliencia (+15 ARM)",     "Uma pocao protetora que reforca a resistencia do heroi, concedendo um bonus permanente de 15 de Armadura (ARM).",    55, 0, "buff_arm_flat", 15.0f, 2 }
-        };
-        for (auto& it : heroItems) {
-            int finalId = (currentItemId / 5) * 5 + it.idOff;
-            if (finalId <= currentItemId) finalId += 5;
-            currentItemId = finalId;
+    struct NewItemData { std::string name; const char* desc; int price; int rarity; const char* eff; float val; int archId; std::string icon; };
+    NewItemData archetypeItems[] = {
+        { "Abraco do Arcanjo", "Cura um aliado automaticamente quando ele cai abaixo de 20% de vida (cooldown 30s, sem custo de mana)", 100, 1, "auto_heal", 0.2f, 4, "assets/shop/abraco_do_arcanjo.png" },
+        { "Adaga Envenenada", "Ataques basicos envenenam, causando 3% de vida maxima como dano verdadeiro por 4s (nao acumula)", 80, 1, "poison_hit", 0.03f, 3, "assets/shop/adaga_envenenada.png" },
+        { "Botas da Agilidade", "Aumenta o movespeed base em +20", 50, 0, "buff_speed", 20.0f, -1, "assets/shop/botas_da_agilidade.png" },
+        { "Cajado Sagrado", "Ao usar ultimate, reduz o cooldown de todas as outras habilidades em 4s.", 120, 2, "ult_cd_red", 4.0f, 2, "assets/shop/cajado_sagrado.png" },
+        { "Egide do Guardiao", "Move-se 20% mais devagar, mas reduz todo dano recebido em 15%", 90, 1, "dmg_reduction", 0.15f, 0, "assets/shop/egide_do_guardiao.png" },
+        { "Elmo do Esquecimento", "Imunidade temporaria", 110, 2, "temp_immunity", 0.f, 0, "assets/shop/elmo_do_esquecimento.png" },
+        { "Escudo do Pacto", "Proteger um aliado transfere 20% do dano recebido para voce (limitado a 30% da sua vida).", 100, 1, "dmg_transfer", 0.2f, 0, "assets/shop/escudo_do_pacto.png" },
+        { "Excalibur", "Seu proximo ataque apos habilidade causa 100% de dano extra em area.", 150, 2, "aoe_next_hit", 1.0f, 1, "assets/shop/excalibur.png" },
+        { "Foice do Enforcado", "Executa inimigos com menos de 15% de vida se acertados pelas costas", 130, 2, "execute_backstab", 0.15f, 3, "assets/shop/foice_do_enforcado.png" },
+        { "Lamina Dupla", "Acertar um mesmo inimigo duas vezes seguidas se cura baseado no dano causado", 95, 1, "lifesteal_combo", 0.f, 1, "assets/shop/lamina_dupla.png" },
+        { "Luvas da Paciencia", "Reduz o tempo de recarga das skills em 10%", 60, 0, "cd_reduction", 0.1f, -1, "assets/shop/luvas_da_paciencia.png" },
+        { "Machado do Berserker", "Cada ataque basico aumenta o dano do proximo em 5% (acumula ate 30%). Focado em abate sustentado.", 110, 2, "stack_ad", 0.05f, 1, "assets/shop/machado_do_berserker.png" },
+        { "Manto do Espreitador", "Ao ficar 3s sem tomar dano, entra em furtividade por 4s (primeiro ataque causa 50% mais dano).", 105, 1, "stealth_ooc", 0.5f, 3, "assets/shop/manto_do_espreitador.png" },
+        { "Martelo do Gigante", "Habilidades de impacto causam stun de 0.75s (cooldown 8s por alvo)", 100, 1, "stun_on_hit", 0.75f, 1, "assets/shop/martelo_do_gigante.png" },
+        { "Olho de Sauron", "Habilidades de area deixam um rastro que causa 40% do dano original por 2s.", 140, 2, "aoe_trail", 0.4f, 2, "assets/shop/olho_de_sauron.png" },
+        { "Tomo Amaldicoado", "Habilidades aplicam queimadura que causa 2% de vida maxima como dano magico por 3s.", 85, 1, "burn_skill", 0.02f, 2, "assets/shop/tomo_amaldicoado.png" },
+        { "Tomo da Sabedoria", "Ao curar um aliado com menos de 30% de vida, a cura e 50% mais eficaz.", 95, 1, "bonus_heal_low", 0.5f, 4, "assets/shop/tomo_da_sabedoria.png" },
+        { "Tomo Inspirador", "Habilidades de cura também concedem 15% de velocidade de ataque por 3s.", 85, 1, "heal_buff_as", 0.15f, 4, "assets/shop/tomo_inspirador.png" }
+    };
 
-            const char* sql = "INSERT INTO shop_items (id,name,description,base_price,rarity,type,category,effect_type,effect_value,hero_id)"
-                              "VALUES (?,?,?,?,?,?,?,?,?,?);";
-            sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr);
-            sqlite3_bind_int (stmt, 1, currentItemId);
-            sqlite3_bind_text(stmt, 2, it.name.c_str(), -1, SQLITE_TRANSIENT);
-            sqlite3_bind_text(stmt, 3, it.desc, -1, SQLITE_STATIC);
-            sqlite3_bind_int (stmt, 4, it.price);
-            sqlite3_bind_int (stmt, 5, it.rarity);
-            sqlite3_bind_int (stmt, 6, 1); // type
-            sqlite3_bind_int (stmt, 7, 1); // category: hero
-            sqlite3_bind_text(stmt, 8, it.eff, -1, SQLITE_STATIC);
-            sqlite3_bind_double(stmt, 9, it.val);
-            sqlite3_bind_int (stmt, 10, h.id);
-            sqlite3_step(stmt);
-            sqlite3_finalize(stmt);
-        }
+    for (auto& it : archetypeItems) {
+        currentItemId++;
+
+        const char* sql = "INSERT INTO shop_items (id,name,description,base_price,rarity,type,category,effect_type,effect_value,icon_path,archetype_id)"
+                          "VALUES (?,?,?,?,?,?,?,?,?,?,?);";
+        sqlite3_prepare_v2(db_, sql, -1, &stmt, nullptr);
+        sqlite3_bind_int (stmt, 1, currentItemId);
+        sqlite3_bind_text(stmt, 2, it.name.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 3, it.desc, -1, SQLITE_STATIC);
+        sqlite3_bind_int (stmt, 4, it.price);
+        sqlite3_bind_int (stmt, 5, it.rarity);
+        sqlite3_bind_int (stmt, 6, 1); // type
+        sqlite3_bind_int (stmt, 7, 1); // category: hero/archetype
+        sqlite3_bind_text(stmt, 8, it.eff, -1, SQLITE_STATIC);
+        sqlite3_bind_double(stmt, 9, it.val);
+        sqlite3_bind_text(stmt, 10, it.icon.c_str(), -1, SQLITE_TRANSIENT);
+        sqlite3_bind_int (stmt, 11, it.archId);
+        sqlite3_step(stmt);
+        sqlite3_finalize(stmt);
     }
 
-    printf("[Database] Itens inseridos vinculados a treinadores e herois.\n");
+    printf("[Database] Itens inseridos vinculados a treinadores e arquetipos.\n");
 }
 
 bool Database::saveMatch(const std::string& winner_name,
@@ -481,7 +493,7 @@ std::vector<ShopItemRecord> Database::getAllShopItems()
     sqlite3_stmt* stmt = nullptr;
     sqlite3_prepare_v2(db_,
         "SELECT id,name,description,base_price,rarity,type,category,max_rounds,"
-        "icon_path,effect_type,effect_value,effect_target,trainer_id,hero_id "
+        "icon_path,effect_type,effect_value,effect_target,trainer_id,archetype_id "
         "FROM shop_items ORDER BY id;",
         -1, &stmt, nullptr);
 
@@ -500,7 +512,7 @@ std::vector<ShopItemRecord> Database::getAllShopItems()
         r.effect_value = (float)sqlite3_column_double(stmt, 10);
         r.effect_target = (const char*)sqlite3_column_text(stmt, 11);
         r.trainer_id   = sqlite3_column_int (stmt, 12);
-        r.hero_id      = sqlite3_column_int (stmt, 13);
+        r.archetype_id = sqlite3_column_int (stmt, 13);
         results.push_back(r);
     }
     sqlite3_finalize(stmt);
@@ -573,7 +585,7 @@ ShopItemRecord Database::getShopItemById(int id)
     sqlite3_stmt* stmt = nullptr;
     sqlite3_prepare_v2(db_,
         "SELECT id,name,description,base_price,rarity,type,category,max_rounds,"
-        "icon_path,effect_type,effect_value,effect_target,trainer_id,hero_id FROM shop_items WHERE id = ?;",
+        "icon_path,effect_type,effect_value,effect_target,trainer_id,archetype_id FROM shop_items WHERE id = ?;",
         -1, &stmt, nullptr);
     sqlite3_bind_int(stmt, 1, id);
 
@@ -591,7 +603,7 @@ ShopItemRecord Database::getShopItemById(int id)
         r.effect_value = (float)sqlite3_column_double(stmt, 10);
         r.effect_target = (const char*)sqlite3_column_text(stmt, 11);
         r.trainer_id   = sqlite3_column_int (stmt, 12);
-        r.hero_id      = sqlite3_column_int (stmt, 13);
+        r.archetype_id = sqlite3_column_int (stmt, 13);
     }
     sqlite3_finalize(stmt);
     return r;

@@ -56,7 +56,7 @@ struct ShopItemRecord {
     float       effect_value;
     std::string effect_target;
     int         trainer_id;
-    int         hero_id;
+    int         archetype_id;
 };
 
 class Database {
