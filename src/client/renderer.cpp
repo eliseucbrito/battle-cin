@@ -245,8 +245,6 @@ void drawBuffZones(const GameSnapshot& snap) {
     }
 }
 
-
-
 void drawHero(const HeroNetState& hs, Vector2 ctr, int myId, bool dragging,
               float breathScale, float tiltAngle)
 {
@@ -325,10 +323,26 @@ void drawHero(const HeroNetState& hs, Vector2 ctr, int myId, bool dragging,
     float bw = CELLW * 0.85f, bh = 6.f;
     float bx = heroCtr.x - bw * 0.5f, by = heroCtr.y - r - 14.f;
     float pct = (hs.maxHp > 0) ? (float)hs.hp / hs.maxHp : 0.f;
-    DrawRectangle((int)bx, (int)by, (int)bw, (int)bh, DARKGRAY);
-    Color hpCol = (hs.ownerId == 0) ? kP1Color : kP2Color;
-    DrawRectangle((int)bx, (int)by, (int)(bw * pct), (int)bh, hpCol);
-    DrawRectangleLinesEx({ bx, by, bw, bh }, 1, { 255, 255, 255, 80 });
+
+    // Team color for differentiation
+    Color teamColor = (hs.ownerId == 0) ? kP1Color : kP2Color;
+    
+    // 1. Draw a subtle team-colored glow/plate behind the health bar
+    DrawRectangleRounded({ bx - 2, by - 2, bw + 4, bh + 4 }, 0.4f, 4, ColorAlpha(teamColor, 0.2f));
+    
+    // 2. Draw the main background of the bar
+    DrawRectangleRounded({ bx, by, bw, bh }, 0.5f, 4, { 30, 30, 30, 220 });
+
+    // 3. Draw the health fill with status colors (Green/Yellow/Red)
+    Color fillCol = pct > 0.5f ? GREEN : (pct > 0.25f ? YELLOW : RED);
+    if (pct > 0) {
+        DrawRectangleRounded({ bx, by, bw * pct, bh }, 0.5f, 4, fillCol);
+        // Subtle gloss effect
+        DrawRectangleRounded({ bx, by, bw * pct, bh * 0.4f }, 0.5f, 4, { 255, 255, 255, 60 });
+    }
+
+    // 4. Draw the team-colored border
+    DrawRectangleRoundedLines({ bx, by, bw, bh }, 0.5f, 4, ColorAlpha(teamColor, 0.8f));
 }
 
 void drawHUD(const GameSnapshot& snap, int myId) {
