@@ -1,4 +1,4 @@
-# Battle-CIn: Auto-Battle Game (EDOO)
+# Battle-CIn: Auto-Battle Game 
 
 > **Plataforma**: Linux | **Engine**: Custom C++ + Raylib | **Rede**: UDP Autoritativo | **Gênero**: Auto-Battle Tático 1v1
 
@@ -6,7 +6,7 @@
 
 - **Hierarquia de Heróis**: 5 classes (Tank, Fighter, Mage, Assassin, Support) com comportamentos e stats distintos via polimorfismo.
 - **Arena Horizontal**: Layout Esquerda (Treinador 0) vs Direita (Treinador 1).
-- **Treinadores (Professores)**: Cada treinador gerencia uma equipe de heróis e possui uma habilidade especial manual (tecla Q).
+- **Treinadores (Professores)**: Cada treinador gerencia uma equipe de heróis e possui uma habilidade especial manual.
 - **Ultimates Automáticos**: Heróis ativam seus poderes baseados em algoritmos probabilísticos e condições de batalha.
 - **Multiplayer UDP**: Sincronização em tempo real entre cliente e servidor.
 - **Histórico de Partidas**: Resultados salvos em banco de dados SQLite com ranking de treinadores.
@@ -15,12 +15,33 @@
 
 ## Controles
 
-| Ação | Entrada |
-|------|---------|
-| Selecionar treinador/heróis | `WASD` / `Setas` + `Enter` / `Espaço` |
-| Posicionar herói | Clique e arraste (fase de posicionamento) |
-| Usar habilidade do treinador | `Q` (1 vez por round) |
-| Direcionar foco de ataque | Clique e arraste de herói próprio → inimigo adjacente |
+### Fase de Posicionamento
+
+| Ação | P1 | P2 |
+|------|----|----|
+| Selecionar herói | `1` `2` `3` | `KP_1` `KP_2` `KP_3` |
+| Mover cursor no grid | `W` `A` `S` `D` | `Setas` |
+| Confirmar posição | `Espaço` | `Enter` |
+
+### Fase de Batalha
+
+| Ação | P1 | P2 |
+|------|----|----|
+| Usar habilidade do treinador | `Q` | `E` |
+| Navegar itens | `W` `S` | `Seta Cima` `Seta Baixo` |
+| Usar item | `F` | — |
+
+---
+
+## Imagens do jogo
+
+<img width="1920" height="1080" alt="screenshot-2026-05-12_23-03-30" src="https://github.com/user-attachments/assets/8dd43d10-9876-4ce0-b0f8-19c9b0eea9c5" />
+
+
+<img width="1640" height="1060" alt="screenshot-2026-05-12_23-04-50" src="https://github.com/user-attachments/assets/842a2614-21b0-4b3e-ba36-62195d93733f" />
+
+
+<img width="1640" height="1060" alt="screenshot-2026-05-12_23-05-19" src="https://github.com/user-attachments/assets/7ab1ca60-650d-4112-a633-49c0c6c46e3e" />
 
 ---
 
@@ -197,3 +218,10 @@ battle-cin/
 ## Créditos
 
 Desenvolvido para a disciplina **Estrutura de Dados e Orientação a Objetos (EDOO)** — Centro de Informática (CIn), Universidade Federal de Pernambuco (UFPE).
+
+**Integrantes:**
+
+- Eliseu Cordeiro de Brito - ecb2@cin.ufpe.br
+- Matheus Victor Alves da Silva - mvas2@cin.ufpe.br
+- Cleyton Junior da Silva Cardoso - cjsc@cin.ufpe.br
+- Hugo José Bento da Cunha - hjbc@cin.ufpe.br
