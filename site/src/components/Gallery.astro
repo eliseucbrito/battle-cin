@@ -1,0 +1,101 @@
+---
+const shots = [
+  {
+    src: 'https://github.com/user-attachments/assets/adf1e7ac-a880-475b-adbe-7af28eead8ef',
+    alt: 'Seleção de treinador',
+    caption: 'ESCOLHA SEU PROFESSOR',
+  },
+  {
+    src: 'https://github.com/user-attachments/assets/f1974b98-83e5-4e1c-8c72-d35708fb656e',
+    alt: 'Seleção de heróis',
+    caption: 'MONTE SUA EQUIPE',
+  },
+  {
+    src: 'https://github.com/user-attachments/assets/842a2614-21b0-4b3e-ba36-62195d93733f',
+    alt: 'Fase de batalha',
+    caption: 'O COMBATE AUTOMÁTICO',
+  },
+  {
+    src: 'https://github.com/user-attachments/assets/48dcc3f8-e49d-4a14-b0dd-1b71adf25252',
+    alt: 'Loja de itens',
+    caption: 'COMPRE ENTRE ROUNDS',
+  },
+];
+---
+
+<section id="gallery" class="section">
+  <hr class="section-divider" />
+  <div class="container section-inner">
+    <p class="kicker">GALERIA</p>
+    <h2 class="section-headline">O jogo em ação</h2>
+
+    <div class="gallery-grid">
+      {
+        shots.map((s) => (
+          <figure class="gallery-figure">
+            <div class="gallery-frame">
+              <img
+                loading="lazy"
+                src={s.src}
+                alt={s.alt}
+                decoding="async"
+              />
+            </div>
+            <figcaption class="gallery-caption">{s.caption}</figcaption>
+          </figure>
+        ))
+      }
+    </div>
+  </div>
+</section>
+
+<style>
+  .gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 4px;
+    background: var(--hairline);
+  }
+
+  .gallery-figure {
+    margin: 0;
+    background: var(--canvas);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .gallery-frame {
+    overflow: hidden;
+  }
+
+  .gallery-frame img {
+    width: 100%;
+    height: auto;
+    display: block;
+    transition: transform 0.35s ease;
+  }
+
+  .gallery-figure:hover .gallery-frame img {
+    transform: scale(1.06);
+  }
+
+  .gallery-caption {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: var(--ink-muted);
+    padding: 12px 16px;
+    border-top: none;
+    transition: color 0.15s;
+  }
+
+  .gallery-figure:hover .gallery-caption {
+    color: var(--accent);
+  }
+
+  @media (max-width: 768px) {
+    .gallery-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

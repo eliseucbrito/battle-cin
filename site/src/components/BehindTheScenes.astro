@@ -1,0 +1,105 @@
+<section class="section">
+  <hr class="section-divider" />
+  <div class="container section-inner">
+    <p class="kicker kicker-accent">POR TRÁS DAS TELAS</p>
+    <h2 class="section-headline">Como funciona</h2>
+    <div class="bts-body">
+      <p>
+        O BattleCIn é um único executável. Toda a lógica do jogo roda
+        localmente. Combate, pathfinding, loja, persistência. A engine
+        coordena as fases enquanto a Raylib desenha tudo na tela em tempo
+        real.
+      </p>
+      <p>
+        Cada <strong>estrutura de dados</strong> tem um papel no jogo:
+      </p>
+    </div>
+
+    <div class="bts-structures">
+      <div class="bts-struct">
+        <span class="bts-struct-name">LinkedList</span>
+        <span class="bts-struct-desc">Gerenciamento de buffs/debuffs com duração real</span>
+      </div>
+      <div class="bts-struct">
+        <span class="bts-struct-name">Graph + BFS</span>
+        <span class="bts-struct-desc">Pathfinding no grid 8×8. Heróis desviam de obstáculos</span>
+      </div>
+      <div class="bts-struct">
+        <span class="bts-struct-name">PriorityQueue</span>
+        <span class="bts-struct-desc">Max-heap para ordenar turnos por attack speed</span>
+      </div>
+      <div class="bts-struct">
+        <span class="bts-struct-name">TournamentTree</span>
+        <span class="bts-struct-desc">Árvore binária do chaveamento best-of-5</span>
+      </div>
+      <div class="bts-struct">
+        <span class="bts-struct-name">SQLite (CRUD)</span>
+        <span class="bts-struct-desc">Histórico de partidas, ranking de treinadores, dados dos heróis</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .bts-body {
+    max-width: 680px;
+    margin-bottom: 32px;
+  }
+
+  .bts-body p {
+    font-family: var(--font-serif);
+    font-size: 16px;
+    line-height: 1.7;
+    color: var(--ink-secondary);
+    margin-bottom: 12px;
+  }
+
+  .bts-body strong {
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  .bts-structures {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .bts-struct {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--hairline);
+  }
+
+  .bts-struct:last-child {
+    border-bottom: none;
+  }
+
+  .bts-struct-name {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--ink);
+    letter-spacing: 0.3px;
+    min-width: 160px;
+    flex-shrink: 0;
+  }
+
+  .bts-struct-desc {
+    font-family: var(--font-serif);
+    font-size: 14px;
+    color: var(--ink-secondary);
+    line-height: 1.5;
+  }
+
+  @media (max-width: 640px) {
+    .bts-struct {
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .bts-struct-name {
+      min-width: auto;
+    }
+  }
+</style>

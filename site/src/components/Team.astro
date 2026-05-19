@@ -1,0 +1,92 @@
+---
+const members = [
+  { name: 'Eliseu Cordeiro de Brito', email: 'ecb2@cin.ufpe.br', role: 'Game design, sistema de loja, interface gráfica, sprites e animações' },
+  { name: 'Matheus Victor Alves da Silva', email: 'mvas2@cin.ufpe.br', role: 'Arquitetura do jogo, sistema de combate, hierarquia de heróis e itens' },
+  { name: 'Cleyton Junior da Silva Cardoso', email: 'cjsc@cin.ufpe.br', role: 'Banco de dados, sistema de ranking, persistência' },
+  { name: 'Hugo José Bento da Cunha', email: 'hjbc@cin.ufpe.br', role: 'Sistema de heróis por treinador, balanceamento e criação de sprites' },
+];
+---
+
+<section class="section">
+  <hr class="section-divider" />
+  <div class="container section-inner">
+    <p class="kicker">EQUIPE</p>
+    <h2 class="section-headline">Quem fez</h2>
+
+    <div class="team-list">
+      {
+        members.map((m) => (
+          <div class="team-item">
+            <div class="team-info">
+              <span class="team-name">{m.name}</span>
+              <span class="team-email">{m.email}</span>
+            </div>
+            <p class="team-role">{m.role}</p>
+          </div>
+        ))
+      }
+    </div>
+  </div>
+</section>
+
+<style>
+  .team-list {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .team-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 16px;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--hairline);
+  }
+
+  .team-item:last-child {
+    border-bottom: none;
+  }
+
+  .team-info {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .team-name {
+    font-family: var(--font-sans);
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .team-email {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    color: var(--ink-muted);
+  }
+
+  .team-role {
+    font-family: var(--font-serif);
+    font-size: 14px;
+    color: var(--ink-secondary);
+    text-align: right;
+    flex-shrink: 0;
+    max-width: 50%;
+    line-height: 1.5;
+  }
+
+  @media (max-width: 640px) {
+    .team-item {
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .team-role {
+      text-align: left;
+      max-width: 100%;
+    }
+  }
+</style>

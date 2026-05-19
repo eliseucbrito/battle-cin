@@ -1,0 +1,115 @@
+---
+const items = [
+  {
+    num: '01',
+    title: 'Cinco classes, infinitas estratégias',
+    desc: 'Tank, Fighter, Mage, Assassin, Support. Cada classe com ultimate única e comportamento próprio. O Mago ignora metade da armadura. O Assassino caça o inimigo mais fraco.',
+  },
+  {
+    num: '02',
+    title: 'Professores como treinadores',
+    desc: 'Cada professor do CIn vira um treinador. Cada um com habilidade especial: Rally, Shield Wall, Battle Heal, Frenzy. E com sua própria equipe de heróis exclusiva.',
+  },
+  {
+    num: '03',
+    title: 'Combate automático, estratégia sua',
+    desc: 'Você posiciona, escolhe alvos e ativa habilidades. Seus heróis se movem, atacam e ativam ultimates sozinhos. Tudo baseado em probabilidade e condições de batalha.',
+  },
+  {
+    num: '04',
+    title: 'Dois jogadores, um teclado',
+    desc: 'Jogue no mesmo PC com um amigo ou enfrente o bot no modo solo. Nenhuma conexão necessária. Tudo roda localmente, instantaneamente.',
+  },
+  {
+    num: '05',
+    title: 'Estruturas de dados na prática',
+    desc: 'LinkedList, Graph + BFS, PriorityQueue, TournamentTree. Cada estrutura resolve um problema real do jogo. Buffs, pathfinding, ordem de ataque, chaveamento de rounds.',
+  },
+  {
+    num: '06',
+    title: 'Loja, buffs e melhor de 5',
+    desc: 'Compre itens entre os rounds com ouro acumulado. Zonas de buff aleatórias surgem no grid. Primeiro a vencer 3 rounds leva a partida.',
+  },
+];
+---
+
+<section id="features" class="section">
+  <hr class="section-divider" />
+  <div class="container section-inner">
+    <p class="kicker kicker-accent">O QUE FAZ ESTE JOGO</p>
+    <h2 class="section-headline">Seis motivos para jogar</h2>
+
+    <div class="features-list">
+      {
+        items.map((item) => (
+          <div class="feature-item">
+            <span class="feature-num">{item.num}</span>
+            <div class="feature-content">
+              <h3 class="feature-title">{item.title}</h3>
+              <p class="feature-desc">{item.desc}</p>
+            </div>
+          </div>
+        ))
+      }
+    </div>
+  </div>
+</section>
+
+<style>
+  .features-list {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .feature-item {
+    display: flex;
+    gap: 24px;
+    padding: 24px 0;
+    border-bottom: 1px solid var(--hairline);
+  }
+
+  .feature-item:last-child {
+    border-bottom: none;
+  }
+
+  .feature-num {
+    font-family: var(--font-display);
+    font-size: 40px;
+    color: var(--ink-muted);
+    line-height: 1;
+    flex-shrink: 0;
+    min-width: 56px;
+  }
+
+  .feature-content {
+    flex: 1;
+  }
+
+  .feature-title {
+    font-family: var(--font-sans);
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 6px;
+    letter-spacing: -0.14px;
+  }
+
+  .feature-desc {
+    font-family: var(--font-serif);
+    font-size: 15px;
+    line-height: 1.6;
+    color: var(--ink-secondary);
+  }
+
+  @media (max-width: 640px) {
+    .feature-item {
+      gap: 16px;
+      padding: 20px 0;
+    }
+
+    .feature-num {
+      font-size: 28px;
+      min-width: 40px;
+    }
+  }
+</style>

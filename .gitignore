@@ -27,3 +27,8 @@ CMakeUserPresets.json
 
 # Database
 *.db
+
+# Node / Astro
+site/node_modules/
+site/dist/
+docs/
