@@ -31,8 +31,8 @@ const shots = [
 
     <div class="gallery-grid">
       {
-        shots.map((s, i) => (
-          <figure class="gallery-figure" data-index={i}>
+        shots.map((s) => (
+          <figure class="gallery-figure">
             <div class="gallery-frame">
               <img
                 loading="lazy"
@@ -49,114 +49,6 @@ const shots = [
   </div>
 </section>
 
-<script>
-  const images = [
-    {
-      src: 'https://github.com/user-attachments/assets/adf1e7ac-a880-475b-adbe-7af28eead8ef',
-      alt: 'Seleção de treinador',
-      caption: 'ESCOLHA SEU PROFESSOR',
-    },
-    {
-      src: 'https://github.com/user-attachments/assets/f1974b98-83e5-4e1c-8c72-d35708fb656e',
-      alt: 'Seleção de heróis',
-      caption: 'MONTE SUA EQUIPE',
-    },
-    {
-      src: 'https://github.com/user-attachments/assets/842a2614-21b0-4b3e-ba36-62195d93733f',
-      alt: 'Fase de batalha',
-      caption: 'O COMBATE AUTOMÁTICO',
-    },
-    {
-      src: 'https://github.com/user-attachments/assets/48dcc3f8-e49d-4a14-b0dd-1b71adf25252',
-      alt: 'Loja de itens',
-      caption: 'COMPRE ENTRE ROUNDS',
-    },
-  ];
-
-  let currentIndex = 0;
-
-  const lightbox = document.createElement('div');
-  lightbox.className = 'lightbox';
-  lightbox.innerHTML = `
-    <button class="lightbox-close" aria-label="Fechar">&times;</button>
-    <button class="lightbox-nav lightbox-prev" aria-label="Anterior">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <polyline points="15 18 9 12 15 6"/>
-      </svg>
-    </button>
-    <button class="lightbox-nav lightbox-next" aria-label="Próximo">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <polyline points="9 18 15 12 9 6"/>
-      </svg>
-    </button>
-    <div class="lightbox-content">
-      <img class="lightbox-img" alt="" />
-      <p class="lightbox-caption"></p>
-    </div>
-  `;
-  document.body.appendChild(lightbox);
-
-  const lightboxImg = lightbox.querySelector('.lightbox-img');
-  const lightboxCaption = lightbox.querySelector('.lightbox-caption');
-  const closeBtn = lightbox.querySelector('.lightbox-close');
-  const prevBtn = lightbox.querySelector('.lightbox-prev');
-  const nextBtn = lightbox.querySelector('.lightbox-next');
-
-  function open(index) {
-    currentIndex = index;
-    const img = images[currentIndex];
-    lightboxImg.src = img.src;
-    lightboxImg.alt = img.alt;
-    lightboxCaption.textContent = img.caption;
-    lightbox.classList.add('open');
-    document.body.style.overflow = 'hidden';
-    updateNav();
-  }
-
-  function close() {
-    lightbox.classList.remove('open');
-    document.body.style.overflow = '';
-  }
-
-  function prev() {
-    currentIndex = (currentIndex - 1 + images.length) % images.length;
-    open(currentIndex);
-  }
-
-  function next() {
-    currentIndex = (currentIndex + 1) % images.length;
-    open(currentIndex);
-  }
-
-  function updateNav() {
-    prevBtn.style.display = images.length > 1 ? '' : 'none';
-    nextBtn.style.display = images.length > 1 ? '' : 'none';
-  }
-
-  document.querySelectorAll('.gallery-figure').forEach((fig) => {
-    fig.addEventListener('click', () => {
-      const index = parseInt(fig.dataset.index);
-      open(index);
-    });
-  });
-
-  closeBtn.addEventListener('click', close);
-
-  lightbox.addEventListener('click', (e) => {
-    if (e.target === lightbox) close();
-  });
-
-  prevBtn.addEventListener('click', prev);
-  nextBtn.addEventListener('click', next);
-
-  document.addEventListener('keydown', (e) => {
-    if (!lightbox.classList.contains('open')) return;
-    if (e.key === 'Escape') close();
-    if (e.key === 'ArrowLeft') prev();
-    if (e.key === 'ArrowRight') next();
-  });
-</script>
-
 <style>
   .gallery-grid {
     display: grid;
@@ -170,7 +62,6 @@ const shots = [
     background: var(--canvas);
     display: flex;
     flex-direction: column;
-    cursor: pointer;
   }
 
   .gallery-frame {
@@ -181,11 +72,6 @@ const shots = [
     width: 100%;
     height: auto;
     display: block;
-    transition: opacity 0.2s;
-  }
-
-  .gallery-figure:hover .gallery-frame img {
-    opacity: 0.85;
   }
 
   .gallery-caption {
@@ -200,93 +86,6 @@ const shots = [
 
   .gallery-figure:hover .gallery-caption {
     color: var(--accent);
-  }
-
-  .lightbox {
-    display: none;
-    position: fixed;
-    inset: 0;
-    z-index: 200;
-    background: rgba(0, 0, 0, 0.92);
-    align-items: center;
-    justify-content: center;
-    cursor: zoom-out;
-  }
-
-  .lightbox.open {
-    display: flex;
-  }
-
-  .lightbox-content {
-    position: relative;
-    max-width: 90vw;
-    max-height: 90vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    pointer-events: none;
-  }
-
-  .lightbox-img {
-    max-width: 100%;
-    max-height: 80vh;
-    object-fit: contain;
-    display: block;
-    cursor: default;
-  }
-
-  .lightbox-caption {
-    font-family: var(--font-mono);
-    font-size: 12px;
-    letter-spacing: 1px;
-    color: var(--ink-secondary);
-    margin-top: 16px;
-    text-align: center;
-    cursor: default;
-  }
-
-  .lightbox-close {
-    position: absolute;
-    top: 16px;
-    right: 20px;
-    background: none;
-    border: none;
-    color: var(--ink-secondary);
-    font-size: 32px;
-    cursor: pointer;
-    z-index: 10;
-    line-height: 1;
-    padding: 8px;
-    transition: color 0.15s;
-  }
-
-  .lightbox-close:hover {
-    color: var(--pure-white);
-  }
-
-  .lightbox-nav {
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
-    background: none;
-    border: none;
-    color: var(--ink-muted);
-    cursor: pointer;
-    padding: 16px;
-    z-index: 10;
-    transition: color 0.15s;
-  }
-
-  .lightbox-nav:hover {
-    color: var(--pure-white);
-  }
-
-  .lightbox-prev {
-    left: 8px;
-  }
-
-  .lightbox-next {
-    right: 8px;
   }
 
   @media (max-width: 768px) {
